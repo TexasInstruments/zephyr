@@ -286,7 +286,7 @@ manifest:
     - name: hal_ti
       remote: ti
       repo-path: hal_ti.git
-      revision: 956d7809988a9363e9dc3d989877a8a1abbc654f
+      revision: 7874f76ea0a2a1fe88842c3933945b8cc729930d
       path: modules/hal/ti
       groups:
         - hal

@@ -7,31 +7,16 @@ rsource "../lpf3_common/Kconfig.defconfig"
 if BOARD_LP_EM_CC2340R5
 
 if BT
-config ZEPHYR
-  bool "Bluetooth TI Controller on ZEPHYR"
-
-  select BT_CTLR_ADV_EXT_SUPPORT
-  select BT_CTLR_CHAN_SEL_2_SUPPORT
-  select BT_CTLR_DTM_HCI_SUPPORT
-
-  help
-    Bluetooth TI Controller on ZEPHYR OS.
-  default y
-
-config BT_HOST_CRYPTO
-  bool
-  default y if !BT_HCI_RAW
-
 config BT_LL_HEAP_SIZE
-    hex
-    default 0x1800
+	hex
+	default 0x1800
 endif # BT
 
 if PM
 # Power Management requires increased idle task stack size because of
 # stack usage introduced by "pm_state_set"
 config IDLE_STACK_SIZE
-  default 320
+	default 320
 endif # PM
 
 # The SPI driver only supports DMA mode

@@ -14,9 +14,15 @@ config ZEPHYR
   help
     Bluetooth TI Controller on ZEPHYR OS.
   default y
-  
+
 config BT_HOST_CRYPTO
+  bool
   default y if !BT_HCI_RAW
+
+config BT_LL_HEAP_SIZE
+    hex
+    default 0x1800
+
 endif # BT
 
 endif # BOARD_LP_EM_CC2340R5

@@ -7,8 +7,21 @@
 /dts-v1/;
 
 #include <ti/am2434_main_r5.dtsi>
+#include "am243x_launchpad_main_r5f0_0-pinctrl.dtsi"
 
 / {
 	model = "AM243x LaunchPad";
 	compatible = "ti,am243x_launchpad";
+
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-0 = <&uart0_tx_default &uart0_rx_default>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
 };

@@ -35,7 +35,17 @@ Supported Features
 Connections and IOs
 ===================
 
-For now the Launchpad doesn't support any configuration.
+This table shows the connected pins. It only includes the ones that are
+configured for this board. UART0 is connected to the onboard XDS110 chip and can
+be accessed through it without requiring additional hardware.
+
++-----------+---------------------+----------+
+| Type      | Name                | Pin      |
++===========+=====================+==========+
+| UART      | UART0 TX            | GPIO1 30 |
++-----------+---------------------+----------+
+| UART      | UART0 RX            | GPIO1 29 |
++-----------+---------------------+----------+
 
 
 Programming and Debugging

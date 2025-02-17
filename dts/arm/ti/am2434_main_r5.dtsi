@@ -70,6 +70,22 @@
 		zephyr,memory-region-flags = "rwx";
 	};
 
+	gpio0: gpio@600010 {
+		compatible = "ti,davinci-gpio";
+		reg = <0x00600010 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "disabled";
+	};
+
+	gpio1: gpio@601010 {
+		compatible = "ti,davinci-gpio";
+		reg = <0x00601010 0x100>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "disabled";
+	};
+
 	uart0: uart@2800000 {
 		compatible = "ns16550";
 		reg = <0x02800000 0x200>;

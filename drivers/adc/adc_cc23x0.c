@@ -27,6 +27,7 @@ LOG_MODULE_REGISTER(adc_cc23x0, CONFIG_ADC_LOG_LEVEL);
 #define ADC_CONTEXT_USES_KERNEL_TIMER
 #include "adc_context.h"
 
+<<<<<<< HEAD
 #define ADC_CC23X0_CH_UNDEF	0xff
 #define ADC_CC23X0_CH_COUNT	16
 #define ADC_CC23X0_CH_MAX	(ADC_CC23X0_CH_COUNT - 1)
@@ -45,6 +46,28 @@ LOG_MODULE_REGISTER(adc_cc23x0, CONFIG_ADC_LOG_LEVEL);
 				 ADC_INT_MEMRES_01 | \
 				 ADC_INT_MEMRES_02 | \
 				 ADC_INT_MEMRES_03)
+=======
+#define CPU_FREQ DT_PROP(DT_PATH(cpus, cpu_0), clock_frequency)
+
+#define ADC_CC23_CH_UNDEF 0xff
+#define ADC_CC23_CH_COUNT 16
+#define ADC_CC23_CH_MAX   (ADC_CC23_CH_COUNT - 1)
+
+/* ADC provides four result storage registers */
+#define ADC_CC23_MEM_COUNT 4
+#define ADC_CC23_MEM_MAX   (ADC_CC23_MEM_COUNT - 1)
+
+#define ADC_CC23_MAX_CYCLES 1023
+
+#define ADC_CC23_INT_MEMRES(i) (ADC_INT_MEMRES_00 << (i))
+
+#ifdef CONFIG_ADC_CC23X0_DMA_DRIVEN
+#define ADC_CC23_REG_GET(offset) (ADC_BASE + (offset))
+#define ADC_CC23_INT_MASK        ADC_INT_DMADONE
+#else
+#define ADC_CC23_INT_MASK                                                                          \
+	(ADC_INT_MEMRES_00 | ADC_INT_MEMRES_01 | ADC_INT_MEMRES_02 | ADC_INT_MEMRES_03)
+>>>>>>> 84049b566c2 (tests: adc: Enable ADC driver tests for cc23x0 boards)
 #endif
 
 #define ADC_CC23X0_INT_MEMRES(i)	(ADC_INT_MEMRES_00 << (i))
@@ -145,7 +168,18 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 
 	adc_cc23x0_pm_policy_state_lock_get();
 
-	ADCManualTrigger();
+	/* Set trigger source to software */
+	ADCSetTriggerSource(ADC_TRIGGER_SOURCE_SOFTWARE);
+
+	/* Set sampling mode to automatic, to use the sample duration configured
+	 *  with ADCSetSampleDuration()
+	 */
+	ADCSetSamplingMode(ADC_SAMPLE_MODE_AUTO);
+
+	/* Enable conversion. The ADC will wait for the software trigger */
+	ADCEnableConversion();
+
+	ADCStartConversion();
 }
 
 static void adc_context_update_buffer_pointer(struct adc_context *ctx, bool repeat)
@@ -187,11 +221,19 @@ static void adc_cc23x0_isr(const struct device *dev)
 	adc_cc23x0_pm_policy_state_lock_put();
 	adc_context_on_sampling_done(&data->ctx, dev);
 #else
+<<<<<<< HEAD
 	/*
 	 * Even when there are multiple channels, only 1 flag can be set because
 	 * of the trigger policy (next conversion requires a trigger)
 	 */
 	ch = data->ch_sel[data->mem_index];
+=======
+	for (i = 0; i < ADC_CC23_MEM_COUNT; i++) {
+		if (int_flags & ADC_CC23_INT_MEMRES(i)) {
+			ADCDisableConversion();
+			adc_val = ADCAdjustValueForGain(ADCReadResultNonBlocking(i), data->res,
+							data->adj_gain[i]);
+>>>>>>> 84049b566c2 (tests: adc: Enable ADC driver tests for cc23x0 boards)
 
 	/*
 	 * Both adjustment offset and adjustment gain depend on reference source.
@@ -221,10 +263,8 @@ static void adc_cc23x0_isr(const struct device *dev)
 #endif
 }
 
-static int adc_cc23x0_read_common(const struct device *dev,
-				  const struct adc_sequence *sequence,
-				  bool asynchronous,
-				  struct k_poll_signal *sig)
+static int adc_cc23x0_read_common(const struct device *dev, const struct adc_sequence *sequence,
+				  bool asynchronous, struct k_poll_signal *sig)
 {
 #ifndef CONFIG_ADC_CC23X0_DMA_DRIVEN
 	const struct adc_cc23x0_config *cfg = dev->config;
@@ -253,6 +293,9 @@ static int adc_cc23x0_read_common(const struct device *dev,
 		return -EINVAL;
 	}
 
+	/* Make sure conversion is disabled to allow configuration changes */
+	ADCDisableConversion();
+
 	ADCSetResolution(data->res);
 
 	/* Set sequence */
@@ -260,6 +303,7 @@ static int adc_cc23x0_read_common(const struct device *dev,
 	data->ch_count = POPCOUNT(bitmask);
 
 	if (data->ch_count == 1) {
+<<<<<<< HEAD
 		ch_start = find_lsb_set(bitmask) - 1;
 
 		data->ch_sel[0] = ch_start;
@@ -267,18 +311,35 @@ static int adc_cc23x0_read_common(const struct device *dev,
 		/* Set input channel, memory range, and mode */
 		ADCSetInput(data->ref_volt[ch_start], ch_start, 0);
 		ADCSetMemctlRange(0, 0);
+=======
+		/* Configure ADC to only do one conversion */
+>>>>>>> 84049b566c2 (tests: adc: Enable ADC driver tests for cc23x0 boards)
 		ADCSetSequence(ADC_SEQUENCE_SINGLE);
 
 		/* Set adjustment offset for this channel */
 		ADCSetAdjustmentOffset(data->ref_volt[ch_start]);
 
 #ifdef CONFIG_ADC_CC23X0_DMA_DRIVEN
+<<<<<<< HEAD
 		ADCEnableDMAInterrupt(ADC_CC23X0_INT_MEMRES(0));
 #endif
 	} else if (data->ch_count <= ADC_CC23X0_MEM_COUNT) {
 		for (i = 0; i < ADC_CC23X0_CH_COUNT; i++) {
 			if (!(bitmask & BIT(i))) {
 				continue;
+=======
+		ADCEnableDMATriggerEvents(ADC_CC23_INT_MEMRES(data->mem_index[ch]));
+#endif
+	} else if (data->ch_count <= ADC_CC23_MEM_COUNT) {
+		ADCSetSequence(ADC_SEQUENCE_SEQUENCE);
+		for (i = 0; i < ADC_CC23_CH_COUNT; i++) {
+			if (bitmask & BIT(i)) {
+				if (ch_start == ADC_CC23_CH_UNDEF) {
+					ch_start = i;
+				} else {
+					ch = i;
+				}
+>>>>>>> 84049b566c2 (tests: adc: Enable ADC driver tests for cc23x0 boards)
 			}
 
 			if (ch_start == ADC_CC23X0_CH_UNDEF) {
@@ -310,7 +371,11 @@ static int adc_cc23x0_read_common(const struct device *dev,
 		 * DMA transfer will be triggered when the last storage register
 		 * of the sequence is loaded with a new conversion result
 		 */
+<<<<<<< HEAD
 		ADCEnableDMAInterrupt(ADC_CC23X0_INT_MEMRES(mem_index - 1));
+=======
+		ADCEnableDMATriggerEvents(ADC_CC23_INT_MEMRES(data->mem_index[ch]));
+>>>>>>> 84049b566c2 (tests: adc: Enable ADC driver tests for cc23x0 boards)
 #endif
 	} else {
 		LOG_ERR("Too many channels in the sequence, max %u", ADC_CC23X0_MEM_COUNT);
@@ -338,15 +403,13 @@ static int adc_cc23x0_read_common(const struct device *dev,
 	return ret;
 }
 
-static int adc_cc23x0_read(const struct device *dev,
-			   const struct adc_sequence *sequence)
+static int adc_cc23x0_read(const struct device *dev, const struct adc_sequence *sequence)
 {
 	return adc_cc23x0_read_common(dev, sequence, false, NULL);
 }
 
 #ifdef CONFIG_ADC_ASYNC
-static int adc_cc23x0_read_async(const struct device *dev,
-				 const struct adc_sequence *sequence,
+static int adc_cc23x0_read_async(const struct device *dev, const struct adc_sequence *sequence,
 				 struct k_poll_signal *async)
 {
 	return adc_cc23x0_read_common(dev, sequence, true, async);
@@ -409,8 +472,13 @@ static int adc_cc23x0_calc_clk_cfg(uint32_t acq_time_ns, uint8_t *clk_div, uint1
 			*clk_div = divider;
 			*clk_cycles = cycles;
 
+<<<<<<< HEAD
 			LOG_DBG("Divider: %u, Cycles: %u, Actual sample duration: %u ns",
 				divider, cycles, samp_duration_ns);
+=======
+			LOG_DBG("Divider: %u, Cycles: %u, Actual sample duration: %u ns", divider,
+				cycles, (uint32_t)clock_period_ns * cycles);
+>>>>>>> 84049b566c2 (tests: adc: Enable ADC driver tests for cc23x0 boards)
 		}
 	}
 
@@ -587,9 +655,9 @@ static DEVICE_API(adc, adc_cc23x0_driver_api) = {
 };
 
 #ifdef CONFIG_ADC_CC23X0_DMA_DRIVEN
-#define ADC_CC23X0_DMA_INIT(n)						\
-	.dma_dev = DEVICE_DT_GET(TI_CC23X0_DT_INST_DMA_CTLR(n, dma)),	\
-	.dma_channel = TI_CC23X0_DT_INST_DMA_CHANNEL(n, dma),		\
+#define ADC_CC23X0_DMA_INIT(n)                                                                     \
+	.dma_dev = DEVICE_DT_GET(TI_CC23X0_DT_INST_DMA_CTLR(n, dma)),                              \
+	.dma_channel = TI_CC23X0_DT_INST_DMA_CHANNEL(n, dma),                                      \
 	.dma_trigsrc = TI_CC23X0_DT_INST_DMA_TRIGSRC(n, dma),
 #else
 #define ADC_CC23X0_DMA_INIT(n)

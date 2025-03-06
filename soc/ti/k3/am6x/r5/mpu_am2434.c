@@ -33,6 +33,10 @@ static const struct arm_mpu_region mpu_regions[] = {
 	MPU_REGION_ENTRY("SRAM shared", DT_REG_ADDR(DT_NODELABEL(sram_shared)),
 			 ARM_MPU_REGION_SIZE_256KB << MPU_RASR_SIZE_Pos,
 			 {(0b100 << MPU_RASR_TEX_Pos) | MPU_RASR_S_Msk | P_RW_U_RO_Msk}),
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(mspi0), okay)
+	MPU_REGION_ENTRY("FSS0", DT_REG_ADDR_BY_IDX(DT_NODELABEL(mspi0), 1),
+			 ARM_MPU_REGION_SIZE_32B << MPU_RASR_SIZE_Pos, {P_RW_U_NA_Msk}),
+#endif
 };
 
 const struct arm_mpu_config mpu_config = {.num_regions = ARRAY_SIZE(mpu_regions),

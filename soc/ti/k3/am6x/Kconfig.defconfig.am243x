@@ -17,4 +17,14 @@ config ROMSTART_REGION_ADDRESS
 config ROMSTART_REGION_SIZE
 	default $(dt_nodelabel_reg_size_hex,atcm_boot,0,K)
 
+# The MPU needs to be enabled to mark the SRAM as non-shared. Otherwise atomic
+# instructions (used for e.g. semaphores and logging) cause data aborts.
+# Another option is to locate those in the L1-TCM but there is no easy way to do
+# this currently
+config MPU
+	default y
+
+config ARM_MPU
+	default y
+
 endif # SOC_SERIES_AM6X_R5

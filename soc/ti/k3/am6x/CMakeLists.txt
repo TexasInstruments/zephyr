@@ -1,4 +1,5 @@
 # Copyright (c) 2023 Enphase Energy
+# Copyright (c) 2025 Siemens Mobility GmbH
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_include_directories(.)
@@ -20,6 +21,7 @@ elseif(CONFIG_SOC_SERIES_AM6X_M4)
   set(SOC_LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/m4/linker.ld CACHE INTERNAL "")
 elseif(CONFIG_SOC_SERIES_AM6X_R5)
   zephyr_sources(r5/soc.c)
+  zephyr_sources_ifdef(CONFIG_SOC_AM2434_MAIN_R5F0_0 r5/mpu_am2434.c)
 
   zephyr_include_directories(r5)
 

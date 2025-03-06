@@ -24,6 +24,12 @@
 		};
 	};
 
+	pinctrl: pinctrl@f4000 {
+		compatible = "ti,k3-pinctrl";
+		reg = <0x000f4000 0x2ac>;
+		status = "okay";
+	};
+
 	// SRAM the core runs exclusively on. No other core should access this
 	sram_core: memory@70080000 {
 		reg = <0x70080000 DT_SIZE_K(256)>;

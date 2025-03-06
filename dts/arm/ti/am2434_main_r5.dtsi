@@ -86,6 +86,13 @@
 		status = "disabled";
 	};
 
+	mspi0: mspi@fc40000 {
+		compatible = "ti,k3-mspi-controller";
+		reg = <0x0fc40000 0x100 0x60000000 0x4>;
+		sram-allocated-for-read = <0x80>;
+		status = "disabled";
+	};
+
 	uart0: uart@2800000 {
 		compatible = "ns16550";
 		reg = <0x02800000 0x200>;

@@ -8,6 +8,7 @@
 
 #include <ti/am2434_main_r5.dtsi>
 #include "am243x_launchpad_main_r5f0_0-pinctrl.dtsi"
+#include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
 	model = "AM243x LaunchPad";
@@ -17,6 +18,22 @@
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		led0: led_0 {
+			gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
+			label = "Test LED 1 Green";
+		};
+
+		// the other leds can't be controlled due to
+		// https://github.com/zephyrproject-rtos/zephyr/issues/81100
+	};
+
+	aliases {
+		led0 = &led0;
+	};
+
 };
 
 &uart0 {
@@ -24,4 +41,10 @@
 	pinctrl-0 = <&uart0_tx_default &uart0_rx_default>;
 	pinctrl-names = "default";
 	current-speed = <115200>;
+};
+
+&gpio0 {
+	status = "okay";
+	pinctrl-0 = <&led0_output>;
+	pinctrl-names = "default";
 };

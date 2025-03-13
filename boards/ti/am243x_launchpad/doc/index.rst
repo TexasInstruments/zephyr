@@ -42,6 +42,8 @@ be accessed through it without requiring additional hardware.
 +-----------+---------------------+----------+
 | Type      | Name                | Pin      |
 +===========+=====================+==========+
+| LED       | Test LED 1 Green    | GPIO0 22 |
++-----------+---------------------+----------+
 | UART      | UART0 TX            | GPIO1 30 |
 +-----------+---------------------+----------+
 | UART      | UART0 RX            | GPIO1 29 |

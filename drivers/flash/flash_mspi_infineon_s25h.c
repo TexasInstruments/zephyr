@@ -486,12 +486,6 @@ static int flash_mspi_infineon_s25h_init(const struct device *dev)
 	int ret = 0;
 	const struct flash_mspi_infineon_s25h_cfg *config = dev->config;
 
-	ret = flash_mspi_infineon_s25h_prepare_mspi_bus(dev);
-	if (ret < 0) {
-		LOG_ERR("Error setting up the MSPI bus for the flash device");
-		return ret;
-	}
-
 	ret = pinctrl_apply_state(config->pinctrl, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		LOG_ERR("Failed to apply pinctrl");

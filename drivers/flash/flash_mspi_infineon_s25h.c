@@ -105,9 +105,18 @@ static int flash_mspi_infineon_s25h_rw_any_register(const struct device *dev, ui
 						    uint8_t *value, uint32_t delay,
 						    enum mspi_xfer_direction dir)
 {
+	int ret;
 	const struct flash_mspi_infineon_s25h_cfg *config = dev->config;
 	uint32_t cmd;
 	uint32_t rx_dummy;
+
+	if (dir == MSPI_TX) {
+		ret = flash_mspi_infineon_s25h_set_writing_forbidden(dev, false);
+		if (ret < 0) {
+			LOG_ERR("Error disabling write protection before changing configuration");
+			return ret;
+		}
+	}
 
 	if (dir == MSPI_RX) {
 		cmd = INF_MSPI_S25H_OPCODE_READ_ANY_REGISTER;
@@ -542,11 +551,7 @@ static int flash_mspi_infineon_s25h_init(const struct device *dev)
 	if ((conf3 & INF_MSPI_S25H_CFG_3_UNHYSA_BIT) == 0) {
 		LOG_INF("Flash is in hybrid sector mode. Changing non-volatile config to correct "
 			"this");
-		ret = flash_mspi_infineon_s25h_set_writing_forbidden(dev, false);
-		if (ret < 0) {
-			LOG_ERR("Error disabling write protection for flash device");
-			return ret;
-		}
+
 		conf3 |= INF_MSPI_S25H_CFG_3_UNHYSA_BIT;
 
 		ret = flash_mspi_infineon_s25h_rw_any_register(

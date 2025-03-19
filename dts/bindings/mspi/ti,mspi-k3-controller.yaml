@@ -1,0 +1,28 @@
+# Copyright (c) 2025 Siemens Mobility GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+description: TI K3 MSPI Controller
+
+compatible: "ti,k3-mspi-controller"
+
+include: [mspi-controller.yaml, pinctrl-device.yaml]
+
+properties:
+  reg:
+    required: true
+    description: |
+      Address and length of the MSPI configuration register and the indirect
+      write FIFO location.
+
+  ce-gpios:
+    description: |
+      The used chip select GPIO pins. This property is not used since the driver
+      only supports the hardware controlled chip select pins.
+
+  sram-allocated-for-read:
+    required: true
+    type: int
+    description: |
+      Amount of SRAM that is allocated for read data from the MSPI bus. The rest
+      is allocated for data written to the MSPI bus.
+      The value needs to be between 0 and 255

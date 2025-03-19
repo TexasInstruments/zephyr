@@ -1,0 +1,30 @@
+# Copyright (c) 2025 Siemens Mobility GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_AM2434_MAIN_R5F0_0
+
+config NUM_IRQS
+	default 256
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 25000000
+
+config ROMSTART_RELOCATION_ROM
+	default y
+
+config ROMSTART_REGION_ADDRESS
+	default $(dt_nodelabel_reg_addr_hex,atcm_boot)
+config ROMSTART_REGION_SIZE
+	default $(dt_nodelabel_reg_size_hex,atcm_boot,0,K)
+
+# The MPU needs to be enabled to mark the SRAM as non-shared. Otherwise atomic
+# instructions (used for e.g. semaphores and logging) cause data aborts.
+# Another option is to locate those in the L1-TCM but there is no easy way to do
+# this currently
+config MPU
+	default y
+
+config ARM_MPU
+	default y
+
+endif # SOC_SERIES_AM6X_R5

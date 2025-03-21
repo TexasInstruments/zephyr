@@ -1,0 +1,29 @@
+# Copyright (c) 2023 Enphase Energy
+# Copyright (c) 2025 Siemens Mobility GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_AM6234_A53 || SOC_AM6234_M4 || SOC_AM6442_M4 || SOC_AM2434_R5F0_0 || SOC_AM2434_M4
+
+config NUM_IRQS
+	default 64 if SOC_SERIES_AM6X_M4
+	default 256 if SOC_SERIES_AM6X_R5
+	default 280 if SOC_SERIES_AM6X_A53
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 400000000 if SOC_SERIES_AM6X_M4
+	default 200000000 if SOC_SERIES_AM6X_R5
+	default 200000000 if SOC_SERIES_AM6X_A53
+
+config ARM_MPU
+	default y if SOC_SERIES_AM6X_R5
+
+config ROMSTART_RELOCATION_ROM
+	default y if SOC_SERIES_AM6X_R5
+
+config ROMSTART_REGION_ADDRESS
+	default $(dt_nodelabel_reg_addr_hex,atcm_boot) if SOC_SERIES_AM6X_R5
+
+config ROMSTART_REGION_SIZE
+	default $(dt_nodelabel_reg_size_hex,atcm_boot,0,K) if SOC_SERIES_AM6X_R5
+
+endif # SOC_AM6234_A53 || SOC_AM6234_M4 || SOC_AM6442_M4 || SOC_AM2434_R5F0_0 || SOC_AM2434_M4

@@ -1,4 +1,5 @@
 # Copyright (c) 2023 Enphase Energy
+# Copyright (c) 2025 Siemens Mobility GmbH
 # SPDX-License-Identifier: Apache-2.0
 
 config SOC_SERIES_AM6X_A53
@@ -28,9 +29,17 @@ config SOC_SERIES_AM6X_R5
 	select ARM_CUSTOM_INTERRUPT_CONTROLLER
 	select VIM
 	select TI_DM_TIMER
-	select OPENAMP_RSC_TABLE
 	select UART_NS16550_ACCESS_WORD_ONLY if UART_NS16550
 	select SOC_EARLY_INIT_HOOK
+
+config SOC_J721E_MAIN_R5F0_0
+	select OPENAMP_RSC_TABLE
+
+config SOC_J722S_MAIN_R5F0_0
+	select OPENAMP_RSC_TABLE
+
+config SOC_J722S_MCU_R5F0_0
+	select OPENAMP_RSC_TABLE
 
 config SOC_PART_NUMBER
 	default "AM2434" if SOC_AM2434_M4 || SOC_AM2434_R5F0_0

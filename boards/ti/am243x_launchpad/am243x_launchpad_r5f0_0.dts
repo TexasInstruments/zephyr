@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2025 Siemens Mobility GmbH
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include <ti/am64x_r5.dtsi>
+#include "am243x_launchpad_r5f0_0-pinctrl.dtsi"
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	model = "AM243x LaunchPad";
+	compatible = "ti,am243x_launchpad";
+
+	chosen {
+		zephyr,console = &main_uart0;
+		zephyr,shell-uart = &main_uart0;
+		zephyr,sram = &sram;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		led0: led_0 {
+			gpios = <&main_gpio0 22 GPIO_ACTIVE_HIGH>;
+			label = "Test LED 1 Green";
+		};
+
+		// the other leds can't be controlled due to
+		// https://github.com/zephyrproject-rtos/zephyr/issues/81100
+	};
+
+	aliases {
+		led0 = &led0;
+	};
+
+};
+
+&main_uart0 {
+	status = "okay";
+	pinctrl-0 = <&uart0_tx_default &uart0_rx_default>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+};
+
+&main_gpio0 {
+	status = "okay";
+	pinctrl-0 = <&led0_output>;
+	pinctrl-names = "default";
+};
+
+&main_timer0 {
+	status = "okay";
+};

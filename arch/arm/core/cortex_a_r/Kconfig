@@ -3,6 +3,7 @@
 # Copyright (c) 2018 Marvell
 # Copyright (c) 2018 Lexmark International, Inc.
 # Copyright (c) 2021 Weidmueller Interface GmbH & Co. KG
+# Copyright (c) 2025 Siemens Mobility GmbH
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -237,6 +238,16 @@ config ICACHE_LINE_SIZE
 	default 32
 
 endif # CPU_AARCH32_CORTEX_R
+
+config CPU_USE_ONLY_ONE_CORE
+	bool "Only run code on one CPU core"
+	default n
+	help
+	  Put every CPU that doesn't have the value 0 in the Multiprocessor Affinity
+	  Register for the Affinity Level 0 bits into an endless loop. This is
+	  useful, if a bootloader is used that boots multiple cores in a SMP
+	  configuration on a SoC and there are problems with using SMP inside
+	  Zephyr. In consequence only one CPU core will execute the code.
 
 config TEST_EXTRA_STACK_SIZE
 	default 1024 if SMP

@@ -17,6 +17,9 @@ config SYS_CLOCK_HW_CYCLES_PER_SEC
 config ARM_MPU
 	default y if SOC_SERIES_AM6X_R5
 
+config SOC_PREP_HOOK
+	default y if SOC_AM2434_R5F0_0_BOOT
+
 # Needed options when booting via SBL bootloader from the TI MCU+ SDK and not MCUBoot
 #
 # The SBL bootloader requires the vector at 0x0 since the remapping feature of

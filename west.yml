@@ -34,6 +34,13 @@ manifest:
   # Please add items below based on alphabetical order
   # zephyr-keep-sorted-start re(^\s+\- name:)
   projects:
+    - name: hal_ti
+      remote: ti
+      repo-path: hal_ti.git
+      revision: 46407c76196-ti-9.10-internal
+      path: modules/hal/ti
+      groups:
+        - hal
     - name: acpica
       revision: 8d24867bc9c9d81c81eeac59391cda59333affd4
       path: modules/lib/acpica

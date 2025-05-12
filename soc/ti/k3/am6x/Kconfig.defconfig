@@ -45,3 +45,14 @@ config BUILD_OUTPUT_BIN
 	default n if SOC_SERIES_AM6X_R5
 
 endif # SOC_SERIES_AM6X
+
+if SOC_SERIES_AM6X_R5
+
+config MPU
+	default y
+
+config ARM_MPU
+	default y
+
+endif
+

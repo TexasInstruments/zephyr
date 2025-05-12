@@ -1,0 +1,8 @@
+identifier: am243x_evm/am2434/m4
+name: TI AM243x M4
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+ram: 192
+vendor: ti

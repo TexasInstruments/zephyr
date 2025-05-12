@@ -1,0 +1,59 @@
+/*
+* Copyright (c) 2025 Texas Instruments Incorporated
+*
+* SPDX-License-Identifier: Apache-2.0
+*/
+
+/dts-v1/;
+
+#include <ti/am64x_am243x_r5.dtsi>
+
+/ {
+	model = "TI AM243x AM2434 R5 domain";
+	compatible = "ti,am2434";
+	
+	chosen {
+		zephyr,sram = &msram;
+		zephyr,sram1 = &btcm;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+	
+	cpus {
+		cpu@0 {
+			status = "okay";
+		};
+	};
+	
+	rsc_table: memory@a0100000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0xa0100000 DT_SIZE_M(1)>;
+		zephyr,memory-region = "RSC_TABLE";
+	};
+	msram: memory@70080000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x70080000 DT_SIZE_K(512)>;
+		zephyr,memory-region = "msram";
+	};
+};
+
+&pinctrl {
+	uart0_rx_default: uart0_rx_default {
+		pinmux = <K3_PINMUX(0x230, PIN_INPUT, MUX_MODE_0)>;
+	};
+	uart0_tx_default: uart0_tx_default {
+		pinmux = <K3_PINMUX(0x234, PIN_OUTPUT, MUX_MODE_0)>;
+	};
+};
+
+&uart0 {
+	status = "okay";
+	pinctrl-0 = <&uart0_tx_default &uart0_rx_default>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+};
+
+&systick_timer {
+	status = "okay";
+};
+

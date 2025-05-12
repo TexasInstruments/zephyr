@@ -1,0 +1,129 @@
+/*
+ * Copyright (c) 2025 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <mem.h>
+#include <freq.h>
+#include <zephyr/dt-bindings/pinctrl/ti-k3-pinctrl.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+  #address-cells = <1>;
+  #size-cells = <1>;
+
+  	
+	dmsc: system-controller@44043000 {
+		compatible = "ti,k2g-sci";
+		ti,host-id = <36>;
+		mbox-names = "rx", "tx";
+		mboxes = <&secure_proxy_main 2>, <&secure_proxy_main 3>;
+		reg-names = "debug_messages";
+		reg = <0x44043000 0xfe0>;
+
+		k3_clks: clock-controller {
+			compatible = "ti,k2g-sci-clk";
+			#clock-cells = <2>;
+		};
+    k3_pds: power-controller {
+			compatible = "ti,sci-pm-domain";
+			#power-domain-cells = <1>;
+		};
+	};
+	
+	secure_proxy_main: mailbox0@4d000000 {
+		compatible = "ti,secure-proxy";
+		reg-names = "target_data", "rt", "scfg";
+		reg = <0x4d000000 0x80000>, <0x4a600000 0x80000>, <0x4a400000 0x80000>;
+		interrupts = <0 65 IRQ_TYPE_EDGE IRQ_DEFAULT_PRIORITY>;
+		interrupt-parent = <&vim>;
+		#mbox-cells = <1>;
+		status = "okay";
+	};
+
+	pinctrl: pinctrl@f4000 {
+		compatible = "ti,k3-pinctrl";
+		reg = <0xf4000 0x88>;
+		status = "okay";
+	};
+
+  uart0: uart@2800000 {
+    compatible = "ns16550";
+    reg = <0x02800000 0x200>;
+    clock-frequency = <48000000>;
+    power-domains = <&k3_pds 146>;
+    clocks = <&k3_clks 146 0>;
+    clock-names = "uartclk0";
+    reg-shift = <2>;
+    status = "disabled";
+  };
+
+  uart1: uart@2810000 {
+    compatible = "ns16550";
+    reg = <0x02810000 0x200>;
+    clock-frequency = <48000000>;
+    clocks = <&k3_clks 54 0>;
+    clock-names = "uartclk0";
+    reg-shift = <2>;
+    status = "disabled";
+  };
+
+  gpio0: gpio@600010 {
+    compatible = "ti,davinci-gpio";
+    reg = <0x600010 0x100>;
+    gpio-controller;
+    #gpio-cells = <2>;
+    ngpios = <23>;
+    status = "disabled";
+  };
+
+  adc0: adc@28001000 {
+    compatible = "ti,adc-k3";
+    reg = <0x28001000 0x204>;
+    interrupts = <0 128 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+    interrupt-parent = <&vim>;
+    status = "okay";
+    vref_mv = <1800>;
+    fifo = <0>;
+    #io-channel-cells = <1>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    
+    channel@0 {
+      reg = <0>;
+      zephyr,gain = "ADC_GAIN_1";
+      zephyr,reference = "ADC_REF_INTERNAL";
+      zephyr,acquisition-time = <0>;
+      zephyr,oversampling = <4>;
+      open-delay = <0>;
+    };
+
+    channel@1 {
+      reg = <1>;
+      zephyr,gain = "ADC_GAIN_1";
+      zephyr,reference = "ADC_REF_INTERNAL";
+      zephyr,acquisition-time = <0>;
+      zephyr,oversampling = <4>;
+      open-delay = <0>;
+    };
+
+    channel@2 {
+      reg = <2>;
+      zephyr,gain = "ADC_GAIN_1";
+      zephyr,reference = "ADC_REF_INTERNAL";
+      zephyr,acquisition-time = <0>;
+      open-delay = <0>;
+      zephyr,oversampling = <4>;
+    };
+
+    channel@5 {
+      reg = <5>;
+      zephyr,gain = "ADC_GAIN_1";
+      zephyr,reference = "ADC_REF_INTERNAL";
+      zephyr,acquisition-time = <0>;
+      open-delay = <0>;
+      zephyr,oversampling = <4>;
+    };
+  };
+};

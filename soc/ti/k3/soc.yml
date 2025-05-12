@@ -17,3 +17,7 @@ family:
       cpuclusters:
       - name: main_r5f0_0
       - name: mcu_r5f0_0
+    - name: am2434
+      cpuclusters:
+      - name: m4
+      - name: r5

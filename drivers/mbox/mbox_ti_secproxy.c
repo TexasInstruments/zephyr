@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2025 Texas Instruments Incorporated.
  *
- * TI Secureproxy Mailbox driver.
+ * TI Secureproxy Mailbox driver for Zephyr's MBOX model.
  */
 
  #include <zephyr/spinlock.h>
@@ -16,7 +16,6 @@
  
  #define DT_DRV_COMPAT ti_secure_proxy
  
- /* Helper Macros for MBOX */
  #define DEV_CFG(dev)  ((const struct secproxy_mailbox_config *)((dev)->config))
  #define DEV_DATA(dev) ((struct secproxy_mailbox_data *)(dev)->data)
  
@@ -24,7 +23,6 @@
  #define DEV_RT(_dev)    DEVICE_MMIO_NAMED_GET(_dev, rt)
  #define DEV_SCFG(_dev)  DEVICE_MMIO_NAMED_GET(_dev, scfg)
  
- /* SEC PROXY RT THREAD STATUS */
  #define RT_THREAD_STATUS               0x0
  #define RT_THREAD_THRESHOLD            0x4
  #define RT_THREAD_STATUS_ERROR_SHIFT   31
@@ -32,7 +30,6 @@
  #define RT_THREAD_STATUS_CUR_CNT_SHIFT 0
  #define RT_THREAD_STATUS_CUR_CNT_MASK  GENMASK(7, 0)
  
- /* SEC PROXY SCFG THREAD CTRL */
  #define SCFG_THREAD_CTRL           0x1000
  #define SCFG_THREAD_CTRL_DIR_SHIFT 31
  #define SCFG_THREAD_CTRL_DIR_MASK  BIT(31)
@@ -123,7 +120,7 @@
 	 struct secproxy_thread spt;
 	 struct secproxy_mailbox_data *data = DEV_DATA(dev);
 	 int num_words, trail_bytes;
-	 uint32_t *word_data;
+	 const uint32_t *word_data;
 	 uint32_t data_trail;
 	 mem_addr_t data_reg;
 	 k_spinlock_key_t key;
@@ -149,7 +146,7 @@
 	 }
  
 	 data_reg = spt.target_data + 4;
-	 for (num_words = msg->size / sizeof(uint32_t), word_data = (uint32_t *)msg->data; num_words;
+	 for (num_words = msg->size / sizeof(uint32_t), word_data = (const uint32_t *)msg->data; num_words;
 		  num_words--, data_reg += sizeof(uint32_t), word_data++) {
 		 sys_write32(*word_data, data_reg);
 	 }
@@ -158,8 +155,7 @@
 	 if (trail_bytes) {
 		 data_trail = *word_data;
  
-		 /* Ensure all unused data is 0 */
-		 data_trail &= 0xFFFFFFFF >> (8 * (sizeof(uint32_t) - trail_bytes));
+		 data_trail &= 0xFFFFFFFFU >> (8 * (sizeof(uint32_t) - trail_bytes));
 		 sys_write32(data_trail, data_reg);
 		 data_reg += sizeof(uint32_t);
 	 }

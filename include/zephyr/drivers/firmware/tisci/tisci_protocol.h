@@ -593,6 +593,7 @@ struct ti_sci_msg_resp_get_resource_range {
 	uint16_t range_num;
 } __packed;
 
+#define GENMASK_ULL(h, l)     (((~0ULL) << (l)) & (~0ULL >> (BITS_PER_LONG_LONG - 1 - (h))))
 #define TISCI_ADDR_LOW_MASK   GENMASK_ULL(31, 0)
 #define TISCI_ADDR_HIGH_MASK  GENMASK_ULL(63, 32)
 #define TISCI_ADDR_HIGH_SHIFT 32
@@ -1556,31 +1557,4 @@ struct ti_sci_desc {
 	int max_msg_size;
 };
 
-struct tisci_config {
-	struct mbox_dt_spec mbox_tx;
-	struct mbox_dt_spec mbox_rx;
-	uint32_t host_id;
-};
-
-struct rx_msg {
-	uint8_t seq;
-	uint8_t size;
-	char buf[256];
-};
-
-struct ti_sci_xfer {
-	struct mbox_msg tx_message;
-	struct rx_msg rx_message;
-	uint8_t rx_len;
-};
-
-struct tisci_data {
-	struct ti_sci_xfer xfer;
-	struct ti_sci_desc desc;
-	struct ti_sci_version_info version;
-	uint32_t host_id;
-	uint8_t seq;
-};
-
-extern struct rx_msg rx_message;
 #endif /* INCLUDE_ZEPHYR_DRIVERS_MISC_TISCI_H_ */

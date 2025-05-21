@@ -48,6 +48,7 @@
 #if defined(CONFIG_ARM)
 #define _KINETIS_FLASH_CONFIG_SECTION_NAME  kinetis_flash_config
 #define _TI_CCFG_SECTION_NAME	        .ti_ccfg
+#define _TI_SCFG_SECTION_NAME	        .ti_scfg
 
 #define _ITCM_SECTION_NAME		.itcm
 

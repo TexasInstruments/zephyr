@@ -1,5 +1,8 @@
 .. zephyr:board:: am243x_launchpad
 
+.. TODO: Improve formatting and descriptions!
+.. This documentation isn't ready for upstream yet!
+
 Overview
 ********
 
@@ -93,10 +96,11 @@ MCU+ SDK to set up some peripherals like UART clocks. Only in this bootmode the
 TCM memory can be used.
 
 Depending on the boot mode selection you require different parts of the MCU+
-SDK. If you want to start an application only via UART you need the Python tools
-of the MCU+ SDK and binary files of the repo.
-If you want to boot from flash via MCUboot or chain-load after a SBL bootloader
-from the TI MCU+ SDK you need to fully set up the SDK and build some of the examples.
+SDK.
+If you want to load a Zephyr application via UART or load an Zephyr application
+after MCUboot from flash you only need binary files from the MCU+ SDK.
+If you want to chain-load a Zephyr application after a SBL bootloader from the
+TI MCU+ SDK you need to fully set up the SDK and build some of the examples.
 
 
 Setting up the MCU+ SDK
@@ -236,60 +240,19 @@ the ``mcu_plus_sdk``.
 Loading an application via UART
 -------------------------------
 To run an application via UART you need to change the boot DIP switches on the
-board into ``11100000`` position. After that you need to connect the board and
-run the ``uart_bootloader.py`` script with the venv active, if you created one
-during setup. The script is under ``tools/boot`` inside the ``mcu_plus_sdk``
-directory. You additionally need to provide the UART interface (e.g.
-``/dev/ttyACM0`` under Linux) and the file you want to run.
+board into ``11100000`` position, build an application for the ``boot`` variant
+with the Kconfig options set correctly in `Required binary files`_. After that
+you can just run
 
 .. code-block:: console
-
-   python3 uart_bootloader.py -p /dev/ttyACM0 --bootloader=<file-to-run>
-
-
-Flashing data onto the flash
-----------------------------
-
-To flash data onto the flash you need to create a config file first. It should
-have the following contents:
-
-.. code-block::
-
-   --flash-writer=<sbl_uart_uniflash-tiimage-output>
-   --file=<file-to-flash> --operation=flash --flash-offset=<flash-offset>
-
-The ``<sbl_uart_uniflash-tiimage-output>`` needs to be replaced with the path to
-the output file you got when building the ``sbl_uart_uniflash`` example.
-
-The ``<file-to-flash>`` needs to replaced with the file you want to flash,
-usually a Zephyr application, MCUboot or the ``sbl_ospi`` bootloader.
-
-The ``<flash-offset>`` is the place where the file should be flashed in
-hexadecimal. For bootloaders or when starting Zephyr directly it's ``0x0`` and
-for Zephyr applications after the bootloader it's usually ``0x80000``.
-
-Then you need switch the boot DIP switches into ``11100000`` position and run
-the ``uart_uniflash.py`` script that can be found under ``tools/boot`` with the
-MCU+ SDK venv activated, if you created one.
-
-.. code-block:: console
-   python3 uart_uniflash.py -p /dev/ttyACM0 --cfg <path-to-config>
-
-
-Booting Zephyr via UART
------------------------
-
-To boot via UART you need to build your application for the ``boot`` target,
-including setting the Kconfig options as described in `Required binary files`_.
-
-After that you can run it as described in `Loading an application via UART`_.
-The file you need to run is
-``<your-build-directory>/zephyr/zephyr.k3_rom_loadable.bin``.
+   west flash --no-header
 
 
 Booting Zephyr from Flash via MCUboot
 -------------------------------------
 
+The following sections will describe how to configure MCUboot and the Zephyr
+application and booting it from flash.
 
 Building and flashing MCUboot
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -298,7 +261,8 @@ First you need to build MCUboot for the ``boot`` target. Please make sure your
 version is new enough for Cortex-R support. You need to set the Kconfig options
 described in `Loading an application via UART`_.
 
-Additionally you need to set the following Kconfig options manually:
+Additionally you need to set the following Kconfig options additionally to the
+ones described in `Required binary files`_ manually:
 
 +----------------------------------------+------------+
 | Symbol                                 | Value      |
@@ -308,16 +272,22 @@ Additionally you need to set the following Kconfig options manually:
 | CONFIG_BOOT_IMAGE_EXECUTABLE_RAM_START | 0x70080000 |
 +----------------------------------------+------------+
 
-After building you need to flash the file
-``<your-build-directory>/zephyr/zephyr.k3_rom_loadable.bin`` to ``0x0`` as
-described in `Flashing data onto the flash`_.
+Additionally you also need to to build the sample called ``xmodem1k_flasher``
+that can be found under ``samples/drivers/uart/xmodem1k_flasher`` for the
+``boot`` board variant with the Kconfig options set that are described in
+`Loading an application via UART`_.
+
+Then you need to temporarly execute the ``xmodem1k_flasher`` by running ``west
+flash`` inside the directory of the sample. After that you can simply flash
+MCUboot to external flash by running ``west flash``, while the
+``xmodem1k_flasher`` sample is running on the board.
 
 
 Building and flashing a Zephyr application
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Next you can build your Zephyr application (for the non-boot variant!). Here you
-also need to manually change some Kconfig options.
+also need to manually change some Kconfig options:
 
 +-----------------------------------------+------------+
 | Symbol                                  | Value      |
@@ -331,12 +301,12 @@ also need to manually change some Kconfig options.
 
 The ``CONFIG_MCUBOOT_SIGNATURE_KEY_FILE`` leads to your private key with which
 you signed the application. The default private key is inside the mcuboot
-project with the name ``root-rsa-2048.pem``.
+project with the name ``root-rsa-2048.pem``. You shouldn't set the
+``CONFIG_TI_K3_*`` options since they are not required.
 
-You then need to flash the file
-``<your-build-directory>/zephyr/zephyr.signed.bin`` at the offset ``0x80000`` as
-described in `Flashing data onto the flash`_.
-
+Then you should reset the board, run the ``xmodem1k_flasher`` sample again and
+run ``west flash`` from inside your application directory while the
+``xmodem1k_flasher`` is running on the board.
 
 Running
 ^^^^^^^

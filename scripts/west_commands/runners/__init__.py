@@ -1,4 +1,5 @@
 # Copyright (c) 2017 Linaro Limited.
+# Copyright (c) 2025 Siemens Mobility GmbH
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -69,6 +70,7 @@ _names = [
     'teensy',
     'trace32',
     'uf2',
+    'xmodem1k_sender',
     'xsdb',
     'xtensa',
     # zephyr-keep-sorted-stop

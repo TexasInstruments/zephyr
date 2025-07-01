@@ -1,0 +1,11 @@
+# Copyright (c) 2025 Siemens Mobility GmbH
+# SPDX-License-Identifier: Apache-2.0
+board:
+  name: am243x_launchpad
+  full_name: TI AM243x LaunchPad
+  vendor: ti
+  socs:
+  - name: am2434
+    variants:
+    - name: 'boot'
+      cpucluster: 'r5f0_0'

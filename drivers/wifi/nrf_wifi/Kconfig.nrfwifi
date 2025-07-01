@@ -150,6 +150,7 @@ config NRF70_REG_DOMAIN
 # stack requirements.
 config NET_MGMT_EVENT_STACK_SIZE
 	default 2048 if !WIFI_NM_WPA_SUPPLICANT
+	default 4600
 
 config NRF70_LOG_VERBOSE
 	bool "Maintains the verbosity of information in logs"
@@ -746,6 +747,8 @@ endchoice
 
 config NRF_WIFI_MGMT_BUFF_OFFLOAD
 	bool "Management buffer offload"
+	# Raw scan results need host based refilling
+	depends on !WIFI_MGMT_RAW_SCAN_RESULTS
 	default y
 	help
 	  This option offloads the refilling of management buffers to the UMAC, saving the host

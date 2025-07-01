@@ -771,6 +771,13 @@
 			status = "disabled";
 		};
 
+		wdt: wdt@40083400 {
+			compatible = "renesas,ra-wdt";
+			reg = <0x40083400 0x200>;
+			clocks = <&pclkb 0 0>;
+			status = "disabled";
+		};
+
 		usbfs: usbfs@40250000 {
 			compatible = "renesas,ra-usbfs";
 			reg = <0x40250000 0x2000>;
@@ -783,6 +790,24 @@
 
 			udc {
 				compatible = "renesas,ra-udc";
+				status = "disabled";
+			};
+		};
+
+		acmphs_global: acmphs_global@40236000 {
+			compatible = "renesas,ra-acmphs-global";
+			reg = <0x40236000 0x200>;
+			status = "disabled";
+
+			acmphs0: acmphs0 {
+				compatible = "renesas,ra-acmphs";
+				channel = <0>;
+				status = "disabled";
+			};
+
+			acmphs1: acmphs1 {
+				compatible = "renesas,ra-acmphs";
+				channel = <1>;
 				status = "disabled";
 			};
 		};

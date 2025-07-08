@@ -26,6 +26,7 @@
 		zephyr,console = &uart1;
 		zephyr,shell-uart = &uart1;
 		zephyr,rtc = &rtc;
+		zephyr,entropy = &hsm;
 	};
 
 	leds {
@@ -219,5 +220,9 @@
 &pwm4 {
 	pinctrl-0 = <&pwm4_default>;
 	pinctrl-names = "default";
+	status = "okay";
+};
+
+&hsm {
 	status = "okay";
 };

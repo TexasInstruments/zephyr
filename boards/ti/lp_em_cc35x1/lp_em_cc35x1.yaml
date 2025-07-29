@@ -9,4 +9,5 @@ toolchain:
   - gnuarmemb
 supported:
   - pinctrl
+  - serial
 vendor: ti

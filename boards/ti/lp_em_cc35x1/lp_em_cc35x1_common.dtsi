@@ -7,6 +7,7 @@
 /dts-v1/;
 
 #include <ti/cc35xxe.dtsi>
+#include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/dma/ti-cc35xx-dma.h>
 #include "boosterpack_connector.dtsi"
@@ -16,6 +17,10 @@
 / {
 	model = "TI CC35X1E LaunchPad";
 	compatible = "ti,launchpad-cc35x1e";
+
+	zephyr,user {
+		io-channels = <&adc0 4>, <&adc0 5>;
+	};
 
 	chosen {
 		zephyr,sram = &dmem_ns;
@@ -68,6 +73,7 @@
 		ambient-temp0 = &tmp1075_temperature;
 		sw0 = &user_switch_1;
 		sw1 = &user_switch_2;
+		adc0 = &adc0;
 		dma0 = &dma;
 		rtc = &rtc;
 	};
@@ -197,6 +203,28 @@
 		compatible = "bosch,bma4xx";
 		reg = <0x18>;
 		status = "okay";
+	};
+};
+
+&adc0 {
+	status = "okay";
+	pinctrl-0 = <&adc0_default>;
+	pinctrl-names = "default";
+
+	channel@4 {
+		reg = <0x4>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
+	};
+
+	channel@5 {
+		reg = <0x5>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = <ADC_ACQ_TIME_DEFAULT>;
+		zephyr,resolution = <12>;
 	};
 };
 

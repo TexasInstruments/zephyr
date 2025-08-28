@@ -49,6 +49,16 @@ static void pinctrl_configure_pin(pinctrl_soc_pin_t pincfg)
 	}
 	sys_write32(tmp, reg);
 
+	if ((pincfg & TI_CC35XX_MUX_MSK) == TI_CC35XX_ANALOG_MUX) {
+		tmp = sys_read32(reg);
+		tmp &= ~BIT(MEM_GPIO_ANASW_BIT);
+		sys_write32(tmp, reg);
+
+		tmp = sys_read32(reg);
+		tmp &= ~BIT(MEM_GPIO_ANASWOVREN_BIT);
+		sys_write32(tmp, reg);
+	}
+
 	/* give IP control over pull */
 	reg = DT_INST_REG_ADDR(0) + pin * MEM_GPIO_NEXT_OFFSET + MEM_GPIO0_PCTL_OFFSET;
 	sys_write32(0, reg);

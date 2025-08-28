@@ -263,6 +263,18 @@
 			status = "okay";
 		};
 
+		adc0: adc@412b0000 {
+			compatible = "ti,cc35xx-adc";
+			reg = <0x412b0000 0x2000>;
+			interrupts = <EXP_ADC 3>;
+			status = "disabled";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+			clkdiv = <8>;
+			sample-period = <20>;
+		};
+
 		dma: dma@41a00000 {
 			compatible = "ti,cc35xx-dma";
 			reg = <0x41a00000 0x10000>;

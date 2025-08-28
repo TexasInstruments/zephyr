@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config ADC_CC35XX
+	bool "CC35XX ADC driver"
+	default y
+	depends on DT_HAS_TI_CC35XX_ADC_ENABLED
+	help
+	  This option enables the CC35XX ADC driver.

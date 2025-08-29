@@ -26,7 +26,7 @@
 		zephyr,console = &uart1;
 		zephyr,shell-uart = &uart1;
 		zephyr,rtc = &rtc;
-		zephyr,entropy = &hsm;
+		zephyr,entropy = &entropy;
 	};
 
 	leds {
@@ -224,5 +224,13 @@
 };
 
 &hsm {
+	status = "okay";
+};
+
+&entropy {
+	status = "okay";
+};
+
+&crypto {
 	status = "okay";
 };

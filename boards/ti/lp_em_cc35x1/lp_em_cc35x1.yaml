@@ -16,4 +16,5 @@ supported:
   - pwm
   - rtc
   - serial
+  - watchdog
 vendor: ti

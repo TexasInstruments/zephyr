@@ -65,6 +65,12 @@
 		#clock-cells = <0>;
 	};
 
+	lfclk: low-frequency-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <32768>;
+		#clock-cells = <0>;
+	};
+
 	uartclk: uart-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <DT_FREQ_M(80)>;
@@ -273,6 +279,14 @@
 			#io-channel-cells = <1>;
 			clkdiv = <8>;
 			sample-period = <20>;
+		};
+
+		wdt0: wdt@411d0000 {
+			compatible = "ti,cc35xx-watchdog";
+			reg = <0x411d0000 0x1000>;
+			interrupts = <EXP_WDT 0>;
+			status = "disabled";
+			clocks = <&lfclk>;
 		};
 
 		dma: dma@41a00000 {

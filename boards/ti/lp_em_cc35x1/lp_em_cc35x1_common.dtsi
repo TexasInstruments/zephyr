@@ -253,6 +253,10 @@
 	status = "okay";
 };
 
+&wdt0 {
+	status = "okay";
+};
+
 &hsm {
 	status = "okay";
 };

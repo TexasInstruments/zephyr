@@ -8,20 +8,36 @@
 #include <freq.h>
 #include <arm/armv8-m.dtsi>
 
-#define INT_SP_UART_0_INT_REQ                        16
-#define INT_SP_UART_1_INT_REQ                        17
-#define INT_SP_SPI_0_EVT_REQ                         20
-#define INT_SP_SPI_1_EVT_REQ                         21
+#define INT_SP_UART_0_INT_REQ       16
+#define INT_SP_UART_1_INT_REQ       17
+#define INT_SP_I2C_0_INTREQ         18
+#define INT_SP_I2C_1_INTREQ         19
+#define INT_SP_SPI_0_EVT_REQ        20
+#define INT_SP_SPI_1_EVT_REQ        21
+#define INT_GPTIMER_0_EVT_CPU_IRQ   22
+#define INT_GPTIMER_1_EVT_CPU_IRQ   23
+#define INT_ULL_USC_ULPADCHP_PUB_EVT0_REQ 31
+#define INT_OSPR_HSM_HOST_0_SEC_IRQ 34
 #define INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT          41
+#define INT_HOST_ELP_TMR_WAKEUP_REQ 62
+#define INT_NAB_HOST_IRQ            63
 /*
  * Note: Zephyr uses exception numbers, vs the IRQ used by the CC32XX SDK
  * which are offset by 16:
  */
-#define EXP_UARTA0 (INT_SP_UART_0_INT_REQ - 16)
-#define EXP_UARTA1 (INT_SP_UART_1_INT_REQ - 16)
-#define EXP_SPI0   (INT_SP_SPI_0_EVT_REQ - 16)
-#define EXP_SPI1   (INT_SP_SPI_1_EVT_REQ - 16)
+#define EXP_UARTA0   (INT_SP_UART_0_INT_REQ - 16)
+#define EXP_UARTA1   (INT_SP_UART_1_INT_REQ - 16)
+#define EXP_I2C0     (INT_SP_I2C_0_INTREQ - 16)
+#define EXP_I2C1     (INT_SP_I2C_1_INTREQ - 16)
+#define EXP_SPI0     (INT_SP_SPI_0_EVT_REQ - 16)
+#define EXP_SPI1     (INT_SP_SPI_1_EVT_REQ - 16)
+#define EXP_GPT0     (INT_GPTIMER_0_EVT_CPU_IRQ - 16)
+#define EXP_GPT1     (INT_GPTIMER_1_EVT_CPU_IRQ - 16)
+#define EXP_ADC      (INT_ULL_USC_ULPADCHP_PUB_EVT0_REQ - 16)
+#define EXP_HSM      (INT_OSPR_HSM_HOST_0_SEC_IRQ - 16)
 #define EXP_DMA_NS (INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT - 16)
+#define EXP_NAB_HOST (INT_NAB_HOST_IRQ - 16)
+#define EXP_WDT      (INT_HOST_ELP_TMR_WAKEUP_REQ - 16)
 
 / {
 	cpus {
@@ -54,6 +70,18 @@
 	};
 
 	spiclk: spi-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <DT_FREQ_M(80)>;
+		#clock-cells = <0>;
+	};
+
+	gptimerclk: gptimer-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <DT_FREQ_M(80)>;
+		#clock-cells = <0>;
+	};
+
+	i2cclk: i2c-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <DT_FREQ_M(80)>;
 		#clock-cells = <0>;
@@ -261,6 +289,25 @@
 			reg = <0x41230000 0x10000>;
 			interrupts = <EXP_SPI1 3>;
 			clocks = <&spiclk>;
+		};
+
+		i2c0: i2c@41200000 {
+			compatible = "ti,cc35xx-i2c";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x41200000 0x10000>;
+			interrupts = <EXP_I2C0 3>;
+			clocks = <&i2cclk>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@41210000 {
+			compatible = "ti,cc35xx-i2c";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x41210000 0x10000>;
+			interrupts = <EXP_I2C1 3>;
+			clocks = <&i2cclk>;
 			status = "disabled";
 		};
 	};

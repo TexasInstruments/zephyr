@@ -51,4 +51,32 @@
 				<(TI_CC35XX_PINCTRL_DIR_OUT | P12_SPI1_CS1)>;
 		};
 	};
+
+	adc0_default: adc0_default {
+		group1 {
+			pinmux = <P3_WIFI_AIN5>, <P4_WIFI_AIN4>;
+		};
+	};
+
+	pwm3_default: lgpt1_chan0_default {
+		group1 {
+			pinmux = <P3_GPT1_0>;
+		};
+	};
+	pwm4_default: lgpt1_chan1_default {
+		group1 {
+			pinmux = <P30_GPT1_1>;
+		};
+	};
+	pwm5_default: lgpt1_chan2_default {
+		group1 {
+			pinmux = <P33_GPT1_2>;
+		};
+	};
+
+	i2c1_default: i2c1_default {
+		group1 {
+			pinmux = <P10_I2C1_DATA>, <P11_I2C1_CLK>;
+		};
+	};
 };

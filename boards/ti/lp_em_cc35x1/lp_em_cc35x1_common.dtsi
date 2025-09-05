@@ -172,6 +172,25 @@
 	};
 };
 
+&i2c1 {
+	status = "okay";
+	pinctrl-0 = <&i2c1_default>;
+	pinctrl-names = "default";
+
+	tmp1075_temperature: tmp1075@48 {
+		compatible = "lm75";
+		friendly-name = "texas_temperature_tmp1075";
+		reg = <0x48>;
+		status = "okay";
+	};
+
+	bma4xx_accelerometer: bma4xx@18 {
+		compatible = "bosch,bma4xx";
+		reg = <0x18>;
+		status = "okay";
+	};
+};
+
 &uart0 {
 	status = "okay";
 	pinctrl-0 = <&uart0_default>;

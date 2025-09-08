@@ -10,12 +10,16 @@
 
 #define INT_SP_UART_0_INT_REQ                        16
 #define INT_SP_UART_1_INT_REQ                        17
+#define INT_SP_SPI_0_EVT_REQ                         20
+#define INT_SP_SPI_1_EVT_REQ                         21
 /*
  * Note: Zephyr uses exception numbers, vs the IRQ used by the CC32XX SDK
  * which are offset by 16:
  */
 #define EXP_UARTA0 (INT_SP_UART_0_INT_REQ - 16)
 #define EXP_UARTA1 (INT_SP_UART_1_INT_REQ - 16)
+#define EXP_SPI0   (INT_SP_SPI_0_EVT_REQ - 16)
+#define EXP_SPI1   (INT_SP_SPI_1_EVT_REQ - 16)
 
 / {
 	cpus {
@@ -42,6 +46,12 @@
 	};
 
 	uartclk: uart-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <DT_FREQ_M(80)>;
+		#clock-cells = <0>;
+	};
+
+	spiclk: spi-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <DT_FREQ_M(80)>;
 		#clock-cells = <0>;
@@ -227,6 +237,26 @@
 			reg = <0xa00da000 0x2b000>, <0xda000 0x2b000>;
 			erase-block-size = <DT_SIZE_K(4)>;
 			write-block-size = <4>;
+			status = "disabled";
+		};
+
+		spi0: spi@41220000 {
+			compatible = "ti,cc35xx-spi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x41220000 0x10000>;
+			interrupts = <EXP_SPI0 3>;
+			clocks = <&spiclk>;
+			status = "disabled";
+		};
+
+		spi1: spi@41230000 {
+			compatible = "ti,cc35xx-spi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x41230000 0x10000>;
+			interrupts = <EXP_SPI1 3>;
+			clocks = <&spiclk>;
 			status = "disabled";
 		};
 	};

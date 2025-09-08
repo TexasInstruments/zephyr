@@ -94,6 +94,19 @@
 	status = "okay";
 };
 
+&spi0 {
+	status = "okay";
+	pinctrl-0 = <&spi0_master>;
+	pinctrl-names = "default";
+	cs-gpios = <&gpios 26 GPIO_ACTIVE_LOW>;
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_slave>;
+	pinctrl-names = "default";
+};
+
 &flash0 {
 	status = "okay";
 

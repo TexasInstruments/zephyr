@@ -11,6 +11,7 @@ supported:
   - counter
   - gpio
   - pinctrl
-  - serial
   - pwm
+  - rtc
+  - serial
 vendor: ti

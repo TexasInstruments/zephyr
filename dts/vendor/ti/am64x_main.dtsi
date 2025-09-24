@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2025 Texas Instruments Incorporated
+ * Copyright (c) 2025 Siemens Mobility GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -270,6 +271,13 @@
 		#io-channel-cells = <1>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+	};
+
+	mspi0: mspi@fc40000 {
+		compatible = "cdns,mspi-controller";
+		reg = <0x0fc40000 0x100 0x60000000 0x4>;
+		sram-allocated-for-read = <0x80>;
+		status = "disabled";
 	};
 
 	/* users: r5f0_0, r5f0_1, r5f1_0, r5f1_1 */

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2025 Texas Instruments Incorporated
+ * Copyright (c) 2025 Siemens Mobility GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -27,10 +28,21 @@
 		};
 	};
 
-	atcm: memory@0 {
+	atcm_boot: memory@0 {
 		device_type = "memory";
 		compatible = "zephyr,memory-region", "mmio-sram";
-		reg = <0x0 DT_SIZE_K(32)>;
+		/* we sadly waste 960 Byte here since the Kconfig option
+		 * ROMSTART_REGION_SIZE is hardcoded to KiB in size
+		 */
+		reg = <0x0 DT_SIZE_K(1)>;
+		zephyr,memory-region = "ATCM_BOOT";
+		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+	};
+
+	atcm: memory@400 {
+		device_type = "memory";
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x400 DT_SIZE_K(31)>;
 		zephyr,memory-region = "ATCM";
 		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
 	};

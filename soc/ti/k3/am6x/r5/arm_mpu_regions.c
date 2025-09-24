@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2025 Texas Instruments
+ * Copyright (c) 2025 - 2026 Siemens Mobility GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -24,6 +25,12 @@ static const struct arm_mpu_region mpu_regions[] = {
 	MPU_REGION_ENTRY(
 		"SRAM", CONFIG_SRAM_BASE_ADDRESS, REGION_SRAM_SIZE,
 		{NORMAL_OUTER_INNER_WRITE_BACK_WRITE_READ_ALLOCATE_NON_SHAREABLE | PERM_Msk}),
+#if defined(SOC_SERIES_AM6X_R5)
+#if DT_NODE_HAS_STATUS(DT_PATH(mspi_fc40000), okay)
+	MPU_REGION_ENTRY("FSS0", DT_REG_ADDR_BY_IDX(DT_PATH(mspi_fc40000), 1), REGION_128M,
+			 {STRONGLY_ORDERED_SHAREABLE | P_RW_U_NA_Msk}),
+#endif
+#endif
 };
 
 const struct arm_mpu_config mpu_config = {

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2025 Texas Instruments Incorporated
+ * Copyright (c) 2025 Siemens Mobility GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -21,7 +22,7 @@
 #define MCU_PADCFG_BASE (0x4080000)
 #elif defined CONFIG_SOC_AM6234_M4 | defined CONFIG_SOC_AM6232_M4
 #define WKUP_PADCFG_BASE (0x4080000)
-#elif defined CONFIG_SOC_AM2434_R5F0_0
+#elif defined CONFIG_SOC_AM2434_R5F
 #define MCU_PADCFG_BASE  (0x4080000)
 #define MAIN_PADCFG_BASE (0xf0000)
 #endif
@@ -33,7 +34,7 @@ static const uintptr_t ctrl_partitions[] = {
 #elif defined CONFIG_SOC_AM6234_M4 | defined CONFIG_SOC_AM6232_M4
 	CTRL_PARTITION(WKUP_PADCFG_BASE, 0),
 	CTRL_PARTITION(WKUP_PADCFG_BASE, 1),
-#elif defined CONFIG_SOC_AM2434_R5F0_0
+#elif defined CONFIG_SOC_AM2434_R5F
 	CTRL_PARTITION(MAIN_PADCFG_BASE, 0),
 	CTRL_PARTITION(MAIN_PADCFG_BASE, 1),
 	CTRL_PARTITION(MCU_PADCFG_BASE, 0),

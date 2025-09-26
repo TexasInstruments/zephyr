@@ -55,10 +55,18 @@
 		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
 	};
 
-	sram: memory@70080000 {
+	sram_r5f0_0_boot: memory@70000000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0x70000000 DT_SIZE_K(256)>;
+		zephyr,memory-region = "SRAM R5F0_0 Boot";
+		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
+	};
+
+	sram_r5f0_0: memory@70080000 {
 		compatible = "zephyr,memory-region", "mmio-sram";
 		reg = <0x70080000 DT_SIZE_K(256)>;
-		zephyr,memory-region = "SRAM";
+		zephyr,memory-region = "SRAM R5F0_0";
+		zephyr,memory-attr = <DT_MEM_ARM(ATTR_MPU_RAM)>;
 	};
 
 	vim: interrupt-controller@2fff0000 {

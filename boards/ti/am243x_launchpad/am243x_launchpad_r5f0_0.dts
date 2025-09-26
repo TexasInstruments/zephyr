@@ -37,6 +37,40 @@
 
 };
 
+&mspi0 {
+	pinctrl-0 = <&ospi_clk &ospi_d0 &ospi_d1 &ospi_d2 &ospi_d3 &ospi_dqs &ospi_lbclko>;
+	pinctrl-names = "default";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	s25hl512tfamhi010: qspi-nor-flash@0 {
+		compatible = "infineon,s25h-flash";
+		reg = <0>;
+
+		write-block-size = <256>;
+		erase-block-size = <262144>;
+		flash-size = <DT_SIZE_M(64)>;
+
+		pinctrl-0 = <&ospi_csn0>;
+		pinctrl-names = "default";
+
+		reset-startup-time-us = <600>;
+
+		mspi-max-frequency = <DT_FREQ_M(50)>;
+
+		mspi-io-mode = "MSPI_IO_MODE_SINGLE";
+		mspi-data-rate = "MSPI_DATA_RATE_SINGLE";
+		mspi-hardware-ce-num = <0>;
+		mspi-cpp-mode = "MSPI_CPP_MODE_0";
+		mspi-ce-polarity = "MSPI_CE_ACTIVE_LOW";
+		address-length = "ADDR_3_BYTE";
+		command-length = "INSTR_1_BYTE";
+
+		status = "okay";
+	};
+	status = "okay";
+};
+
 &main_uart0 {
 	status = "okay";
 	pinctrl-0 = <&uart0_tx_default &uart0_rx_default>;

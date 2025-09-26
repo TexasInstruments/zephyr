@@ -2,6 +2,54 @@
 # Copyright (c) 2025 Siemens Mobility GmbH
 # SPDX-License-Identifier: Apache-2.0
 
+config BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	bool "Build image that can be loaded by the TI K3 ROM bootloader"
+	default n
+	depends on BUILD_OUTPUT_BIN
+	help
+		Selecting this output will generate a output binary in a form that the
+		TI K3 ROM bootloader can load. Selecting this requires you to specify
+		other Kconfig options to point to e.g. binary blobs.
+
+config TI_K3_SYSFW_LOAD_ADDR
+	hex
+	depends on BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	default 0x44000 if SOC_AM2434_R5F0_0_BOOT
+	help
+		Address where the SYSFW needs to be loaded to. This info will land in
+		the X509 certificate of the TI K3 ROM loadable image.
+
+config TI_K3_SYSFW_BLOB_PATH
+	string "Path to SYSFW binary blob"
+	depends on BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	help
+		Path to the unencrypted SYSFW binary blob that can be found inside the
+		TI MCU+ SDK.
+
+config TI_K3_SYSFW_CERT_PATH
+	string "Path to certificate for SYSFW binary blob"
+	depends on BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	help
+		Path to the X509 certificate for the SYSFW binary blob. Can be found
+		inside the TI MCU+ SDK.
+
+config TI_K3_BOARDCONFIG_PATH
+	string "Path to binary boardconfig file"
+	depends on BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	help
+		Path to the default boardconfig binary. Can be obtained from the TI MCU+
+		SDK.
+
+config TI_K3_PRIVATE_KEY_PATH
+	string "Path to private key used to sign TI K3 ROM loadable image"
+	depends on BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	help
+		Path to the private key with which the X509 certificate inside the TI K3
+		ROM loadable image should be signed. Due to an errata in some SoCs it's
+		recommended to take a degenerate key (instructions for generating one
+		can be found inside the AM2434 TRM or the file can be obtained from the
+		TI MCU+ SDK)
+
 config SOC_SERIES_AM6X_A53
 	select ARM64
 	select CPU_CORTEX_A53

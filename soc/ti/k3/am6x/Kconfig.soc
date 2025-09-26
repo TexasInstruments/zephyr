@@ -64,6 +64,10 @@ config SOC_AM2434_R5F0_0
 	bool
 	select SOC_AM2434_R5F
 
+config SOC_AM2434_R5F0_0_BOOT
+	bool
+	select SOC_AM2434_R5F
+
 config SOC_J721E_MAIN_R5F0_0
 	bool
 	select SOC_SERIES_AM6X_R5

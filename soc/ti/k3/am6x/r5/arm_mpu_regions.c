@@ -18,8 +18,14 @@
 #endif
 
 static const struct arm_mpu_region mpu_regions[] = {
-#if defined CONFIG_SOC_AM2434_R5F0_0
+#if defined CONFIG_SOC_AM2434_R5F
 	MPU_REGION_ENTRY("Device", 0x0, REGION_2G, {MPU_RASR_S_Msk | NOT_EXEC | PERM_Msk}),
+	/* Also explicitly allow executing the exception vector since the TCM might
+	 * be disabled and therefor it might be not executable
+	 */
+	MPU_REGION_ENTRY(
+		"Exception vector", 0x0, REGION_64B,
+		{P_RO_U_NA_Msk | ((1 << MPU_RASR_TEX_Pos) | MPU_RASR_C_Msk | MPU_RASR_B_Msk)}),
 #endif
 	MPU_REGION_ENTRY(
 		"SRAM", CONFIG_SRAM_BASE_ADDRESS, REGION_SRAM_SIZE,

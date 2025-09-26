@@ -6,3 +6,6 @@ board:
   vendor: ti
   socs:
   - name: am2434
+    variants:
+    - name: 'boot'
+      cpucluster: 'r5f0_0'

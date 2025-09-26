@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2025 Siemens Mobility GmbH
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+
+#include "am243x_launchpad_r5f0_0.dts"
+
+/ {
+	chosen {
+		zephyr,sram = &sram_r5f0_0_boot;
+	};
+};

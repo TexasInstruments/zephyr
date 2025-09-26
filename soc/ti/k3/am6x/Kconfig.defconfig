@@ -36,6 +36,5 @@ endif # SERIAL
 
 config BUILD_OUTPUT_BIN
 	default n if SOC_SERIES_AM6X_M4
-	default n if SOC_SERIES_AM6X_R5
 
 endif # SOC_SERIES_AM6X

@@ -15,7 +15,7 @@ if SOC_SERIES_CC27XX
 		default 1000000
 
 	config SYS_CLOCK_TICKS_PER_SEC
-		default 10000
+		default 1000000
 
 	config NUM_IRQS
 		default 33

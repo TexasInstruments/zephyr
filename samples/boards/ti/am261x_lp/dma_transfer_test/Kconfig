@@ -1,0 +1,8 @@
+# Copyright (c) 2025 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+config DMA_TRANSFER_CHANNEL
+	int "DMA channel to use for M2M transfer"
+	default 0

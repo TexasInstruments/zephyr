@@ -1,0 +1,24 @@
+sample:
+  name: AM261x DMA Transfer Test
+  description: >
+    Demonstrates DMA memory-to-memory transfer operations on TI AM261x LaunchPad.
+    Writes data from one memory location to another via DMA, reads it back, and verifies integrity.
+    NOTE: This test uses cache APIs
+
+common:
+  tags:
+    - sample
+    - dma
+  integration_platforms:
+    - am261x_lp/am2612/r5f0_0
+    - am261x_lp/am2612/r5f0_1
+  harness: console
+  harness_config:
+    type: one_line
+    regex:
+      - "Test passed!"
+
+tests:
+  sample.boards.ti.am261x_lp.dma_transfer_test.normal:
+    tags: tests
+    filter: CONFIG_CACHE_MANAGEMENT and CONFIG_DMA

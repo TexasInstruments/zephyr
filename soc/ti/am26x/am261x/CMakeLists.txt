@@ -14,6 +14,8 @@ if( CONFIG_SOC_SERIES_AM261X_R5F )
 
   zephyr_sources(common/ctrl_partitions.c)
   zephyr_sources(common/mbox_config.c)
+  zephyr_sources(common/clocks_configs.c)
+  zephyr_sources(common/xbar_configs.c)
 
   set(SOC_LINKER_SCRIPT ${CMAKE_CURRENT_SOURCE_DIR}/r5/linker.ld CACHE INTERNAL "")
 endif()

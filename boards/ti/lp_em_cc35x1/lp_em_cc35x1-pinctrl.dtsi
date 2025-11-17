@@ -95,4 +95,15 @@
 				 <P3_DCAN_RX>;
 		};
 	};
+
+	sdhc_mmc_default: sdhc_mmc_default {
+		group1 {
+			pinmux = <(TI_CC35XX_PINCTRL_PULL_UP | P10_SDIO_MMC_DATA_3)>,
+				 <(TI_CC35XX_PINCTRL_PULL_UP | P11_SDIO_MMC_DATA_2)>,
+				 <(TI_CC35XX_PINCTRL_PULL_UP | P12_SDIO_MMC_DATA_1)>,
+				 <(TI_CC35XX_PINCTRL_PULL_UP | P13_SDIO_MMC_DATA_0)>,
+				 <(TI_CC35XX_PINCTRL_PULL_UP | P14_SDIO_MMC_CLK)>,
+				 <(TI_CC35XX_PINCTRL_PULL_UP | P15_SDIO_MMC_CMD)>;
+		};
+	};
 };

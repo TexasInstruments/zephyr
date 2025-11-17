@@ -458,6 +458,14 @@
 			bosch,mram-cfg = <0x0 128 64 8 8 8 8 8>;
 			status = "disabled";
 		};
+
+		sdhc: sdhc@412c0000 {
+			compatible = "ti,cc35xx-sdhc";
+			reg = <0x412c0000 DT_SIZE_K(64)>;
+			base-bus-freq = <DT_FREQ_M(40)>;
+			interrupts = <13 0>;
+			status = "disabled";
+		};
 	};
 };
 

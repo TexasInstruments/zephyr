@@ -77,6 +77,7 @@
 		adc0 = &adc0;
 		dma0 = &dma;
 		rtc = &rtc;
+		sdhc0 = &sdhc;
 	};
 };
 
@@ -283,4 +284,19 @@
 	status = "okay";
 	pinctrl-0 = <&can_default>;
 	pinctrl-names = "default";
+};
+
+&sdhc {
+	status = "okay";
+	pinctrl-0 = <&sdhc_mmc_default>;
+	pinctrl-names = "default";
+	max-bus-freq = <DT_FREQ_M(40)>;
+	power-delay-ms = <500>;
+	card-always-present;
+
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		disk-name = "SD";
+		status = "okay";
+	};
 };

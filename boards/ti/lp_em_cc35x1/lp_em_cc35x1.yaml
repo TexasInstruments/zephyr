@@ -17,6 +17,7 @@ supported:
   - pinctrl
   - pwm
   - rtc
+  - sdhc
   - serial
   - watchdog
 vendor: ti

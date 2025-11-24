@@ -1,0 +1,15 @@
+# Copyright (c) 2025 Texas Instruments
+# SPDX-License-Identifier: Apache-2.0
+
+config DMA_TI_EDMA
+	bool "TI EDMA driver"
+	default y
+	depends on DT_HAS_TI_EDMA_ENABLED
+	help
+		Generic EDMA driver.
+
+config EDMA_NUM_INSTANCES
+	int "Number of EDMA IP present on SoC"
+	default 1
+	help
+		Number of EDMA IPs present on SoC

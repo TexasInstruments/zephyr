@@ -11,6 +11,7 @@ config SOC_SERIES_AM261X_R5F
 	select CPU_HAS_ICACHE
 	select CPU_HAS_DCACHE
 	select CPU_HAS_ARM_MPU
+	select DMA
 	select FPU
 	select FPU_SHARING
 	select PINCTRL

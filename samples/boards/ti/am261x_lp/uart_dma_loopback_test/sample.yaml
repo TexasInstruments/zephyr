@@ -1,0 +1,25 @@
+sample:
+  name: AM261x UART DMA Loopback Test
+  description: >
+    Demonstrates UART with DMA loopback operations on TI AM261x LaunchPad.
+    Transmits data via UART with DMA, enables loopback mode to receive the same data,
+    and verifies data integrity.
+    NOTE: This test uses cache APIs
+
+common:
+  tags:
+    - sample
+    - dma
+    - uart
+  integration_platforms:
+    - am261x_lp/am2612/r5f0_0
+  harness: console
+  harness_config:
+    type: one_line
+    regex:
+      - "UART DMA loopback test passed!"
+
+tests:
+  sample.boards.ti.am261x_lp.uart_dma_loopback_test.normal:
+    tags: tests
+    filter: CONFIG_CACHE_MANAGEMENT and CONFIG_UART_ASYNC_API and dt_alias_exists("uart-dut")

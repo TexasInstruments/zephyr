@@ -270,6 +270,22 @@
 				status = "disabled";
 			};
 		};
+
+		edma0: dma@52a00000 {
+			compatible = "ti,edma";
+			reg = <0x52a00000 DT_SIZE_K(32)>;
+			status = "disabled";
+			#dma-cells = <1>;
+
+			edma-regions = <8>;
+			edma-queues = <2>;
+			dma-channels = <64>;
+			edma-params = <256>;
+
+			interrupts = <0 90 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+			interrupt-names = "comp_intr";
+			interrupt-parent = <&vim>;
+		};
 	};
 
 	/* Define the shared memory region */

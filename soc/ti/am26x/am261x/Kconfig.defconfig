@@ -52,5 +52,7 @@ config DCACHE_LINE_SIZE
 config ICACHE_LINE_SIZE
 	default 32 if CPU_HAS_ICACHE
 
+config EDMA_NUM_INSTANCES
+	default 1
 
 endif # SOC_SERIES_AM261X

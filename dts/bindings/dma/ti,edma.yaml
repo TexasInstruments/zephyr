@@ -1,0 +1,85 @@
+# Copyright (c) 2025, Texas Instruments
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  TI EDMA controller
+
+  Supported Functions:
+    dma_configure()
+    dma_start()
+    dma_stop()
+    dma_release_channel()
+    dma_get_status()
+
+  Key assumptions/limitations:
+  - Channel number equals TCC number ( driver-internal assumption )
+  - Supports only M2M, P2M, and M2P transfer directions
+  - For M2M, Block size MUST be a multiple of data size (application must pad appropriately)
+  - For M2P/P2M, Block size MUST be a multiple of Burst Length (application must pad appropriately)
+  - This driver does NOT support chaining, linked transfers, or gather/scatter operations.
+
+compatible: "ti,edma"
+
+include: dma-controller.yaml
+
+properties:
+  reg:
+    required: true
+
+  interrupts:
+    required: true
+
+  dma-channels:
+    required: true
+
+  edma-params:
+    type: int
+    description: Number of PaRAM sets present in edma
+    required: true
+
+  edma-regions:
+    type: int
+    description: Number of Regions present in EDMA
+    required: true
+
+  edma-queues:
+    type: int
+    description: Number of Event Queues (TCs) present in edma
+    required: true
+
+  region-id:
+    type: int
+    description: Region ID for the EDMA controller
+        Driver checks if region-id is less than a maximum value of SOC_EDMA_NUM_REGIONS
+    required: true
+
+  queue-number:
+    type: int
+    description: Queue number for the EDMA controller.
+        Must be less than number of Transfer Controllers in EDMA hardware.
+    required: true
+
+  edma-resources:
+    type: array
+    description: |
+      Array of EDMA resources.
+      Each EDMA Resource is an array in following format:
+      <EDMA_RESOURCE_TYPE start_index end_index>
+
+      Where EDMA_RESOURCE_TYPE is an enumeration with the following values:
+      0: RESOURCE_TYPE_DMA_CHANNEL - DMA channel resource
+      1: RESOURCE_TYPE_PARAM - PaRAM set
+
+      Example: To set: Core_DMA channels from 0 to 20 AND 25 to 30, Param sets from 120 to 194,
+        DTS configuration:
+          edma-resources = <RESOURCE_TYPE_DMA_CHANNEL 0 20>, <RESOURCE_TYPE_DMA_CHANNEL 25 30>,
+          <RESOURCE_TYPE_PARAM 120 194>;
+      NOTE: The ranges used above are inclusive, boundary values are included
+    required: true
+
+  "#dma-cells":
+    const: 1
+    description: No specific input is needed from dts to use eDMA
+
+dma-cells:
+  - channel

@@ -8,6 +8,7 @@
 
 #include <ti/am26x/am261x_r5f0_1.dtsi>
 #include <zephyr/dt-bindings/pinctrl/ti-am26x-pinctrl.h>
+#include <zephyr/dt-bindings/dma/ti_edma.h>
 
 / {
 	model = "TI AM261X LP Development Board R5F0_1";
@@ -96,4 +97,13 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&user_button_pinctl>;
+};
+
+&edma0 {
+	status = "okay";
+	region-id = <1>;
+	queue-number = <0>;
+
+	edma-resources = <RESOURCE_TYPE_DMA_CHANNEL 32 63>,
+			<RESOURCE_TYPE_PARAM 128 255 >;
 };

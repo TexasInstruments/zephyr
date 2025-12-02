@@ -37,12 +37,6 @@
 		};
 	};
 
-	sram0: memory@70000000 {
-		compatible = "zephyr,memory-region";
-		reg = <0x70000000 DT_SIZE_K((1536))>;
-		zephyr,memory-region = "RAM";
-	};
-
 	soc {
 		#address-cells = <1>;
 		compatible = "simple-bus";

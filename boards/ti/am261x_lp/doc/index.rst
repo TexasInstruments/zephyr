@@ -90,7 +90,7 @@ eDMA has 2 components:
     - Channel Controller (CC) that handles submitting requests to Transfer Controller (TC).
     - Transfer Controller (TC) is a state machine that handles data movement within SoC.
 
-**NOTE: eDMA driver programs the Channel Controller (CC)**
+**> eDMA driver programs the Channel Controller (CC)**
 
 eDMA IP has 2 critical resources that must be split among CPUs:
     - Channels  ( eDMA has 64 channels ).
@@ -107,12 +107,12 @@ eDMA resource configuration instructions found in ti,edma.yaml file.
     - Each CPU should set region-id = CPU_number to ensure proper resource partitioning.
     - Queue-number refers to which Transfer Controller (TC) handles DMA transfer.
 
-**NOTE: Ensure that 2 cores do NOT have conflicting resources.**
+**> Ensure that 2 cores do NOT have conflicting resources.**
 
 Say both Core0 and Core1 are allocated DMA channels 0 to 20.
 It is possible at runtime for Core 0 to override Core 1's DMA channel configurations (and vice-versa).
 
-**NOTE: It's the application developer's responsibility to ensure resource partitioning using appropriate overlay-files.**
+**> It's the application developer's responsibility to ensure resource partitioning using appropriate overlay-files.**
 
 |
 

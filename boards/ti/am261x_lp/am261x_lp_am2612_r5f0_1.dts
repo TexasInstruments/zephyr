@@ -13,14 +13,13 @@
 	compatible = "ti,am261x-lp";
 
 	chosen {
-		zephyr,sram = &sram0;
-		zephyr,code-partition = &sram0;
+		zephyr,sram = &sram1;
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0;
 	};
 
 	aliases {
-		systick-timer = &rti0;
+		systick-timer = &rti1;
 		led0 = &led0;
 		sw0 = &user_button;
 	};
@@ -46,7 +45,7 @@
 	};
 };
 
-&rti0 {
+&rti1 {
 	status = "okay";
 };
 

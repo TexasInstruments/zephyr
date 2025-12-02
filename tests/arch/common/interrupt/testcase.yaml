@@ -4,7 +4,14 @@ common:
     - interrupt
 tests:
   arch.interrupt:
-    platform_exclude: qemu_cortex_m0
+    platform_exclude:
+      - qemu_cortex_m0
+      # Currently LPF3 devices are configured to tick rates higher than the
+      # test support
+      - lp_em_cc2340r5
+      - lp_em_cc2340r53
+      - lp_em_cc2745r10_q1/cc2745r10_q1
+      - lp_em_cc2745r10_q1/cc2755r10_q1
     filter: not CONFIG_TRUSTED_EXECUTION_NONSECURE
   arch.interrupt.qemu_cortex_m0:
     platform_allow: qemu_cortex_m0
@@ -13,7 +20,14 @@ tests:
       - CONFIG_QEMU_ICOUNT=y
   arch.interrupt.minimallibc:
     filter: not CONFIG_TRUSTED_EXECUTION_NONSECURE and CONFIG_MINIMAL_LIBC_SUPPORTED
-    platform_exclude: qemu_cortex_m0
+    platform_exclude:
+      - qemu_cortex_m0
+      # Currently LPF3 devices are configured to tick rates higher than the
+      # test support
+      - lp_em_cc2340r5
+      - lp_em_cc2340r53
+      - lp_em_cc2745r10_q1/cc2745r10_q1
+      - lp_em_cc2745r10_q1/cc2755r10_q1
     tags:
       - libc
     extra_configs:
@@ -41,6 +55,12 @@ tests:
       - cdns_swerv/s400/pmp/whisper
       - cdns_swerv/s420/whisper
       - cdns_swerv/s420/64/whisper
+      # Currently LPF3 devices are configured to tick rates higher than the
+      # test support
+      - lp_em_cc2340r5
+      - lp_em_cc2340r53
+      - lp_em_cc2745r10_q1/cc2745r10_q1
+      - lp_em_cc2745r10_q1/cc2755r10_q1
     arch_exclude:
       # test needs 2 working interrupt lines
       - xtensa
@@ -63,6 +83,12 @@ tests:
       - cdns_swerv/s400/pmp/whisper
       - cdns_swerv/s420/whisper
       - cdns_swerv/s420/64/whisper
+      # Currently LPF3 devices are configured to tick rates higher than the
+      # test support
+      - lp_em_cc2340r5
+      - lp_em_cc2340r53
+      - lp_em_cc2745r10_q1/cc2745r10_q1
+      - lp_em_cc2745r10_q1/cc2755r10_q1
     arch_exclude:
       # test needs 2 working interrupt lines
       - xtensa

@@ -1,0 +1,9 @@
+# Texas Instruments AM243x Launchpad
+#
+# Copyright (c) 2025 Siemens Mobility GmbH
+#
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_AM243X_LAUNCHPAD
+	select SOC_AM2434_R5F0_0 if BOARD_AM243X_LAUNCHPAD_AM2434_R5F0_0
+	select SOC_AM2434_R5F0_0_BOOT if BOARD_AM243X_LAUNCHPAD_AM2434_R5F0_0_BOOT

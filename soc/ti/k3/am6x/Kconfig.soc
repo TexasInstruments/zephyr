@@ -1,4 +1,5 @@
 # Copyright (c) 2023 Enphase Energy
+# Copyright (c) 2025 Siemens Mobility GmbH
 # SPDX-License-Identifier: Apache-2.0
 
 config SOC_SERIES_AM6X
@@ -55,9 +56,17 @@ config SOC_AM2434_M4
 	bool
 	select SOC_SERIES_AM6X_M4
 
-config SOC_AM2434_R5F0_0
+config SOC_AM2434_R5F
 	bool
 	select SOC_SERIES_AM6X_R5
+
+config SOC_AM2434_R5F0_0
+	bool
+	select SOC_AM2434_R5F
+
+config SOC_AM2434_R5F0_0_BOOT
+	bool
+	select SOC_AM2434_R5F
 
 config SOC_J721E_MAIN_R5F0_0
 	bool
@@ -91,8 +100,8 @@ config SOC_SERIES
 	default "am6x" if SOC_SERIES_AM6X
 
 config SOC
-	default "am2434" if SOC_AM2434_M4 || SOC_AM2434_R5F0_0
 	default "am6232" if SOC_AM6232_M4 || SOC_AM6232_A53
+	default "am2434" if SOC_AM2434_M4 || SOC_AM2434_R5F
 	default "am6234" if SOC_AM6234_M4 || SOC_AM6234_A53
 	default "am6254" if SOC_AM6254_M4 || SOC_AM6254_A53
 	default "am6442" if SOC_AM6442_M4

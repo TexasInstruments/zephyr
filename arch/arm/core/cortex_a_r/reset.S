@@ -2,6 +2,7 @@
  * Copyright (c) 2013-2014 Wind River Systems, Inc.
  * Copyright (c) 2019 Stephanos Ioannidis <root@stephanos.io>
  * Copyright 2024 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * Copyright (c) 2025 Siemens Mobility GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -49,6 +50,21 @@ GTEXT(soc_reset_hook)
  */
 SECTION_SUBSEC_FUNC(TEXT, _reset_section, z_arm_reset)
 SECTION_SUBSEC_FUNC(TEXT, _reset_section, __start)
+
+#if defined(CONFIG_CPU_USE_ONLY_ONE_CORE)
+    /* Load multiprocessor affinity and isolate last 8 bit */
+    mrc p15, 0, r0, c0, c0, 5
+    and r0, #0xff
+    cmp r0, #0
+    beq _continue_boot
+
+    _not_main_cpu_boot_loop:
+	wfi
+	b _not_main_cpu_boot_loop
+
+    _continue_boot:
+#endif
+
 #if defined(CONFIG_AARCH32_ARMV8_R)
     /* Check if we are starting in HYP mode */
     mrs r0, cpsr

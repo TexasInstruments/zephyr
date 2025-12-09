@@ -80,6 +80,8 @@
 	pinctrl-names = "default";
 	current-speed = <115200>;
 	status = "okay";
+	dmas = <&edma0 1>, <&edma0 2>;
+	dma-names = "tx", "rx";
 };
 
 &gpio0_bank_4_5 {

@@ -58,7 +58,7 @@
 			status = "disabled";
 			core-id = <0>;
 		};
-		
+
 		pinctrl: pinctrl@53100000 {
 			compatible = "ti,am26x-pinctrl";
 			reg = <0x53100000 0x2a0>;
@@ -288,12 +288,52 @@
 		};
 	};
 
+	mcspi0: spi@52200000 {
+		compatible = "ti,omap-mcspi";
+		reg = <0x52200000 DT_SIZE_K(1)>;
+		clock-frequency = <DT_FREQ_M(250)>;
+		ti,spi-num-cs = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	mcspi1: spi@52201000 {
+		compatible = "ti,omap-mcspi";
+		reg = <0x52201000 DT_SIZE_K(1)>;
+		clock-frequency = <DT_FREQ_M(250)>;
+		ti,spi-num-cs = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	mcspi2: spi@52202000 {
+		compatible = "ti,omap-mcspi";
+		reg = <0x52202000 DT_SIZE_K(1)>;
+		clock-frequency = <DT_FREQ_M(250)>;
+		ti,spi-num-cs = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
+	mcspi3: spi@52203000 {
+		compatible = "ti,omap-mcspi";
+		reg = <0x52203000 DT_SIZE_K(1)>;
+		clock-frequency = <DT_FREQ_M(250)>;
+		ti,spi-num-cs = <2>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
+
 	/* Define the shared memory region */
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		
+
 		/* Shared memory for RPMsg communication */
 		shared_memory: memory@72000000 {
 			reg = <0x72000000 DT_SIZE_K(16)>;

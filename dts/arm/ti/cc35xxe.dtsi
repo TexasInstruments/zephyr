@@ -202,6 +202,58 @@
 			status = "disabled";
 		};
 
+		timer0: gpt@41260000 {
+			compatible = "ti,cc35xx-lgpt";
+			reg = <0x41260000 0x8000>;
+			interrupts = <EXP_GPT0 0>;
+			clocks = <&gptimerclk>;
+			max-top-value = <0xFFFFFFFF>;
+			clk-prescale = <0xFF>;
+			status = "disabled";
+
+			pwm0: pwm0 {
+				compatible = "ti,cc35xx-lgpt-pwm";
+				#pwm-cells = <3>;
+				status = "disabled";
+			};
+			pwm1: pwm1 {
+				compatible = "ti,cc35xx-lgpt-pwm";
+				#pwm-cells = <3>;
+				status = "disabled";
+			};
+			pwm2: pwm2 {
+				compatible = "ti,cc35xx-lgpt-pwm";
+				#pwm-cells = <3>;
+				status = "disabled";
+			};
+		};
+
+		timer1: gpt@41268000 {
+			compatible = "ti,cc35xx-lgpt";
+			reg = <0x41268000 0x8000>;
+			interrupts = <EXP_GPT1 0>;
+			clocks = <&gptimerclk>;
+			max-top-value = <0xFFFFFFFF>;
+			clk-prescale = <0xFF>;
+			status = "disabled";
+
+			pwm3: pwm0 {
+				compatible = "ti,cc35xx-lgpt-pwm";
+				#pwm-cells = <3>;
+				status = "disabled";
+			};
+			pwm4: pwm1 {
+				compatible = "ti,cc35xx-lgpt-pwm";
+				#pwm-cells = <3>;
+				status = "disabled";
+			};
+			pwm5: pwm2 {
+				compatible = "ti,cc35xx-lgpt-pwm";
+				#pwm-cells = <3>;
+				status = "disabled";
+			};
+		};
+
 		dma: dma@41a00000 {
 			compatible = "ti,cc35xx-dma";
 			reg = <0x41a00000 0x10000>;

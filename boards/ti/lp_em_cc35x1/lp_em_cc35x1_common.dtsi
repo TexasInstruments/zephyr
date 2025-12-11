@@ -11,6 +11,7 @@
 #include <zephyr/dt-bindings/dma/ti-cc35xx-dma.h>
 #include "boosterpack_connector.dtsi"
 #include "lp_em_cc35x1-pinctrl.dtsi"
+#include <zephyr/dt-bindings/pwm/pwm.h>
 
 / {
 	model = "TI CC35X1E LaunchPad";
@@ -28,10 +29,6 @@
 
 	leds {
 		compatible = "gpio-leds";
-		green_led: green_led {
-			gpios = <&gpios 30 GPIO_ACTIVE_HIGH>;
-			label = "GREEN USER LED";
-		};
 		red_led: red_led {
 			gpios = <&gpios 34 GPIO_ACTIVE_HIGH>;
 			label = "RED USER LED";
@@ -39,6 +36,14 @@
 		blue_led: blue_led {
 			gpios = <&gpios 35 GPIO_ACTIVE_HIGH>;
 			label = "BLUE USER LED";
+		};
+	};
+
+	pwmleds {
+		compatible = "pwm-leds";
+		green_pwm: pwm_led_0 {
+			pwms = <&pwm4 1 1000 PWM_POLARITY_NORMAL>;
+			label = "Green PWM LED";
 		};
 	};
 
@@ -55,9 +60,9 @@
 	};
 
 	aliases {
-		led0 = &green_led;
 		led1 = &red_led;
 		led2 = &blue_led;
+		pwm-led0 = &green_pwm;
 		sw0 = &user_switch_1;
 		sw1 = &user_switch_2;
 		dma0 = &dma;
@@ -201,4 +206,15 @@
 	status = "okay";
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
+};
+
+&timer1 {
+	clk-prescale = <0x1>;
+	status = "okay";
+};
+
+&pwm4 {
+	pinctrl-0 = <&pwm4_default>;
+	pinctrl-names = "default";
+	status = "okay";
 };

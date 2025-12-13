@@ -40,6 +40,9 @@ config UART_NS16550
 config UART_NS16550_TI_K3
 	default y if SOC_SERIES_AM261X_R5F
 
+config SERIAL_SUPPORT_ASYNC
+	default y if SOC_SERIES_AM261X_R5F
+
 choice UART_NS16550_VARIANT
 	default UART_NS16550_VARIANT_NS16750
 endchoice
@@ -52,5 +55,7 @@ config DCACHE_LINE_SIZE
 config ICACHE_LINE_SIZE
 	default 32 if CPU_HAS_ICACHE
 
+config EDMA_NUM_INSTANCES
+	default 1
 
 endif # SOC_SERIES_AM261X

@@ -41,6 +41,10 @@
 #include <zephyr/drivers/serial/uart_ns16550.h>
 #include <zephyr/logging/log.h>
 
+#ifdef CONFIG_UART_NS16550_TI_K3
+#include <zephyr/drivers/serial/uart_ns16550_ti_k3.h>
+#endif
+
 LOG_MODULE_REGISTER(uart_ns16550, CONFIG_UART_LOG_LEVEL);
 
 #define UART_NS16550_PCP_ENABLED DT_ANY_INST_HAS_PROP_STATUS_OKAY(pcp)
@@ -430,6 +434,24 @@ static uint8_t ns16550_inbyte(const struct uart_ns16550_dev_config *cfg,
 	return 0;
 }
 
+__maybe_unused static inline uint32_t read_reg_fields(uint32_t addr, uint32_t mask, uint32_t shift)
+{
+	uint32_t regVal = *(volatile uint32_t *)((uintptr_t)addr);
+
+	regVal = (regVal & mask) >> shift;
+	return regVal;
+}
+
+__maybe_unused static void write_reg_fields(uint32_t data, uint32_t addr, uint32_t mask,
+					    uint32_t shift)
+{
+	uint32_t reg_val;
+
+	reg_val = sys_read32(addr);
+	reg_val = (reg_val & ~(mask)) | (data << shift);
+	sys_write32(reg_val, addr);
+}
+
 __maybe_unused
 static void ns16550_outword(const struct uart_ns16550_dev_config *cfg,
 			    uintptr_t port, uint32_t val)
@@ -565,6 +587,164 @@ static void set_baud_rate(const struct device *dev, uint32_t baud_rate, uint32_t
 		dev_data->uart_config.baudrate = baud_rate;
 	}
 }
+
+#ifdef CONFIG_UART_NS16550_TI_K3
+
+/* This function allows the UART to switch between 3 Register Access Modes */
+static uint32_t UART_regConfigModeEnable(uint32_t baseAddr, uint32_t modeFlag)
+{
+	uint32_t lcrRegValue;
+
+	/* Preserving the current value of LCR. */
+	lcrRegValue = sys_read32(baseAddr + UART_LCR);
+
+	switch (modeFlag) {
+	case UART_REG_CONFIG_MODE_A:
+	case UART_REG_CONFIG_MODE_B:
+		sys_write32(baseAddr + UART_LCR, modeFlag & 0xFFU);
+		break;
+
+	case UART_REG_OPERATIONAL_MODE:
+		sys_write32(baseAddr + UART_LCR, sys_read32(baseAddr + UART_LCR) & 0x7FU);
+		break;
+
+	default:
+		break;
+	}
+	return lcrRegValue;
+}
+
+/* Selects UART mode of Operation by writing to bits [2:0] of MDR1 register */
+static uint32_t UART_operatingModeSelect(uint32_t baseAddr, uint32_t modeFlag)
+{
+	uint32_t operMode;
+
+	operMode = sys_read32(baseAddr + UART_MDR1) & UART_MDR1_MODE_SELECT_MASK;
+	write_reg_fields(modeFlag, baseAddr + UART_MDR1, UART_MDR1_MODE_SELECT_MASK,
+			 UART_MDR1_MODE_SELECT_SHIFT);
+
+	return operMode;
+}
+
+/* Enables DMA FIFO for UART based on input fifoConfig */
+static void enable_dma_fifo(uint32_t baseAddr, uint32_t fifoConfig)
+{
+	uint32_t enhanFnBitVal, tcrTlrBitVal, tlrValue;
+	uint32_t fcrValue = 0U;
+	uint32_t lcrRegValue, tcrTlrValue, sleepMdBitVal, divRegVal, operMode;
+	uint32_t txGra = (fifoConfig & UART_FIFO_CONFIG_TXGRA_MASK) >> UART_FIFO_CONFIG_TXGRA_SHIFT;
+	uint32_t rxGra = (fifoConfig & UART_FIFO_CONFIG_RXGRA_MASK) >> UART_FIFO_CONFIG_RXGRA_SHIFT;
+	uint32_t txTrigLvl =
+		(fifoConfig & UART_FIFO_CONFIG_TXTRIG_MASK) >> UART_FIFO_CONFIG_TXTRIG_SHIFT;
+	uint32_t rxTrigLvl =
+		(fifoConfig & UART_FIFO_CONFIG_RXTRIG_MASK) >> UART_FIFO_CONFIG_RXTRIG_SHIFT;
+	uint32_t txClr = (fifoConfig & UART_FIFO_CONFIG_TXCLR_MASK) >> UART_FIFO_CONFIG_TXCLR_SHIFT;
+	uint32_t rxClr = (fifoConfig & UART_FIFO_CONFIG_RXCLR_MASK) >> UART_FIFO_CONFIG_RXCLR_SHIFT;
+	uint32_t dmaEnPath =
+		(fifoConfig & UART_FIFO_CONFIG_DMAENPATH_MASK) >> UART_FIFO_CONFIG_DMAENPATH_SHIFT;
+	uint32_t dmaMode =
+		(fifoConfig & UART_FIFO_CONFIG_DMAMODE_MASK) >> UART_FIFO_CONFIG_DMAMODE_SHIFT;
+
+	/* Enable FIFO */
+	fcrValue |= UART_FCR_FIFO_EN_MASK;
+
+	/* Setting the EFR[4] bit to 1. */
+	lcrRegValue = UART_regConfigModeEnable(baseAddr, UART_REG_CONFIG_MODE_B);
+
+	/* Collecting the current value of ENHANCEDEN bit of EFR. */
+	enhanFnBitVal = sys_read32(baseAddr + UART_EFR) & UART_EFR_ENHANCED_EN_MASK;
+
+	/* Setting the ENHANCEDEN bit in EFR register. */
+	write_reg_fields(1, baseAddr + UART_EFR, UART_EFR_ENHANCED_EN_MASK,
+			 UART_EFR_ENHANCED_EN_SHIFT);
+
+	/* Switching to Register Configuration Mode A. */
+	UART_regConfigModeEnable(baseAddr, UART_REG_CONFIG_MODE_A);
+
+	/* Collecting the bit value of MCR[6] & Enable TCR_TLR Subconfig mode */
+	tcrTlrValue = sys_read32(baseAddr + UART_MCR) & UART_MCR_TCR_TLR_MASK;
+
+	write_reg_fields(1, baseAddr + UART_MCR, UART_MCR_TCR_TLR_MASK, UART_MCR_TCR_TLR_SHIFT);
+
+	/* Switch to operational mode */
+	UART_regConfigModeEnable(baseAddr, UART_REG_OPERATIONAL_MODE);
+
+	rxTrigLvl &= UART_FIFO_CONFIG_TRIGLVL_MASK;
+	txTrigLvl &= UART_FIFO_CONFIG_TRIGLVL_MASK;
+
+	/* Collecting the bits rxTrigLvl[5:2] and txTrigLvl[5:2]. */
+	tlrValue = ((rxTrigLvl & UART_FIFO_CONFIG_TRIGLVL_SCR_MASK) >> 2) << 4 |
+		   ((txTrigLvl & UART_FIFO_CONFIG_TRIGLVL_SCR_MASK) >> 2);
+
+	/* Collecting the bits rxTrigLvl[1:0] and writing to 'fcrValue'. */
+	fcrValue |= (rxTrigLvl & UART_FIFO_CONFIG_TRIGLVL_FCR_MASK) << UART_FCR_RX_FIFO_TRIG_SHIFT;
+	/* Collecting the bits txTrigLvl[1:0] and writing to 'fcrValue'. */
+	fcrValue |= (txTrigLvl & UART_FIFO_CONFIG_TRIGLVL_FCR_MASK) << UART_FCR_TX_FIFO_TRIG_SHIFT;
+
+	/* Setting the RXTRIGGRANU1 bit of SCR register. */
+	write_reg_fields(1, baseAddr + UART_SCR, UART_SCR_RX_TRIG_GRANU1_MASK,
+			 UART_SCR_RX_TRIG_GRANU1_SHIFT);
+	/* Setting the TXTRIGGRANU1 bit of SCR register. */
+	write_reg_fields(1, baseAddr + UART_SCR, UART_SCR_TX_TRIG_GRANU1_MASK,
+			 UART_SCR_TX_TRIG_GRANU1_SHIFT);
+
+	/* Programming the TLR register. */
+	write_reg_fields(tlrValue, baseAddr + UART_TLR, 0xff, 0);
+
+	/* Configuring the UART DMA Mode through FCR register. */
+	write_reg_fields(0, baseAddr + UART_SCR, UART_SCR_DMA_MODE_CTL_MASK,
+			 UART_SCR_DMA_MODE_CTL_SHIFT);
+
+	dmaMode &= 0x1U;
+	/* Clearing the bit corresponding to the DMA_MODE in 'fcrValue'. */
+	fcrValue &= ~((uint32_t)UART_FCR_DMA_MODE_MASK);
+	/* Setting the DMA Mode of operation. */
+	fcrValue |= dmaMode << UART_FCR_DMA_MODE_SHIFT;
+
+	/* Write to FIFO register */
+	sleepMdBitVal = read_reg_fields(baseAddr + UART_IER, UART_IER_SLEEP_MODE_MASK,
+					UART_IER_SLEEP_MODE_SHIFT);
+	write_reg_fields(0, baseAddr + UART_IER, UART_IER_SLEEP_MODE_MASK,
+			 UART_IER_SLEEP_MODE_SHIFT);
+
+	UART_regConfigModeEnable(baseAddr, UART_REG_CONFIG_MODE_B);
+
+	divRegVal = sys_read32(baseAddr + UART_DLL) & UART_DLL_CLOCK_LSB_MASK;
+	divRegVal |= (sys_read32(baseAddr + UART_DLH) & UART_DLH_CLOCK_MSB_MASK) << 8;
+
+	operMode = UART_operatingModeSelect(baseAddr,
+					    (uint32_t)MDR1_DISABLE); /* Disable UART temporarily */
+
+	sys_write32(baseAddr + UART_DLL, 0);
+	sys_write32(baseAddr + UART_DLH, 0);
+
+	/* Write to FCR */
+	sys_write32(baseAddr + UART_FCR, fcrValue);
+
+	sys_write32(baseAddr + UART_DLL, (divRegVal & UART_DLL_CLOCK_LSB_MASK));
+	sys_write32(baseAddr + UART_DLH, ((divRegVal >> 8) & UART_DLH_CLOCK_MSB_MASK));
+
+	/* Restoring the Operating Mode of UART. */
+	(void)UART_operatingModeSelect(baseAddr, operMode);
+
+	UART_regConfigModeEnable(baseAddr, UART_REG_OPERATIONAL_MODE);
+	write_reg_fields(sleepMdBitVal, baseAddr + UART_IER, UART_IER_SLEEP_MODE_MASK,
+			 UART_IER_SLEEP_MODE_SHIFT);
+
+	/* Restoring the value of TCRTLR bit in MCR. */
+	UART_regConfigModeEnable(baseAddr, UART_REG_CONFIG_MODE_A);
+	write_reg_fields(tcrTlrBitVal, baseAddr + UART_MCR, UART_MCR_TCR_TLR_MASK,
+			 UART_MCR_TCR_TLR_SHIFT);
+
+	/* Restoring the value of EFR[4] to the original value. */
+	UART_regConfigModeEnable(baseAddr, UART_REG_CONFIG_MODE_B);
+	write_reg_fields(enhanFnBitVal, baseAddr + UART_EFR, UART_EFR_ENHANCED_EN_MASK,
+			 UART_EFR_ENHANCED_EN_SHIFT);
+
+	/* Restore original Operating Mode */
+	sys_write32(baseAddr + UART_LCR, lcrRegValue);
+}
+#endif /* CONFIG_UART_NS16550_TI_K3 */
 
 static int uart_ns16550_configure(const struct device *dev,
 				  const struct uart_config *cfg)
@@ -726,6 +906,14 @@ static int uart_ns16550_configure(const struct device *dev,
 	/* disable interrupts  */
 	ns16550_outbyte(dev_cfg, IER(dev), 0x00);
 	ret = 0;
+
+#ifdef CONFIG_UART_NS16550_TI_K3
+	uint32_t fifo_config =
+		UART_FIFO_CONFIG(UART_TRIG_LVL_GRANULARITY_1, UART_TRIG_LVL_GRANULARITY_1, 1U, 1U,
+				 1U, 1U, UART_DMA_EN_PATH_FCR, UART_DMA_MODE_1_ENABLE);
+
+	enable_dma_fifo(DEVICE_MMIO_GET(dev), fifo_config);
+#endif
 
 out:
 	k_spin_unlock(&dev_data->lock, key);
@@ -1707,7 +1895,13 @@ static int uart_ns16550_rx_enable(const struct device *dev, uint8_t *buf, const 
 #else
 	ns16550_outbyte(config, IER(dev),
 			(ns16550_inbyte(config, IER(dev)) | IER_RXRDY));
+
+#ifdef CONFIG_UART_NS16550_TI_K3
+	ns16550_outbyte(config, FCR(dev), FCR_FIFO | 0x08);
+#else
 	ns16550_outbyte(config, FCR(dev), FCR_FIFO);
+#endif
+
 #endif
 	prepare_rx_dma_block_config(dev);
 	dma_config(rx_dma_params->dma_dev,

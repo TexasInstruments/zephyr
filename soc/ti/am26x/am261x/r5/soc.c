@@ -11,6 +11,8 @@
 #include "soc.h"
 
 #include <common/ctrl_partitions.h>
+#include <common/clocks_configs.h>
+#include <common/xbar_configs.h>
 
 unsigned int z_soc_irq_get_active(void)
 {
@@ -65,4 +67,8 @@ void soc_early_init_hook(void)
 {
 	cache_init();
 	am26x_unlock_all_ctrl_partitions();
+	configure_soc_clocks();
+#ifdef CONFIG_DMA
+	configure_dma_xbars();
+#endif /* COMFIG_DMA */
 }

@@ -10,6 +10,7 @@
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/dma/ti-cc35xx-dma.h>
+#include <zephyr/dt-bindings/i2s/ti-cc35xx-i2s.h>
 #include "boosterpack_connector.dtsi"
 #include "lp_em_cc35x1-pinctrl.dtsi"
 #include <zephyr/dt-bindings/pwm/pwm.h>
@@ -267,4 +268,13 @@
 
 &crypto {
 	status = "okay";
+};
+
+&i2s0 {
+	status = "okay";
+	pinctrl-0 = <&i2s_default>;
+	pinctrl-names = "default";
+	clock-source = <TI_CC35XX_I2S_CLK_SRC_SOC_PLL_CLK>;
+	pin-dir-sd0 = <TI_CC35XX_I2S_PIN_DIR_OUTPUT>;
+	pin-dir-sd1 = <TI_CC35XX_I2S_PIN_DIR_INPUT>;
 };

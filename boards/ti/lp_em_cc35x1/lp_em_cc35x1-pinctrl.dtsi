@@ -79,4 +79,13 @@
 			pinmux = <P10_I2C1_DATA>, <P11_I2C1_CLK>;
 		};
 	};
+
+	i2s_default: i2s_default {
+		group1 {
+			pinmux = <(TI_CC35XX_PINCTRL_DIR_IN | P29_I2S_BCLK)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P26_I2S_WCLK)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P30_I2S_DATA0)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P35_I2S_DATA1)>;
+		};
+	};
 };

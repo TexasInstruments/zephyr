@@ -48,3 +48,8 @@ CONFIG_PWM_CC35XX_TIMER=y
 
 CONFIG_WATCHDOG=y
 CONFIG_WDT_SHELL=y
+
+# There's a pin conflict between SPI and I2S so they cannot both
+# be enabled at the same time.
+CONFIG_I2S=n
+CONFIG_I2S_TI_CC35XX=n

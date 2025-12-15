@@ -12,6 +12,7 @@ supported:
   - counter
   - entropy
   - gpio
+  - i2s
   - pinctrl
   - pwm
   - rtc

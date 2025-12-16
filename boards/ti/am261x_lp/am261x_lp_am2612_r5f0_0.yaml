@@ -4,5 +4,11 @@ type: mcu
 arch: arm
 toolchain:
   - zephyr
+supported:
+  - gpio
+  - timer
+  - uart
+  - dma
+  - mbox
 ram: 1536
 vendor: ti

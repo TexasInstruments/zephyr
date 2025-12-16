@@ -30,6 +30,36 @@
 	};
 };
 
+&uart0 {
+	dmas = <&edma0 1>, <&edma0 2>;
+	dma-names = "tx", "rx";
+};
+
+&uart1 {
+	dmas = <&edma0 3>, <&edma0 4>;
+	dma-names = "tx", "rx";
+};
+
+&uart2 {
+	dmas = <&edma0 5>, <&edma0 6>;
+	dma-names = "tx", "rx";
+};
+
+&uart3 {
+	dmas = <&edma0 7>, <&edma0 8>;
+	dma-names = "tx", "rx";
+};
+
+&uart4 {
+	dmas = <&edma0 9>, <&edma0 10>;
+	dma-names = "tx", "rx";
+};
+
+&uart5 {
+	dmas = <&edma0 11>, <&edma0 12>;
+	dma-names = "tx", "rx";
+};
+
 &mailbox0 {
 	core-id = <0>;
 };

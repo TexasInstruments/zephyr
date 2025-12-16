@@ -28,9 +28,38 @@
 
     soc {
         /delete-node/ gpio0;
-
     };
-};  
+};
+
+&uart0 {
+	dmas = <&edma0 33>, <&edma0 34>;
+	dma-names = "tx", "rx";
+};
+
+&uart1 {
+	dmas = <&edma0 35>, <&edma0 36>;
+	dma-names = "tx", "rx";
+};
+
+&uart2 {
+	dmas = <&edma0 37>, <&edma0 38>;
+	dma-names = "tx", "rx";
+};
+
+&uart3 {
+	dmas = <&edma0 39>, <&edma0 40>;
+	dma-names = "tx", "rx";
+};
+
+&uart4 {
+	dmas = <&edma0 41>, <&edma0 42>;
+	dma-names = "tx", "rx";
+};
+
+&uart5 {
+	dmas = <&edma0 43>, <&edma0 44>;
+	dma-names = "tx", "rx";
+};
 
 &mailbox0 {
 	core-id = <1>;

@@ -12,6 +12,7 @@
 #define INT_SP_UART_1_INT_REQ                        17
 #define INT_SP_SPI_0_EVT_REQ                         20
 #define INT_SP_SPI_1_EVT_REQ                         21
+#define INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT          41
 /*
  * Note: Zephyr uses exception numbers, vs the IRQ used by the CC32XX SDK
  * which are offset by 16:
@@ -20,6 +21,7 @@
 #define EXP_UARTA1 (INT_SP_UART_1_INT_REQ - 16)
 #define EXP_SPI0   (INT_SP_SPI_0_EVT_REQ - 16)
 #define EXP_SPI1   (INT_SP_SPI_1_EVT_REQ - 16)
+#define EXP_DMA_NS (INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT - 16)
 
 / {
 	cpus {
@@ -175,7 +177,9 @@
 		dma: dma@41a00000 {
 			compatible = "ti,cc35xx-dma";
 			reg = <0x41a00000 0x10000>;
-			#dma-cells = <1>;
+			interrupts = <EXP_DMA_NS 0>;
+			dma-channels = <14>;
+			#dma-cells = <2>;
 			status = "disabled";
 		};
 

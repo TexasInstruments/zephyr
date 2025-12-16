@@ -60,6 +60,7 @@
 		led2 = &blue_led;
 		sw0 = &user_switch_1;
 		sw1 = &user_switch_2;
+		dma0 = &dma;
 	};
 };
 
@@ -175,14 +176,10 @@
 	status = "okay";
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-names = "default";
-	dmas = <&dma 2>, <&dma 3>;
-	dma-names = "tx", "rx";
 };
 
 &uart1 {
 	status = "okay";
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
-	dmas = <&dma 0>, <&dma 1>;
-	dma-names = "tx", "rx";
 };

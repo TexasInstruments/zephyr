@@ -10,6 +10,7 @@ mode selection and supports connection of up to two BoosterPack™ plug-in modul
 
 See the `TI AM261x Product Page`_ for details.
 
+|
 
 Hardware
 *********
@@ -28,12 +29,14 @@ Hardware
 
 Details present in `AM261x Sitara™ Microcontrollers datasheet (Rev. C)`_
 
+|
 
 Supported Features
 ==================
 
 .. zephyr:board-supported-hw::
 
+|
 
 System Clock
 ============
@@ -50,6 +53,8 @@ Refer to table 13-304 in TRM for list of clock sources and frequencies.
 NOTE that RTI timer driver halves input frequency by default.
 Thus, an input of 250 MHz to RTI would become 125 MHz.
 
+|
+
 Serial Port
 ===========
 
@@ -59,6 +64,92 @@ UART 0 is configured as UART for the console.
 
 Default connection settings are Baud Rate of 115200, no parity,
 Data Size of 8, 1 Stop Bit.
+
+|
+
+McSPI
+=====
+
+The AM261x SoC has 4 McSPI interfaces.
+
+In AM261x, each McSPI supports up to 2 CS lines.
+
+However, the McSPI driver currently supports only single-channel transfer per McSPI interface.
+
+|
+
+Data Movement Architecture
+**************************
+
+AM261x SoC uses eDMA IP for Data Movement.
+
+About eDMA:
+===========
+
+eDMA has 2 components:
+    - Channel Controller (CC) that handles submitting requests to Transfer Controller (TC).
+    - Transfer Controller (TC) is a state machine that handles data movement within SoC.
+
+**NOTE: eDMA driver programs the Channel Controller (CC)**
+
+eDMA IP has 2 critical resources that must be split among CPUs:
+    - Channels  ( eDMA has 64 channels ).
+        This refers to the data path within IP responsible for transferring data.
+    - PaRAM sets ( eDMA has 256 PaRAM sets )
+        Each PaRAM set refers to a portion of memory that contains DMA transfer configurations.
+
+|
+
+Configuration:
+==============
+eDMA resource configuration instructions found in ti,edma.yaml file.
+    - Each CPU should configure the eDMA resources it needs in overlay files.
+    - Each CPU should set region-id = CPU_number to ensure proper resource partitioning.
+    - Queue-number refers to which Transfer Controller (TC) handles DMA transfer.
+
+**NOTE: Ensure that 2 cores do NOT have conflicting resources.**
+
+Say both Core0 and Core1 are allocated DMA channels 0 to 20.
+It is possible at runtime for Core 0 to override Core 1's DMA channel configurations (and vice-versa).
+
+**NOTE: It's the application developer's responsibility to ensure resource partitioning using appropriate overlay-files.**
+
+|
+
+Default Resource Partitioning:
+==============================
+
+AM261x SoC has partitioned eDMA resources equally among the 2 CPUs:
+
++--------------+--------+---------+
+|              | R5F0_0 |  R5F0_1 |
++==============+========+=========+
+| Channels     |  0-31  |  32-63  |
++--------------+--------+---------+
+| PaRAM sets   |  0-127 | 128-255 |
++--------------+--------+---------+
+
+|
+
+Some IPs also have DMA channels configured by default:
+
++----------+--------------+--------------+
+|          |    R5F0_0    |    R5F0_1    |
++==========+==============+==============+
+| UART0    | Tx: 1  Rx: 2 | Tx: 33 Rx: 34|
++----------+--------------+--------------+
+| UART1    | Tx: 3  Rx: 4 | Tx: 35 Rx: 36|
++----------+--------------+--------------+
+| UART2    | Tx: 5  Rx: 6 | Tx: 37 Rx: 38|
++----------+--------------+--------------+
+| UART3    | Tx: 7  Rx: 8 | Tx: 39 Rx: 40|
++----------+--------------+--------------+
+| UART4    | Tx: 9  Rx:10 | Tx: 41 Rx: 42|
++----------+--------------+--------------+
+| UART5    | Tx:11  Rx:12 | Tx: 43 Rx: 44|
++----------+--------------+--------------+
+
+|
 
 Flashing
 ********
@@ -98,6 +189,7 @@ To flash the SBL into the board, follow the below process:
 
 You are ready to flash your zephyr binary using debugging tools.
 
+|
 
 Debugging
 *********
@@ -117,6 +209,8 @@ Debugging with CCS can be done as follows:
     Load the .elf file (zephyr binary)
 
 *   Enjoy debugging!
+
+|
 
 References
 **********
@@ -152,6 +246,8 @@ References
 
 .. _TI AM261x Product Page:
     https://www.ti.com/tool/LP-AM261
+
+|
 
 License
 *******

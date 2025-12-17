@@ -35,4 +35,20 @@ void configure_soc_clocks(void)
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(uart5), okay)
 	sys_write32(0x777, CSL_MSS_RCM_LIN5_UART5_CLK_SRC_SEL);
 #endif
+
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(mcspi0), okay)
+	sys_write32(0x333, CSL_MSS_RCM_MCSPI0_CLK_SRC_SEL);
+#endif
+
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(mcspi1), okay)
+	sys_write32(0x333, CSL_MSS_RCM_MCSPI1_CLK_SRC_SEL);
+#endif
+
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(mcspi2), okay)
+	sys_write32(0x333, CSL_MSS_RCM_MCSPI2_CLK_SRC_SEL);
+#endif
+
+#if DT_NODE_HAS_STATUS(DT_NODELABEL(mcspi3), okay)
+	sys_write32(0x333, CSL_MSS_RCM_MCSPI3_CLK_SRC_SEL);
+#endif
 }

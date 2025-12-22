@@ -10,6 +10,7 @@ config SOC_SERIES_AM261X_R5F
 	select CPU_CORTEX_R5
 	select CPU_HAS_ICACHE
 	select CPU_HAS_DCACHE
+	select CPU_HAS_FPU
 	select CPU_HAS_ARM_MPU
 	select DMA
 	select FPU
@@ -22,9 +23,3 @@ config SOC_SERIES_AM261X_R5F
 
 config SOC_PART_NUMBER
 	default "AM2612" if SOC_AM261X_R5F0_0 || SOC_AM261X_R5F0_1
-
-config CORTEX_R_BOOT_ADDRESS
-	hex "Cortex-R Boot Address"
-	default 0x0
-	help
-	  This option specifies the boot address for the Cortex-R core

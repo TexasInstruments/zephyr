@@ -4,8 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/dts-v1/;
-
 #include <ti/am26x/am261x_r5f0_0.dtsi>
 #include <zephyr/dt-bindings/pinctrl/ti-am26x-pinctrl.h>
 #include <zephyr/dt-bindings/dma/ti_edma.h>
@@ -29,6 +27,7 @@
 
 	leds {
 		compatible = "gpio-leds";
+
 		led0: led_0 {
 			/* gpio 84 is in bank 5, so 20th pin in the bank4-5 set */
 			gpios = <&gpio0_bank_4_5 20 1>;
@@ -38,10 +37,11 @@
 
 	buttons {
 		compatible = "gpio-keys";
+
 		user_button: button_0 {
-				/* Replace with the correct GPIO pin for your button */
-				gpios = <&gpio0_bank_6_7 28 1>;
-				label = "User Button";
+			/* Replace with the correct GPIO pin for your button */
+			gpios = <&gpio0_bank_6_7 28 1>;
+			label = "User Button";
 		};
 	};
 };
@@ -77,24 +77,26 @@
 		pinmux = <TI_AM26X_PINMUX(PIN_GPIO(129),
 			(PIN_MODE(0) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW | PIN_GPIO_R5SS0_0))>;
 	};
+
 	spi2_d0: spi2_d0 {
 		pinmux = <TI_AM26X_PINMUX(PIN_GPIO(130),
 			(PIN_MODE(0) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW | PIN_GPIO_R5SS0_0))>;
 	};
+
 	spi2_d1: spi2_d1 {
 		pinmux = <TI_AM26X_PINMUX(PIN_GPIO(128),
 			(PIN_MODE(0) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW | PIN_GPIO_R5SS0_0))>;
 	};
+
 	spi2_cs0: spi2_cs0 {
 		pinmux = <TI_AM26X_PINMUX(PIN_GPIO(138),
 			(PIN_MODE(4) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW | PIN_GPIO_R5SS0_0))>;
 	};
+
 	spi2_cs1: spi2_cs1 {
 		pinmux = <TI_AM26X_PINMUX(PIN_GPIO(126),
 			(PIN_MODE(2) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW | PIN_GPIO_R5SS0_0))>;
 	};
-
-
 };
 
 &uart0 {
@@ -107,6 +109,7 @@
 
 &gpio0_bank_4_5 {
 	status = "okay";
+
 	mux-hog {
 		gpio-hog;
 		gpios = <20 1>;
@@ -126,7 +129,6 @@
 	status = "okay";
 	region-id = <0>;
 	queue-number = <0>;
-
 	edma-resources = <RESOURCE_TYPE_DMA_CHANNEL 0 31>,
 			<RESOURCE_TYPE_PARAM 0 127 >;
 };

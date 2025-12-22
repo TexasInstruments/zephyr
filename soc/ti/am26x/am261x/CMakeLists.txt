@@ -6,7 +6,7 @@
 
 zephyr_include_directories(.)
 
-if( CONFIG_SOC_SERIES_AM261X_R5F )
+if(CONFIG_SOC_SERIES_AM261X_R5F)
   zephyr_sources(r5/soc.c)
 
   zephyr_include_directories(r5)

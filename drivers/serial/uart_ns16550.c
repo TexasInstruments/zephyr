@@ -629,19 +629,13 @@ static uint32_t UART_operatingModeSelect(uint32_t baseAddr, uint32_t modeFlag)
 /* Enables DMA FIFO for UART based on input fifoConfig */
 static void enable_dma_fifo(uint32_t baseAddr, uint32_t fifoConfig)
 {
-	uint32_t enhanFnBitVal, tcrTlrBitVal, tlrValue;
+	uint32_t enhanFnBitVal, tlrValue;
 	uint32_t fcrValue = 0U;
 	uint32_t lcrRegValue, tcrTlrValue, sleepMdBitVal, divRegVal, operMode;
-	uint32_t txGra = (fifoConfig & UART_FIFO_CONFIG_TXGRA_MASK) >> UART_FIFO_CONFIG_TXGRA_SHIFT;
-	uint32_t rxGra = (fifoConfig & UART_FIFO_CONFIG_RXGRA_MASK) >> UART_FIFO_CONFIG_RXGRA_SHIFT;
 	uint32_t txTrigLvl =
 		(fifoConfig & UART_FIFO_CONFIG_TXTRIG_MASK) >> UART_FIFO_CONFIG_TXTRIG_SHIFT;
 	uint32_t rxTrigLvl =
 		(fifoConfig & UART_FIFO_CONFIG_RXTRIG_MASK) >> UART_FIFO_CONFIG_RXTRIG_SHIFT;
-	uint32_t txClr = (fifoConfig & UART_FIFO_CONFIG_TXCLR_MASK) >> UART_FIFO_CONFIG_TXCLR_SHIFT;
-	uint32_t rxClr = (fifoConfig & UART_FIFO_CONFIG_RXCLR_MASK) >> UART_FIFO_CONFIG_RXCLR_SHIFT;
-	uint32_t dmaEnPath =
-		(fifoConfig & UART_FIFO_CONFIG_DMAENPATH_MASK) >> UART_FIFO_CONFIG_DMAENPATH_SHIFT;
 	uint32_t dmaMode =
 		(fifoConfig & UART_FIFO_CONFIG_DMAMODE_MASK) >> UART_FIFO_CONFIG_DMAMODE_SHIFT;
 
@@ -733,7 +727,7 @@ static void enable_dma_fifo(uint32_t baseAddr, uint32_t fifoConfig)
 
 	/* Restoring the value of TCRTLR bit in MCR. */
 	UART_regConfigModeEnable(baseAddr, UART_REG_CONFIG_MODE_A);
-	write_reg_fields(tcrTlrBitVal, baseAddr + UART_MCR, UART_MCR_TCR_TLR_MASK,
+	write_reg_fields(tcrTlrValue, baseAddr + UART_MCR, UART_MCR_TCR_TLR_MASK,
 			 UART_MCR_TCR_TLR_SHIFT);
 
 	/* Restoring the value of EFR[4] to the original value. */

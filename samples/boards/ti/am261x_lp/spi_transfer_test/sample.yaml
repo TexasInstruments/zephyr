@@ -1,0 +1,16 @@
+sample:
+  name: SPI Transfer Test
+
+tests:
+  sample.boards.ti.am261x_lp.spi_transfer_test:
+    tags:
+      - sample
+      - spi
+      - dma
+      - tests
+    filter: CONFIG_CACHE_MANAGEMENT and CONFIG_SPI_DMA and dt_alias_exists("spi-dut")
+    harness: console
+    harness_config:
+      type: one_line
+      regex:
+        - "RESULT: ALL TESTS PASSED"

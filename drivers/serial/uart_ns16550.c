@@ -1811,6 +1811,10 @@ static int uart_ns16550_tx(const struct device *dev, const uint8_t *buf, size_t 
 	tx_params->active_dma_block.block_size = len;
 	tx_params->active_dma_block.next_block = NULL;
 
+#ifdef CONFIG_UART_NS16550_TI_EDMA
+	tx_params->dma_cfg.dma_slot = 1;
+#endif /* CONFIG_UART_NS16550_TI_EDMA */
+
 	ret = dma_config(tx_params->dma_dev,
 			 tx_params->dma_channel,
 			 (struct dma_config *)&tx_params->dma_cfg);

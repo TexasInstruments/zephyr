@@ -34,6 +34,10 @@ struct EDMA_ISR_Data {
 struct EDMA_Channel {
 	enum dma_channel_direction chan_dir;
 	struct EDMA_ISR_Data isr_data;
+	uint8_t dma_slot;
 };
 
-#endif /* __TI_EDMA_HEADERS__ */
+/* These macros are bitfields for the DMA Slot  */
+#define DMA_M2P_KICKSTART_TRANSFER BIT(0)
+
+#endif  /* __TI_EDMA_HEADERS__ */

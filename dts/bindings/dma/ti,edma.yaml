@@ -18,6 +18,9 @@ description: |
   - For M2P/P2M, Block size MUST be a multiple of Burst Length (application must pad appropriately)
   - This driver does NOT support chaining, linked transfers, or gather/scatter operations.
 
+  DMA Slot options:
+    - Bit 0 is set to 1 to enable Manual Transfer at start of M2P
+
 compatible: "ti,edma"
 
 include: dma-controller.yaml

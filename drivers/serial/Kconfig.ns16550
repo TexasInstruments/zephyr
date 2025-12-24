@@ -77,6 +77,14 @@ config UART_NS16550_TI_K3
 	  Texas Instruments K3 SoCs by enabling a vendor specific extended register
 	  set.
 
+config UART_NS16550_TI_EDMA
+	bool "TI EDMA support for NS16550"
+	default n
+	depends on UART_ASYNC_API
+	depends on DMA
+	help
+	  This enables support for TI EDMA for Async operations.
+
 config UART_NS16550_DW8250_DW_APB
 	bool "Synopsys DesignWare 8250"
 	help

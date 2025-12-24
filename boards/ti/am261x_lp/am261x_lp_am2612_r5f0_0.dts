@@ -136,5 +136,4 @@
 &mcspi2 {
 	pinctrl-0 = <&spi2_clk &spi2_cs0 &spi2_d0 &spi2_d1>;
 	pinctrl-names = "default";
-	status = "okay";
 };

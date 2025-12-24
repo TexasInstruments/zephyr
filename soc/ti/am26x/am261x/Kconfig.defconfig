@@ -43,6 +43,11 @@ config UART_NS16550_TI_EDMA
 
 endif # SERIAL
 
+if SPI
+	config SPI_ASYNC
+		default y if SOC_SERIES_AM261X_R5F
+endif # SPI
+
 config DCACHE_LINE_SIZE
 	default 32 if CPU_HAS_DCACHE
 

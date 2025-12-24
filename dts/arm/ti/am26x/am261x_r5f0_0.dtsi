@@ -64,3 +64,23 @@
 	core-id = <0>;
 };
 
+/* NOTE: Only Channel 0 of McSPI currently supports DMA */
+&mcspi0 {
+	dmas = <&edma0 13>, <&edma0 14>;
+	dma-names = "tx", "rx";
+};
+
+&mcspi1 {
+	dmas = <&edma0 15>, <&edma0 16>;
+	dma-names = "tx", "rx";
+};
+
+&mcspi2 {
+	dmas = <&edma0 17>, <&edma0 18>;
+	dma-names = "tx", "rx";
+};
+
+&mcspi3 {
+	dmas = <&edma0 19>, <&edma0 20>;
+	dma-names = "tx", "rx";
+};

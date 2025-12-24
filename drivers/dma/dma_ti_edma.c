@@ -53,7 +53,7 @@ static int ti_edma_init(const struct device *dev);
 static int ti_edma_configure(const struct device *dev, uint32_t channel, struct dma_config *config);
 static int ti_edma_start(const struct device *dev, uint32_t channel);
 static int ti_edma_get_status(const struct device *dev, uint32_t channel,
-			       struct dma_status *status);
+			      struct dma_status *status);
 static int ti_edma_stop(const struct device *dev, uint32_t channel);
 /* All static functions have been defined */
 
@@ -381,7 +381,8 @@ static int edma_resource_validate_and_alloc(const struct device *dev, int idx)
 	enum EDMA_Resource_Type resource_type = dev_config->edma_resources[idx];
 	uint16_t start_index = dev_config->edma_resources[idx + 1];
 	uint16_t end_index = dev_config->edma_resources[idx + 2];
-	EDMA_ResourceObject *ownResource = (EDMA_ResourceObject *)&(dev_config->gEdmaAttrs.initPrms.ownResource);
+	EDMA_ResourceObject *ownResource =
+		(EDMA_ResourceObject *)&(dev_config->gEdmaAttrs.initPrms.ownResource);
 
 	switch (resource_type) {
 
@@ -553,12 +554,14 @@ static int ti_edma_configure(const struct device *dev, uint32_t channel, struct 
 	regionId = EDMA_getRegionId(edma_handle);
 	dmaCh = tcc = channel;
 
+	dev_data->channel_data[channel].dma_slot = config->dma_slot;
 	/* If channel is already configured, deconfigure first */
 	if (atomic_test_bit(dev_data->dma_ctx.atomic, channel)) {
 		LOG_DBG("Deconfiguring and re-configuring channel %d of %s\n", channel, dev->name);
 
 		testStatus = ti_edma_deconfigure(dev, channel);
-		if (testStatus) { /* If dealloc failed */
+		if (testStatus) {
+			/* If dealloc failed */
 			LOG_ERR("Failed to deconfigure channel %d of %s\n", channel, dev->name);
 			return testStatus;
 		}
@@ -668,7 +671,12 @@ static int ti_edma_start(const struct device *dev, uint32_t channel)
 		EDMA_clrIntrRegion(baseAddr, regionId, channel);
 
 		EDMA_enableTransferRegion(baseAddr, regionId, channel, EDMA_TRIG_MODE_EVENT);
-		EDMA_enableTransferRegion(baseAddr, regionId, channel, EDMA_TRIG_MODE_MANUAL);
+		/* Do a manual transfer if configured */
+		if (FIELD_GET(DMA_M2P_KICKSTART_TRANSFER,
+			      dev_data->channel_data[channel].dma_slot) == 1) {
+			EDMA_enableTransferRegion(baseAddr, regionId, channel,
+						  EDMA_TRIG_MODE_MANUAL);
+		}
 		break;
 
 	default:
@@ -679,8 +687,7 @@ static int ti_edma_start(const struct device *dev, uint32_t channel)
 	return 0;
 }
 
-static int ti_edma_get_status(const struct device *dev, uint32_t channel,
-			       struct dma_status *status)
+static int ti_edma_get_status(const struct device *dev, uint32_t channel, struct dma_status *status)
 {
 
 	struct ti_edma_data *dev_data = dev->data;
@@ -726,7 +733,7 @@ static int ti_edma_get_status(const struct device *dev, uint32_t channel,
 	status->total_copied = 0;
 	status->write_position = 0;
 	status->read_position = 0;
-	
+
 	return 0;
 }
 
@@ -846,7 +853,7 @@ static DEVICE_API(dma, ti_edma_driver_api) = {
 					},                                                         \
 			},                                                                         \
 		.max_num_params = DT_INST_PROP(inst, edma_params),                                 \
-		.edma_resources = (uint16_t *)&edma_resources_##inst,                                          \
+		.edma_resources = (uint16_t *)&edma_resources_##inst,                              \
 		.num_edma_resources = NUM_EDMA_RESOURCES(inst),                                    \
 		.register_isr = &ti_edma_register_isr_##inst,                                      \
 	};                                                                                         \

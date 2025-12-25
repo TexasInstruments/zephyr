@@ -21,7 +21,7 @@ struct ti_edma_config {
 	uint16_t num_edma_resources;
 
 	EDMA_Params gEdmaParams; /* Performing static allocation of this array */
-	EDMA_Attrs gEdmaAttrs;   /* Stores eDMA configuration info */
+	EDMA_Attrs gEdmaAttrs; /* Stores eDMA configuration info */
 
 	void (*register_isr)();
 };
@@ -47,11 +47,12 @@ static void EDMA_dummyIsrFxn(void *args);
 static void ti_edma_resource_alloc(uint32_t *arr, uint32_t len, uint32_t start_index,
 				   uint32_t end_index);
 static int edma_resource_validate_and_alloc(const struct device *dev, int idx);
+static void ti_edma_chan_release(const struct device *dev, uint32_t channel);
 static int ti_edma_deconfigure(const struct device *dev, uint32_t channel);
 static int ti_edma_init(const struct device *dev);
 static int ti_edma_configure(const struct device *dev, uint32_t channel, struct dma_config *config);
 static int ti_edma_start(const struct device *dev, uint32_t channel);
-static void ti_edma_get_status(const struct device *dev, uint32_t channel,
+static int ti_edma_get_status(const struct device *dev, uint32_t channel,
 			       struct dma_status *status);
 static int ti_edma_stop(const struct device *dev, uint32_t channel);
 /* All static functions have been defined */
@@ -96,16 +97,13 @@ static int populate_PARAM_set(const struct device *dev, uint32_t channel, struct
 			      struct dma_block_config *block, EDMACCPaRAMEntry *edmaParam)
 {
 
-	const struct ti_edma_config *dev_config = dev->config;
 	struct ti_edma_data *dev_data = dev->data;
-	EDMA_Handle edma_handle = dev_data->gEdmaHandle;
 
 	edmaParam->srcAddr = (uint32_t)block->source_address;
 	edmaParam->destAddr = (uint32_t)block->dest_address;
 
 	uint32_t tcc = channel;
 	uint16_t EDMA_A_COUNT, EDMA_B_COUNT, EDMA_C_COUNT;
-	uint32_t opt_flags = 0;
 
 	switch (config->channel_direction) {
 	case MEMORY_TO_MEMORY:
@@ -130,7 +128,6 @@ static int populate_PARAM_set(const struct device *dev, uint32_t channel, struct
 		}
 
 		dev_data->channel_data[channel].chan_dir = MEMORY_TO_MEMORY;
-		uint32_t transfer_memory_size = block->block_size;
 
 		EDMA_A_COUNT = config->source_data_size;
 		EDMA_B_COUNT = (uint16_t)(block->block_size / EDMA_A_COUNT);
@@ -384,7 +381,7 @@ static int edma_resource_validate_and_alloc(const struct device *dev, int idx)
 	enum EDMA_Resource_Type resource_type = dev_config->edma_resources[idx];
 	uint16_t start_index = dev_config->edma_resources[idx + 1];
 	uint16_t end_index = dev_config->edma_resources[idx + 2];
-	EDMA_ResourceObject *ownResource = &(dev_config->gEdmaAttrs.initPrms.ownResource);
+	EDMA_ResourceObject *ownResource = (EDMA_ResourceObject *)&(dev_config->gEdmaAttrs.initPrms.ownResource);
 
 	switch (resource_type) {
 
@@ -396,14 +393,14 @@ static int edma_resource_validate_and_alloc(const struct device *dev, int idx)
 			return -EINVAL; /* Invalid range */
 		}
 
-		ti_edma_resource_alloc(&(ownResource->dmaCh),
+		ti_edma_resource_alloc((uint32_t *)&(ownResource->dmaCh),
 				       (dev_data->dma_ctx.dma_channels % 32 == 0)
 					       ? (dev_data->dma_ctx.dma_channels / 32U)
 					       : (dev_data->dma_ctx.dma_channels / 32U) + 1,
 				       start_index, end_index);
 
 		/* NOTE: Assuming TCC number = Dma Channel number */
-		ti_edma_resource_alloc(&(ownResource->tcc),
+		ti_edma_resource_alloc((uint32_t *)&(ownResource->tcc),
 				       (dev_data->dma_ctx.dma_channels % 32 == 0)
 					       ? (dev_data->dma_ctx.dma_channels / 32U)
 					       : (dev_data->dma_ctx.dma_channels / 32U) + 1,
@@ -419,7 +416,7 @@ static int edma_resource_validate_and_alloc(const struct device *dev, int idx)
 			return -EINVAL; /* Invalid range */
 		}
 
-		ti_edma_resource_alloc(&(ownResource->paramSet),
+		ti_edma_resource_alloc((uint32_t *)&(ownResource->paramSet),
 				       (dev_config->max_num_params % 32 == 0)
 					       ? (dev_config->max_num_params / 32U)
 					       : (dev_config->max_num_params / 32U) + 1,
@@ -495,16 +492,21 @@ static int ti_edma_deconfigure(const struct device *dev, uint32_t channel)
 	return 0;
 }
 
+static void ti_edma_chan_release(const struct device *dev, uint32_t channel)
+{
+	(void)ti_edma_deconfigure(dev, channel);
+}
+
 static int ti_edma_init(const struct device *dev)
 {
 
-	struct ti_edma_config *dev_config = dev->config;
+	const struct ti_edma_config *dev_config = dev->config;
 	struct ti_edma_data *dev_data = dev->data;
 
 	uint8_t instNum = dev_data->instNum;
 
-	gEdmaConfig[instNum].attrs = &(dev_config->gEdmaAttrs);
-	gEdmaConfig[instNum].object = &(dev_data->gEdmaObject);
+	gEdmaConfig[instNum].attrs = (EDMA_Attrs *)&(dev_config->gEdmaAttrs);
+	gEdmaConfig[instNum].object = (EDMA_Object *)&(dev_data->gEdmaObject);
 
 	for (int idx = 0; idx < dev_config->num_edma_resources; idx += 3) {
 		edma_resource_validate_and_alloc(dev, idx);
@@ -611,7 +613,7 @@ static int ti_edma_configure(const struct device *dev, uint32_t channel, struct 
 
 		isr_data->cb = config->dma_callback;
 		isr_data->args = config->user_data;
-		isr_data->dev = dev;
+		isr_data->dev = (struct device *)dev;
 		isr_data->channel = channel;
 
 		EDMA_enableEvtIntrRegion(baseAddr, dev_config->gEdmaAttrs.initPrms.regionId,
@@ -677,7 +679,7 @@ static int ti_edma_start(const struct device *dev, uint32_t channel)
 	return 0;
 }
 
-static void ti_edma_get_status(const struct device *dev, uint32_t channel,
+static int ti_edma_get_status(const struct device *dev, uint32_t channel,
 			       struct dma_status *status)
 {
 
@@ -724,6 +726,8 @@ static void ti_edma_get_status(const struct device *dev, uint32_t channel,
 	status->total_copied = 0;
 	status->write_position = 0;
 	status->read_position = 0;
+	
+	return 0;
 }
 
 static int ti_edma_stop(const struct device *dev, uint32_t channel)
@@ -767,9 +771,6 @@ static int ti_edma_stop(const struct device *dev, uint32_t channel)
 	EDMA_clrEvtRegion(baseAddr, regionId, channel);
 	EDMA_clrIntrRegion(baseAddr, regionId, channel);
 
-	/* Clear any error status */
-	uint32_t queNum = gEdmaConfig[dev_data->instNum].attrs->initPrms.queNum;
-
 	LOG_DBG("Stopped DMA transfer on channel %d", channel);
 	return 0;
 }
@@ -777,7 +778,7 @@ static int ti_edma_stop(const struct device *dev, uint32_t channel)
 static DEVICE_API(dma, ti_edma_driver_api) = {
 	.config = ti_edma_configure,
 	.start = ti_edma_start,
-	.chan_release = ti_edma_deconfigure,
+	.chan_release = ti_edma_chan_release,
 	.get_status = ti_edma_get_status,
 	.stop = ti_edma_stop,
 };
@@ -845,7 +846,7 @@ static DEVICE_API(dma, ti_edma_driver_api) = {
 					},                                                         \
 			},                                                                         \
 		.max_num_params = DT_INST_PROP(inst, edma_params),                                 \
-		.edma_resources = &edma_resources_##inst,                                          \
+		.edma_resources = (uint16_t *)&edma_resources_##inst,                                          \
 		.num_edma_resources = NUM_EDMA_RESOURCES(inst),                                    \
 		.register_isr = &ti_edma_register_isr_##inst,                                      \
 	};                                                                                         \

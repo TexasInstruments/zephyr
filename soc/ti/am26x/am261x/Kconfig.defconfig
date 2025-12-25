@@ -38,6 +38,9 @@ choice UART_NS16550_VARIANT
 	default UART_NS16550_VARIANT_NS16750
 endchoice
 
+config UART_NS16550_TI_EDMA
+	default y if SOC_SERIES_AM261X_R5F
+
 endif # SERIAL
 
 config DCACHE_LINE_SIZE

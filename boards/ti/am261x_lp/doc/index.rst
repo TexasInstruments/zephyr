@@ -151,6 +151,173 @@ Some IPs also have DMA channels configured by default:
 
 |
 
+IPC RPMSG TI - MCU_PLUS_SDK and Zephyr Interoperability
+*******************************************************
+
+AM261x SoC supports IPC RPMSG communication between MCU-PLUS SDK and Zephyr OS. Important points to note,
+
+ * Zephyr Should always act as Host while MCU-PLUS SDK acts as Remote.
+ * Zephyr uses OpenAMP framework for IPC RPMSG communication, whereas MCU_PLUS_SDK uses custom RPMSG implementation.
+ * Ensure that both Zephyr and MCU-PLUS SDK use same RPMSG configuration (shared memory address, size, vring size etc.) for successful communication.
+
+.. note::
+
+    - The tx and rx base address for the VRINGS should match on both sides for successful communication.
+    - Consider a breakpoint at the `open` function in the zephyr ipc rpmsg static vrings backend driver (`subsys/ipc/ipc_service/backends/ipc_rpmsg_static_vrings.c`) to ensure that the vring base addresses match on both sides.
+
+        - This can be viewed at `data->vr->tx_addr and data->vr->rx_addr`.
+        - This rx and tx addresses should match the tx and rx base addresses in the ti_drivers_config.c file in the MCU-PLUS-SDK application, respectively.
+
+.. note::
+
+    1. The MCU_PLUS_SDK is designed to work RPMSG communication between peers and as remote core to a linux host. Therefore, some modifications are needed to make it work with Zephyr as host.
+    2. The following patch needs to be applied on the MCU-PLUS-SDK to make it interoperable with Zephyr as host and build the libs.
+
+        .. code-block:: diff
+
+            diff --git a/source/drivers/ipc_rpmsg.h b/source/drivers/ipc_rpmsg.h
+            index de3d9e66112..99fa9cef235 100755
+            --- a/source/drivers/ipc_rpmsg.h
+            +++ b/source/drivers/ipc_rpmsg.h
+            @@ -225,6 +225,7 @@ typedef struct
+                                                                * is specified in the resource table
+                                                                */
+                uint16_t linuxCoreId; /** ID of linux core */
+            +    uint16_t hostCoreId; /** ID of host core */
+                uint8_t  isCrcEnabled; /* CRC Enable/Disable flag */
+                RPMessage_CrcHookFxn crcHookFxn; /* Hook Function to be provided by application for CRC calculation */
+            } RPMessage_Params;
+            diff --git a/source/drivers/ipc_rpmsg/ipc_rpmsg.c b/source/drivers/ipc_rpmsg/ipc_rpmsg.c
+            index 697cd9a6f88..2df6683ad69 100755
+            --- a/source/drivers/ipc_rpmsg/ipc_rpmsg.c
+            +++ b/source/drivers/ipc_rpmsg/ipc_rpmsg.c
+            @@ -608,6 +608,18 @@ uint32_t RPMessage_isLinuxCore(uint16_t coreId)
+                return isLinuxCore;
+            }
+
+            +uint32_t RPMessage_isHostCore(uint16_t coreId)
+            +{
+            +    uint32_t isHostCore = 0;
+            +
+            +    if((coreId == gIpcRpmsgCtrl.hostCoreId) || RPMessage_isLinuxCore(coreId))
+            +    {
+            +        isHostCore = 1;
+            +    }
+            +
+            +    return isHostCore;
+            +}
+            +
+            int32_t  RPMessage_waitForLinuxReady(uint32_t timeout)
+            {
+                int32_t status = SystemP_FAILURE;
+            diff --git a/source/drivers/ipc_rpmsg/ipc_rpmsg_priv.h b/source/drivers/ipc_rpmsg/ipc_rpmsg_priv.h
+            index c20951d2a13..474ed520222 100755
+            --- a/source/drivers/ipc_rpmsg/ipc_rpmsg_priv.h
+            +++ b/source/drivers/ipc_rpmsg/ipc_rpmsg_priv.h
+            @@ -250,6 +250,7 @@ typedef struct
+                void  *controlEndPtCallbackArgs; /* user callback args for control message */
+                const RPMessage_ResourceTable *linuxResourceTable; /* resource table used with linux */
+                uint16_t linuxCoreId; /* Core ID of core running linux */
+            +    uint16_t hostCoreId;  /* Core ID of host core, if any */
+                uint8_t  isCrcEnabled; /* CRC Enable/Disable flag */
+                RPMessage_CrcHookFxn crcHookFxn; /* Hook Function provided by application for CRC calculation. */
+            } IpcRpmsg_Ctrl;
+            @@ -273,6 +274,7 @@ static inline void IpcRpMsg_dataAndInstructionBarrier(void)
+
+            /* utility function to find if core ID runs linux */
+            uint32_t RPMessage_isLinuxCore(uint16_t coreId);
+            +uint32_t RPMessage_isHostCore(uint16_t coreId);
+
+            /* functions for VRING TX handling and initialization */
+            void     RPMessage_vringCheckEmptyTxBuf(uint16_t remoteCoreId);
+            diff --git a/source/drivers/ipc_rpmsg/ipc_rpmsg_vring.c b/source/drivers/ipc_rpmsg/ipc_rpmsg_vring.c
+            index 0aac2ffa630..c6dc7e3d069 100644
+            --- a/source/drivers/ipc_rpmsg/ipc_rpmsg_vring.c
+            +++ b/source/drivers/ipc_rpmsg/ipc_rpmsg_vring.c
+            @@ -106,7 +106,7 @@ int32_t RPMessage_vringPutFullTxBuf(uint16_t remoteCoreId, uint16_t vringBufId,
+                int32_t status = SystemP_FAILURE;
+                uint32_t elapsedTicks, startTicks;
+
+            -    if(RPMessage_isLinuxCore(remoteCoreId) != 0U)
+            +    if(RPMessage_isHostCore(remoteCoreId) != 0U)
+                {
+                    /* for linux we need to send the TX VRING ID in the mailbox message */
+                    txMsgValue = RPMESSAGE_LINUX_TX_VRING_ID;
+            @@ -187,7 +187,7 @@ int32_t RPMessage_vringGetFullRxBuf(uint16_t remoteCoreId, uint16_t *vringBufId)
+
+                oldIntState = HwiP_disable();
+
+            -    if(RPMessage_isLinuxCore(remoteCoreId) != 0U)
+            +    if(RPMessage_isHostCore(remoteCoreId) != 0U)
+                {
+                    /* There's nothing available */
+                    if (vringObj->lastAvailIdx != vringObj->avail->idx)
+            @@ -230,7 +230,7 @@ void RPMessage_vringPutEmptyRxBuf(uint16_t remoteCoreId, uint16_t vringBufId)
+
+                oldIntState = HwiP_disable();
+
+            -    if(RPMessage_isLinuxCore(remoteCoreId) != 0U)
+            +    if(RPMessage_isHostCore(remoteCoreId) != 0U)
+                {
+                    struct vring_used_elem *used;
+
+            @@ -278,7 +278,7 @@ uint32_t RPMessage_vringIsFullRxBuf(uint16_t remoteCoreId)
+
+                oldIntState = HwiP_disable();
+
+            -    if(RPMessage_isLinuxCore(remoteCoreId) != 0U)
+            +    if(RPMessage_isHostCore(remoteCoreId) != 0U)
+                {
+                    if (vringObj->lastAvailIdx == vringObj->avail->idx)
+                    {
+            @@ -413,7 +413,8 @@ void RPMessage_vringReset(uint16_t remoteCoreId, uint16_t isTx, const RPMessage_
+                */
+                offset_desc  = 0;
+                offset_avail = offset_desc  + (sizeof(struct vring_desc) * numBuf);
+            -    offset_used  = offset_avail + RPMessage_align( (sizeof(uint16_t) * (uint32_t)(2U + (uint32_t)numBuf)), align);
+            +    /* changes to match the OpenAMP implementation in Zephyr */
+            +    offset_used  = offset_avail + RPMessage_align( (sizeof(uint16_t) * (uint32_t)(3U + (uint32_t)numBuf)), align);
+                offset_buf   = offset_used  + RPMessage_align( (sizeof(uint16_t) * 2U) + (sizeof(struct vring_used_elem) * (uint32_t)numBuf), align);
+
+                RPMessage_vringResetInternal(vringObj,
+
+    3. Add a hostCoreId field in RPMessage_Params structure to specify the host core ID in the ti_drivers_config.c file. like the following
+
+        .. code-block:: C
+
+                /* IPC RPMessage */
+                {
+                    RPMessage_Params rpmsgParams;
+                    int32_t status;
+                    /* initialize parameters to default */
+                    RPMessage_Params_init(&rpmsgParams);
+
+                    /*---------Changes begin---------*/
+                    /* Adding the hostCoreID for the core that runs Zephyr */
+                    rpmsgParams.hostCoreId = CSL_CORE_ID_R5FSS0_0;  // -> Adding the hostCoreID for the core that runs Zephyr
+                    /* Matching the tx and rx Base Address from the Zephyr */
+                    /* TX VRINGs */
+                    rpmsgParams.vringTxBaseAddr[CSL_CORE_ID_R5FSS0_0] = (uintptr_t)(0x720020E4);
+                    /* RX VRINGs */
+                    rpmsgParams.vringRxBaseAddr[CSL_CORE_ID_R5FSS0_0] = (uintptr_t)(0x72002004);
+                    /*---------Changes End---------*/
+
+                    /* Other VRING properties */
+                    rpmsgParams.vringSize = IPC_RPMESSAGE_VRING_SIZE;
+                    rpmsgParams.vringNumBuf = IPC_RPMESSAGE_NUM_VRING_BUF;
+                    rpmsgParams.vringMsgSize = IPC_RPMESSAGE_MAX_VRING_BUF_SIZE;
+                    rpmsgParams.isCrcEnabled = 0;
+
+                    /* initialize the IPC RP Message module */
+                    status = RPMessage_init(&rpmsgParams);
+                    DebugP_assert(status==SystemP_SUCCESS);
+                }
+
+    4. Use the RPMessage_announce function to notify Zephyr OS that the remote core is ready for communication over the announced service name.
+    5. Since Zephyr's mbox driver doesn't support the ipc-notify, the sync-all API from SDK should not be used and Application needs to create a custom handshake for this implementation.
+
+|
+
 Flashing
 ********
 

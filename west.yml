@@ -44,7 +44,7 @@ manifest:
         - babblesim
     - name: asm-hal_ti
       remote: downstream
-      revision: v4.2.0-ti-11.00.01
+      revision: v4.2.0-ti-11.00.02
       path: modules/hal/ti
       groups:
         - hal

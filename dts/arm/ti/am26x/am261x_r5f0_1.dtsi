@@ -26,9 +26,17 @@
 		zephyr,memory-region = "BTCM";
 	};
 
-    soc {
-        /delete-node/ gpio0;
-    };
+	soc {
+		/delete-node/ gpio0;
+
+		ipc0: ipc {
+			compatible = "zephyr,ipc-openamp-static-vrings";
+			memory-region = <&rpmsg_shm>;
+			mboxes = <&mailbox0 2>, <&mailbox0 1>;
+			mbox-names = "tx", "rx";
+			status = "disabled";
+		};
+	};
 };
 
 &uart0 {

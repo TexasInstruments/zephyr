@@ -27,6 +27,14 @@
 
     soc {
         /delete-node/ gpio1;
+
+		ipc0: ipc {
+			compatible = "zephyr,ipc-openamp-static-vrings";
+			memory-region = <&rpmsg_shm>;
+			mboxes = <&mailbox0 1>, <&mailbox0 2>;
+			mbox-names = "tx", "rx";
+			status = "disabled";
+		};
 	};
 };
 

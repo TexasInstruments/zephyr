@@ -60,6 +60,24 @@
 			core-id = <0>;
 		};
 
+		/* Define shared memory region - must match TI SDK configuration */
+		rpmsg_shm: memory@72000000 {
+			compatible = "mmio-sram";
+			reg = <0x72000000 0x3E80>; /* Match the TI SDK RTOS_NORTOS_IPC_SHM_MEM */
+		};
+
+		sram0: memory@70000000 {
+			compatible = "zephyr,memory-region", "mmio-sram";
+			reg = <0x70000000 DT_SIZE_K(2*(512))>;
+			zephyr,memory-region = "SRAM01";
+		};
+		
+		sram1: memory@70100000 {
+			compatible = "zephyr,memory-region", "mmio-sram";
+			reg = <0x70100000 DT_SIZE_K((512))>;
+			zephyr,memory-region = "SRAM2";
+		};
+
 		pinctrl: pinctrl@53100000 {
 			compatible = "ti,am26x-pinctrl";
 			reg = <0x53100000 0x2a0>;

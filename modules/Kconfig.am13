@@ -1,0 +1,2 @@
+config HAS_AM13X_MCU_SDK
+	bool

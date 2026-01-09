@@ -1,0 +1,6 @@
+family:
+- name: ti_am13
+  series:
+  - name: am13e
+    socs:
+    - name: am13e230x

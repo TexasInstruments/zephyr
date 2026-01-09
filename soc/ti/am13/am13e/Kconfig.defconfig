@@ -1,0 +1,15 @@
+# Texas Instruments AM13E MCU Series
+#
+# Copyright (c) 2026 Texas Instruments Incorporated
+#
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_SERIES_AM13E
+
+config NUM_IRQS
+	default 48
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 200000000
+
+endif # SOC_SERIES_AM13E

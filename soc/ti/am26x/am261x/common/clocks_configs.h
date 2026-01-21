@@ -8,6 +8,7 @@
 #define __AM26X_CLOCKS_ENABLEMENT_H_
 
 #include <drivers/hw_include/am261x/cslr_mss_rcm.h>
+#include <drivers/hw_include/am261x/cslr_soc_baseaddress.h>
 
 void configure_soc_clocks(void);
 

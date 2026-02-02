@@ -9,16 +9,15 @@
         /* Define shared memory region for RPMsg */
         zephyr,ipc_shm = &rpmsg_shm;
         zephyr,ipc = &ipc0;
-    };
-
-    /* IPC (mailbox) configuration for RPMsg */
-    ipc0: ipc {
-        role = "remote";
-        status = "okay";
-    };
+    };    
 };
 
 /* Enable mailbox used for notifications */
 &mailbox0 {
+    status = "okay";
+};
+
+&ipc0 {
+    role = "remote";
     status = "okay";
 };

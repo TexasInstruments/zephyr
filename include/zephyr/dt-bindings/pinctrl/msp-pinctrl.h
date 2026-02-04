@@ -26,10 +26,28 @@
 #define MSP_PIN_FUNCTION_13     (0x0000000D)
 #define MSP_PIN_FUNCTION_14     (0x0000000E)
 #define MSP_PIN_FUNCTION_15     (0x0000000F)
+#define MSP_PIN_FUNCTION_16     (0x00000010)
 
 /* Creates a concatenation of the correct pin function based on the pin control
  * management register offset and the function suffix.
  */
 #define MSP_PINMUX(pincm, function) (((pincm - 1) << 0x10) | function)
+
+/*
+ * Helper to enable a pin function on AM13E
+ *
+ * Arguments:
+ * - port = 0,1,2 or 3 (corresponding to A,B,C,D)
+ * - pin = pin number from 0 to 31 (can vary, check Datasheet)
+ * - function = pin function from 0 to 16 (can vary, check Datasheet)
+ *
+ * Example: enabling function 8 of PB4:
+ * TI_AM13E_PINMUX(1, 4, 8)
+ *
+ * This only sets the pin function. For setting characteristics like
+ * pull up/down, see the "ti,msp-pinctrl" compatible.
+ */
+#define TI_AM13E_PIN(port, pin)              ((port * 32) + pin)
+#define TI_AM13E_PINMUX(port, pin, function) ((TI_AM13E_PIN(port, pin) << 0x10) | function)
 
 #endif /* _MSP_DT_BINDINGS_PINCTRL_H_ */

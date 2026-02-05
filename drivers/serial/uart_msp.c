@@ -97,6 +97,8 @@ static int uart_msp_init(const struct device *dev)
 
 #elif defined(CONFIG_SOC_SERIES_AM13E)
 	clock_rate = CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC / 2; /* UNICOMM gets MCLK / 2 */
+
+	DL_UART_setRXFIFOThreshold(config->regs, DL_UART_RX_FIFO_LEVEL_NOT_EMPTY);
 #endif
 
 	DL_UART_setOversampling(config->regs, config->oversampling_rate);

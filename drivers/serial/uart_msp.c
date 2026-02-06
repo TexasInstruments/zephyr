@@ -11,14 +11,16 @@
 /* Zephyr includes */
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/clock_control.h>
+#if defined(CONFIG_SOC_FAMILY_MSPM0) || defined(CONFIG_SOC_FAMILY_MSPM33)
 #include <zephyr/drivers/clock_control/msp_clock_control.h>
+#endif
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/irq.h>
 
 /* Driverlib includes */
 #ifdef CONFIG_HAS_MSP_UNICOMM
-#include <ti/driverlib/dl_unicommuart.h>
+#include <dl_unicommuart.h>
 #else
 #include <ti/driverlib/dl_uart_main.h>
 #endif
@@ -30,7 +32,9 @@ struct uart_msp_config {
 	UART_Regs *regs;
 #endif
 	uint32_t current_speed;
+#ifndef CONFIG_SOC_SERIES_AM13E
 	const struct msp_sys_clock *clock_subsys;
+#endif
 	const struct pinctrl_dev_config *pinctrl;
 	DL_UART_OVERSAMPLING_RATE oversampling_rate;
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
@@ -57,14 +61,18 @@ static int uart_msp_init(const struct device *dev)
 {
 	const struct uart_msp_config *config = dev->config;
 	struct uart_msp_data *data = dev->data;
+#ifndef CONFIG_SOC_SERIES_AM13E
 	const struct device *clk_dev = DEVICE_DT_GET(DT_NODELABEL(ckm));
+#endif
 	uint32_t clock_rate;
 	int ret;
 
 	/* Reset power */
 	DL_UART_Main_reset(config->regs);
 	DL_UART_Main_enablePower(config->regs);
+#if defined(CONFIG_SOC_FAMILY_MSPM0) || defined(CONFIG_SOC_FAMILY_MSPM33)
 	delay_cycles(CONFIG_MSPM0_PERIPH_STARTUP_DELAY);
+#endif
 
 	/* Init UART pins */
 	ret = pinctrl_apply_state(config->pinctrl, PINCTRL_STATE_DEFAULT);
@@ -76,12 +84,13 @@ static int uart_msp_init(const struct device *dev)
 	DL_UART_Main_setClockConfig(config->regs, &data->uart_clockconfig);
 	DL_UART_Main_init(config->regs, &data->uart_config);
 
+#if defined(CONFIG_SOC_FAMILY_MSPM0) || defined(CONFIG_SOC_FAMILY_MSPM33)
 	/*
 	 * Configure baud rate by setting oversampling and baud rate divisor
 	 * from the device tree data current-speed
 	 */
 	ret = clock_control_get_rate(clk_dev, (struct msp_sys_clock *)config->clock_subsys,
-				     &clock_rate);
+					 &clock_rate);
 	if (ret < 0) {
 		return ret;
 	}
@@ -169,9 +178,9 @@ static int uart_msp_irq_tx_ready(const struct device *dev)
 	struct uart_msp_data *data = dev->data;
 
 	return (data->pending_interrupt & (DL_UART_MAIN_IIDX_TX | DL_UART_MAIN_IIDX_EOT_DONE)) &&
-			       !DL_UART_Main_isTXFIFOFull(config->regs)
-		       ? 1
-		       : 0;
+				   !DL_UART_Main_isTXFIFOFull(config->regs)
+			   ? 1
+			   : 0;
 }
 
 static void uart_msp_irq_rx_enable(const struct device *dev)
@@ -201,9 +210,9 @@ static int uart_msp_irq_rx_ready(const struct device *dev)
 	struct uart_msp_data *data = dev->data;
 
 	return (data->pending_interrupt & DL_UART_MAIN_IIDX_RX) &&
-			       !DL_UART_Main_isRXFIFOEmpty(config->regs)
-		       ? 1
-		       : 0;
+				   !DL_UART_Main_isRXFIFOEmpty(config->regs)
+			   ? 1
+			   : 0;
 }
 
 static int uart_msp_irq_is_pending(const struct device *dev)
@@ -224,7 +233,7 @@ static int uart_msp_irq_update(const struct device *dev)
 }
 
 static void uart_msp_irq_callback_set(const struct device *dev, uart_irq_callback_user_data_t cb,
-				      void *cb_data)
+					  void *cb_data)
 {
 	struct uart_msp_data *const dev_data = dev->data;
 
@@ -297,7 +306,7 @@ static DEVICE_API(uart, uart_msp_driver_api) = {
 	static void uart_msp_##inst##_irq_register(const struct device *dev)                       \
 	{                                                                                          \
 		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority), uart_msp_isr,         \
-			    DEVICE_DT_INST_GET(inst), 0);                                          \
+				DEVICE_DT_INST_GET(inst), 0);                                          \
 		irq_enable(DT_INST_IRQN(inst));                                                    \
 	}
 #else
@@ -306,57 +315,72 @@ static DEVICE_API(uart, uart_msp_driver_api) = {
 
 #define MSP_MAIN_CLK_DIV(n) CONCAT(DL_UART_MAIN_CLOCK_DIVIDE_RATIO_, DT_INST_PROP(n, clk_div))
 
-#define MSP_UART_INIT_FN(index)                                                                    \
-                                                                                                   \
-	PINCTRL_DT_INST_DEFINE(index);                                                             \
-                                                                                                   \
-	static const struct msp_sys_clock msp_uart_sys_clock##index = MSP_CLOCK_SUBSYS_FN(index);  \
-                                                                                                   \
-	MSP_UART_IRQ_DEFINE(index);                                                                \
-                                                                                                   \
+#define MSP_UART_INIT_FN(index)                                                                       \
+																									  \
+	PINCTRL_DT_INST_DEFINE(index);                                                                \
+																									  \
+	IF_DISABLED(CONFIG_SOC_SERIES_AM13E, (															\
+		static const struct msp_sys_clock msp_uart_sys_clock##index = MSP_CLOCK_SUBSYS_FN(index);	\
+	))                                        \
+																									  \
+	MSP_UART_IRQ_DEFINE(index);                                                                   \
+																									  \
 	IF_ENABLED(CONFIG_HAS_MSP_UNICOMM, 							   \
 	(static UNICOMM_Inst_Regs uart_msp_uc_regs_##index = {				   \
+		IF_DISABLED(CONFIG_SOC_SERIES_AM13E, (									   \
 		.inst =  (UNICOMM_Regs *)DT_INST_REG_ADDR(index), 				   \
 		.uart = (UNICOMMUART_Regs *)UC_UART_BASE(DT_INST_REG_ADDR(index)),		   \
+		))																		   \
 		.fixedMode = DT_CHILD_NUM(DT_PARENT(DT_DRV_INST(index))) == 1,								   \
+		IF_ENABLED(CONFIG_SOC_SERIES_AM13E, (									   \
+		.inst = (UNICOMM_Regs *)DT_REG_ADDR(DT_PARENT(DT_DRV_INST(index))),	   \
+		.uart = (UNICOMMUART_Regs *)DT_INST_REG_ADDR(index),					   \
+		))																		   \
 	};) 											   \
-	)                                             \
-                                                                                                   \
-	static const struct uart_msp_config uart_msp_cfg_##index = {                               \
+	)                                                \
+																									  \
+	static const struct uart_msp_config uart_msp_cfg_##index = {                                  \
 		.regs = COND_CODE_1(CONFIG_HAS_MSP_UNICOMM, 					   \
-			(&uart_msp_uc_regs_##index), ((UART_Regs *)DT_INST_REG_ADDR(index))),        \
-			 .current_speed = DT_INST_PROP(index, current_speed),                      \
-			 .pinctrl = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                         \
-			 .clock_subsys = &msp_uart_sys_clock##index,                               \
-			 .oversampling_rate = (DT_INST_PROP(index, oversampling_rate) == 3) ?      \
-				DL_UART_OVERSAMPLING_RATE_3X :                                      \
-				(DT_INST_PROP(index, oversampling_rate) == 8) ?                     \
-				DL_UART_OVERSAMPLING_RATE_8X : DL_UART_OVERSAMPLING_RATE_16X,       \
-			 IF_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN,			   	   \
-			   (.irq_config_func = uart_msp_##index##_irq_register,)) };        \
-                                                                                                   \
-	static struct uart_msp_data uart_msp_data_##index = {                                      \
-		.uart_clockconfig =                                                                \
-			{                                                                          \
+			(&uart_msp_uc_regs_##index), ((UART_Regs *)DT_INST_REG_ADDR(index))),           \
+			 .current_speed = DT_INST_PROP(index, current_speed),                         \
+			 .pinctrl = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                            \
+			 IF_DISABLED(CONFIG_SOC_SERIES_AM13E,                                       \
+				(.clock_subsys = &msp_uart_sys_clock##index,)                            \
+			 ) .oversampling_rate =    \
+					  (DT_INST_PROP(index, oversampling_rate) == 3)               \
+						  ? DL_UART_OVERSAMPLING_RATE_3X                      \
+					  : (DT_INST_PROP(index, oversampling_rate) == 8)             \
+						  ? DL_UART_OVERSAMPLING_RATE_8X                      \
+						  : DL_UART_OVERSAMPLING_RATE_16X,                    \
+				 IF_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN,			   	   \
+			   (.irq_config_func = uart_msp_##index##_irq_register,)) };            \
+																									  \
+	static struct uart_msp_data uart_msp_data_##index = {                                         \
+		.uart_clockconfig = {IF_DISABLED(CONFIG_SOC_SERIES_AM13E, (										\
 				.clockSel = MSP_CLOCK_PERIPH_REG_MASK(                             \
 					DT_INST_CLOCKS_CELL(index, clk)),                          \
 				.divideRatio = MSP_MAIN_CLK_DIV(index),                            \
-			},                                                                         \
-		.uart_config =                                                                     \
-			{                                                                          \
-				.mode = DL_UART_MAIN_MODE_NORMAL,                                  \
-				.direction = DL_UART_MAIN_DIRECTION_TX_RX,                         \
-				.flowControl = (DT_INST_PROP(index, hw_flow_control)               \
-							? DL_UART_MAIN_FLOW_CONTROL_RTS_CTS        \
-							: DL_UART_MAIN_FLOW_CONTROL_NONE),         \
-				.parity = DL_UART_MAIN_PARITY_NONE,                                \
-				.wordLength = DL_UART_MAIN_WORD_LENGTH_8_BITS,                     \
-				.stopBits = DL_UART_MAIN_STOP_BITS_ONE,                            \
-			},                                                                         \
-	};                                                                                         \
-                                                                                                   \
-	DEVICE_DT_INST_DEFINE(index, &uart_msp_init, NULL, &uart_msp_data_##index,                 \
-			      &uart_msp_cfg_##index, PRE_KERNEL_1, CONFIG_SERIAL_INIT_PRIORITY,    \
-			      &uart_msp_driver_api);
+		))                \
+					 IF_ENABLED(CONFIG_SOC_SERIES_AM13E, (										\
+				.clockSel = DL_UART_CLOCK_BUSCLK,                   \
+				.divideRatio = DL_UART_CLOCK_DIVIDE_RATIO_1,                        \
+		)) },       \
+				 .uart_config =                                                       \
+					 {                                                            \
+						 .mode = DL_UART_MAIN_MODE_NORMAL,                    \
+						 .direction = DL_UART_MAIN_DIRECTION_TX_RX,           \
+						 .flowControl =                                       \
+							 (DT_INST_PROP(index, hw_flow_control)        \
+								  ? DL_UART_MAIN_FLOW_CONTROL_RTS_CTS \
+								  : DL_UART_MAIN_FLOW_CONTROL_NONE),  \
+						 .parity = DL_UART_MAIN_PARITY_NONE,                  \
+						 .wordLength = DL_UART_MAIN_WORD_LENGTH_8_BITS,       \
+						 .stopBits = DL_UART_MAIN_STOP_BITS_ONE,              \
+					 },                                                           \
+	};                                                                                            \
+																									  \
+	DEVICE_DT_INST_DEFINE(index, &uart_msp_init, NULL, &uart_msp_data_##index,                    \
+				  &uart_msp_cfg_##index, PRE_KERNEL_1, CONFIG_SERIAL_INIT_PRIORITY,       \
+				  &uart_msp_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(MSP_UART_INIT_FN)

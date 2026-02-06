@@ -94,6 +94,9 @@ static int uart_msp_init(const struct device *dev)
 	if (ret < 0) {
 		return ret;
 	}
+#elif defined(CONFIG_SOC_SERIES_AM13E)
+	clock_rate = CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC;
+#endif
 
 	DL_UART_setOversampling(config->regs, config->oversampling_rate);
 	DL_UART_Main_configBaudRate(config->regs, clock_rate, config->current_speed);

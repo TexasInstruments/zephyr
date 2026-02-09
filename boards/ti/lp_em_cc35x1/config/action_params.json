@@ -8,6 +8,7 @@
       "payload": {
         "prog_req_content": {
           "fuse_programming_instruction_update": false,
+          "flash_factory_reset": false,
           "boot_sector": false,
           "primary_tbl": false,
           "secondary_tbl": false,
@@ -18,10 +19,12 @@
           "primary_ti_wsoc": false,
           "secondary_ti_wsoc": false,
           "primary_ti_wsoc_bl2": false,
-          "secondary_ti_wsoc_bl2": false
+          "secondary_ti_wsoc_bl2": false,
+          "protected_storage": false
         },
         "prog_validation": {
           "fuse_programming_instruction_update": false,
+          "flash_factory_reset": false,
           "boot_sector": false,
           "primary_tbl": false,
           "secondary_tbl": false,
@@ -32,7 +35,8 @@
           "primary_ti_wsoc": false,
           "secondary_ti_wsoc": false,
           "primary_ti_wsoc_bl2": false,
-          "secondary_ti_wsoc_bl2": false
+          "secondary_ti_wsoc_bl2": false,
+          "protected_storage": false
         }
       }
     }
@@ -45,8 +49,8 @@
       "type_version": 0,
       "payload": {
         "query_req_content": {
-          "boot_sector_query": false,
-          "primary_ti_bootloader_query": false,
+          "boot_sector_query": true,
+          "primary_ti_bootloader_query": true,
           "secondary_ti_bootloader_query": false,
           "primary_vendor_image_query": false,
           "primary_vendor_sbl_query": false,
@@ -55,7 +59,8 @@
           "primary_ti_wsoc_query": false,
           "secondary_ti_wsoc_query": false,
           "primary_ti_wsoc_bl2_query": false,
-          "secondary_ti_wsoc_bl2_query": false
+          "secondary_ti_wsoc_bl2_query": false,
+          "protected_storage_query": false
         }
       }
     }
@@ -117,13 +122,13 @@
         "enter_rma_option": {
           "invalidate_vendor_rot_fuses": false,
           "invalidate_other_vendor_fuses": false,
-          "invalidate_all_vendor_images": false,
+          "invalidate_all_vendor_components": false,
           "invalidate_internal_memory": false
         },
         "enter_rma_validation": {
           "invalidate_vendor_rot_fuses_validate": false,
           "invalidate_other_vendor_fuses_validate": false,
-          "invalidate_all_vendor_images_validate": false,
+          "invalidate_all_vendor_components_validate": false,
           "invalidate_internal_memory_validate": false
         }
       }

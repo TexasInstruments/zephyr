@@ -38,7 +38,7 @@
         "ram_dual_opcode": 0,
         "ram_jedec_manufacturer_id": 0,
         "ram_jedec_device_id": 0,
-        "ram_name": "IS25WJ032F",
+        "ram_name": "NO_PSRAM",
         "ram_page_size": 256,
         "ram_sector_size": 4096,
         "ram_cs_polarity": "ACTIVE_LOW",
@@ -246,7 +246,7 @@
                 "flash_non_cont_write_enable": 0,
                 "flash_max_write_jobs": 64,
                 "ram_non_cont_write_enable": 0,
-                "ram_max_read_jobs": 0
+                "ram_max_write_jobs": 0
             },
             "flash_program_operation": {
                 "flash_min_program_size": "256 B",

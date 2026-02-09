@@ -20,7 +20,7 @@
 #include <inc/hw_hsm.h>
 #include <inc/hw_hsm_non_sec.h>
 #include <inc/hw_hsm_sec.h>
-#include <ti/drivers/cryptoutils/hsm/HSMLPF3.h>
+#include <ti/drivers/cryptoutils/hsm/HSMXXF3.h>
 
 #include <third_party/hsmddk/include/Integration/HSMSAL/HSMSAL.h>
 #include <third_party/hsmddk/include/Kit/EIP201/incl/eip201.h>
@@ -38,17 +38,17 @@
 #define HSM_O_CPUID0_MB1_MB2_UNLOCK	0xFFFFFF77
 
 #define HSMCRYPTO_BASE			HSM_BASE
-#define HSMCRYPTO_O_MBSTA		HSM_O_MAILBOX_STAT
-#define HSMCRYPTO_MBSTA_MB1IN_M		HSM_MAILBOX_STAT_INFULL1
-#define HSMCRYPTO_MBSTA_MB1IN_FULL	HSM_MAILBOX_STAT_INFULL1
+#define HSMCRYPTO_O_MBSTA		HSM_O_MBXSTA
+#define HSMCRYPTO_MBSTA_MB1IN_M		HSM_MBXSTA_INFULL1
+#define HSMCRYPTO_MBSTA_MB1IN_FULL	HSM_MBXSTA_INFULL1
 #define HSMCRYPTO_O_MB1IN		HSM_O_EIP130_072_MAILBOX1_IN
 #define HSMCRYPTO_O_MBCTL		HSM_O_MBXCTL
 #define HSMCRYPTO_MBCTL_MB1IN_FULL	HSM_MBXCTL_INFULL1
 #define HSMCRYPTO_MBCTL_MB1LNK_LNK	HSM_MBXCTL_LINK1
-#define HSMCRYPTO_O_MBLNKID		HSM_O_MAILBOX_LINKID
-#define HSMCRYPTO_O_MBLCKOUT		HSM_O_MAILBOX_LOCKOUT
-#define HSMCRYPTO_MBSTA_MB1OUT_M	HSM_MAILBOX_STAT_OUTFULL1
-#define HSMCRYPTO_MBSTA_MB1OUT_FULL	HSM_MAILBOX_STAT_OUTFULL1
+#define HSMCRYPTO_O_MBLNKID		HSM_O_MBXLINKID
+#define HSMCRYPTO_O_MBLCKOUT		HSM_O_MBXLCKOUT
+#define HSMCRYPTO_MBSTA_MB1OUT_M	HSM_MBXSTA_OUTFULL1
+#define HSMCRYPTO_MBSTA_MB1OUT_FULL	HSM_MBXSTA_OUTFULL1
 #define HSMCRYPTO_O_MB1OUT		HSM_O_EIP130_072_MAILBOX1_IN
 #define HSMCRYPTO_MBCTL_MB1OUT_EMTY	HSM_MBXCTL_OUTEMP1
 
@@ -174,8 +174,8 @@ static int hsm_ti_cc35xx_init_mailbox(void)
 
 	/* Allow non-secure/secure access (Set bits 7 and 3 to 1 if we need secure access) */
 	hsm_reg_addr = HSMCRYPTO_BASE + HSMCRYPTO_O_MBLNKID;
-	hsm_reg_value = (0 << HSM_MAILBOX_LINKID_LINKID1_S) | (0 << HSM_MAILBOX_LINKID_LINKID2_S) |
-			(0 << HSM_MAILBOX_LINKID_PROTACC1_S) | (0 << HSM_MAILBOX_LINKID_PORTACC2_S);
+	hsm_reg_value = (0 << HSM_MBXLINKID_LINKID1_S) | (0 << HSM_MBXLINKID_LINKID2_S) |
+			(0 << HSM_MBXLINKID_PROTACC1_S) | (0 << HSM_MBXLINKID_PORTACC2_S);
 	sys_write32(hsm_reg_value, hsm_reg_addr);
 
 	/* Make sure CPU_ID=0 host can access mailbox 1 & 2 (no lockout) */
@@ -220,8 +220,8 @@ static void hsm_ti_cc35xx_kick_trng(struct hsm_ti_cc35xx_data *data)
 	TRNG_Handle trng_handle = NULL;
 	TRNG_Params trng_params;
 	TRNG_Config trng_config;
-	TRNGLPF3HSM_Object trng_object = {};
-	TRNGLPF3HSM_HWAttrs trng_hw_attrs = {.intPriority = (~0)};
+	TRNGXXF3HSM_Object trng_object = {};
+	TRNGXXF3HSM_HWAttrs trng_hw_attrs = {};
 	uint8_t *ring_buf_dst;
 	size_t buffer_space;
 
@@ -289,9 +289,9 @@ static int hsm_ti_cc35xx_do_crypto_aes_ecb(struct hsm_ti_cc35xx_data *data,
 	int result;
 	AESECB_Handle aesecb_handler = NULL;
 	AESECB_Config aesecb_config;
-	AESECBLPF3_Object aesecb_object = {};
+	AESECBXXF3_Object aesecb_object = {};
 	CryptoKey crypto_key;
-	AESECBLPF3_HWAttrs aesecb_hw_attrs = {.intPriority = (~0)};
+	AESECBXXF3_HWAttrs aesecb_hw_attrs = {.intPriority = (~0)};
 	AESECB_Operation operation = {};
 	const AESECB_Params *aesecb_params = &AESECB_defaultParams;
 
@@ -340,11 +340,11 @@ static int hsm_ti_cc35xx_do_crypto_aes_ctr(struct hsm_ti_cc35xx_data *data,
 	int result;
 	struct hsm_ti_cc35xx_driver_session *session;
 	AESCTR_Handle aesctr_handler = NULL;
-	AESCTRLPF3_Object aesctr_object = {};
+	AESCTRXXF3_Object aesctr_object = {};
 	AESCTR_Config aesctr_config;
 	AESCTR_Operation operation = {};
 	CryptoKey crypto_key;
-	AESCTRLPF3_HWAttrs aesctr_hw_attrs = {.intPriority = (~0)};
+	AESCTRXXF3_HWAttrs aesctr_hw_attrs = {.intPriority = (~0)};
 	const AESCTR_Params *aesctr_params = &AESCTR_defaultParams;
 
 	if (ctx->key.bit_stream == NULL || pkt->in_buf == NULL || pkt->out_buf == NULL ||
@@ -396,11 +396,11 @@ static int hsm_ti_cc35xx_do_crypto_aes_ccm(struct hsm_ti_cc35xx_data *data,
 	int result;
 	struct hsm_ti_cc35xx_driver_session *session;
 	AESCCM_Handle aesccm_handler = NULL;
-	AESCCMLPF3_Object aesccm_object = {};
+	AESCCMXXF3_Object aesccm_object = {};
 	AESCCM_Config aesccm_config;
 	AESCCM_OneStepOperation operation = {};
 	CryptoKey crypto_key;
-	AESCCMLPF3_HWAttrs aesccm_hw_attrs = {.intPriority = (~0)};
+	AESCCMXXF3_HWAttrs aesccm_hw_attrs = {.intPriority = (~0)};
 	const AESCCM_Params *aesccm_params = &AESCCM_defaultParams;
 
 	if (ctx->key.bit_stream == NULL || pkt->pkt == NULL || pkt->pkt->in_buf == NULL ||
@@ -506,7 +506,7 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 {
 	struct hsm_ti_cc35xx_data *data = dev->data;
 
-	uint32_t result = HSMLPF3_STATUS_ERROR;
+	uint32_t result = HSMXXF3_STATUS_ERROR;
 	uint32_t token[] = {SYSTEMINFO_TOKEN_WORD0, CRYPTO_OFFICER_ID};
 
 	uint32_t idx, hsm_status, hsm_reg_value;
@@ -518,10 +518,6 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 	ring_buf_init(&data->entropy.pool, sizeof(data->entropy.buffer), data->entropy.buffer);
 
 	/* Initialize HSM clock and mailbox, then boot it */
-	hsm_reg_addr = SOC_AON_BASE + SOC_AON_O_HSMCFG;
-	hsm_reg_value = sys_read32(hsm_reg_addr) | SOC_AON_HSMCFG_FIREWALL;
-	sys_write32(hsm_reg_value, hsm_reg_addr);
-
 	hsm_ti_cc35xx_init_clock();
 	hsm_ti_cc35xx_unlock_cpus();
 	hsm_ti_cc35xx_init_mailbox();
@@ -529,9 +525,9 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 
 	key = irq_lock();
 
-	hsm_reg_addr = HSMCRYPTO_BASE + HSM_O_MODULE_STATUS;
+	hsm_reg_addr = HSMCRYPTO_BASE + HSM_O_MODULESTA;
 	hsm_status = sys_read32(hsm_reg_addr);
-	if ((hsm_status & HSM_MODULE_STATUS_FATALERR) == 0) {
+	if ((hsm_status & HSM_MODULESTA_FATALERR) == 0) {
 		/*
 		 * At PRE_KERNEL_1 we don't use k_sleep() and other scheduling
 		 * functions, so we use a busy wait loop here to wait for the
@@ -571,7 +567,7 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 		hsm_reg_addr = HSMCRYPTO_BASE + HSMCRYPTO_O_MB1OUT;
 		hsm_reg_value = sys_read32(hsm_reg_addr);
 		if ((hsm_reg_value & OUTPUT_TOKEN_ERROR) == 0) {
-			result = HSMLPF3_STATUS_SUCCESS;
+			result = HSMXXF3_STATUS_SUCCESS;
 		}
 
 		hsm_reg_addr = HSMCRYPTO_BASE + HSMCRYPTO_O_MBCTL;
@@ -581,7 +577,7 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 
 	irq_unlock(key);
 
-	if (result != HSMLPF3_STATUS_SUCCESS) {
+	if (result != HSMXXF3_STATUS_SUCCESS) {
 		return -EIO;
 	}
 

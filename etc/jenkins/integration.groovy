@@ -152,7 +152,7 @@ pipeline
 
                     /* Don't pass -p if no boards specified */
                     if (env.BOARDS_FINAL != '') {
-                        env.LAB_DEVICE_LABELS = env.BOARDS_FINAL.split(' ').collect { (it.split('/').last() + '_ZEPHYR').toUpperCase() }.join(' ')
+                        env.LAB_DEVICE_LABELS = env.BOARDS_FINAL.split(' ').collect { (it.replaceAll('/', '_') + '_ZEPHYR').toUpperCase() }.join(' ')
                         env.BOARDS_FINAL = '-p ' + env.BOARDS_FINAL.split(' ').join(' -p ')
                     }
 

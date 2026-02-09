@@ -55,6 +55,7 @@
         "primary_vendor_image": "zephyr/flash/vendor_image.sign.bin",
         "secondary_vendor_image": null,
         "primary_vendor_sbl": null,
-        "secondary_vendor_sbl": null
+        "secondary_vendor_sbl": null,
+        "protected_storage": null
     }
 }

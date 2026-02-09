@@ -124,7 +124,6 @@ static int wdt_cc35xx_init(const struct device *dev)
 		return 0;
 	}
 
-	WatchdogOverrideFuseBit();
 	WatchdogSetSwMode();
 	WatchdogStopSequence();
 	WatchdogDisableResetEvent();

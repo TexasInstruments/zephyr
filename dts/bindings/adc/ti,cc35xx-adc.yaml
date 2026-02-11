@@ -22,6 +22,10 @@ properties:
     required: true
     type: int
     description: Sample period in ADC cycles (after clock divider)
+  vref_internal_mv:
+    required: true
+    type: int
+    description: This property sets the internal reference voltage (in millivolts)
 
 io-channel-cells:
   - input

@@ -146,4 +146,6 @@ source "drivers/counter/Kconfig.cc23x0_lgpt"
 
 source "drivers/counter/Kconfig.mspm0"
 
+source "drivers/counter/Kconfig.k3_rtc_counter"
+
 endif # COUNTER

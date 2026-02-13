@@ -176,21 +176,13 @@ static int i2c_cc35xx_transfer(const struct device *dev, struct i2c_msg *msgs,
 	const struct i2c_cc35xx_config *config = dev->config;
 	struct i2c_msg *msg;
 	int ret = 0, retries, flags;
-	uint16_t timeout = UINT16_MAX;
+
+	if (I2CControllerIsBusy(config->base)) {
+		return -EBUSY;
+	}
 
 	k_mutex_lock(&data->mutex, K_FOREVER);
 	k_sem_reset(&data->i2c_msg_done);
-
-
-	while (I2CControllerIsBusy(config->base) && --timeout) {
-		k_busy_wait(USEC_PER_MSEC);
-	}
-
-	if (!timeout) {
-		k_mutex_unlock(&data->mutex);
-
-		return -EBUSY;
-	}
 
 	I2CFlushFifos(config->base);
 	I2CClearInt(config->base, I2C_INT_ALL);

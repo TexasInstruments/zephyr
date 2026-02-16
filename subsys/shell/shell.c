@@ -46,6 +46,9 @@ BUILD_ASSERT(SHELL_THREAD_PRIORITY >=
 		&& SHELL_THREAD_PRIORITY <= K_LOWEST_APPLICATION_THREAD_PRIO,
 		  "Invalid range for thread priority");
 
+BUILD_ASSERT(CONFIG_SHELL_BYPASS_READ_BUF_SIZE < CONFIG_SHELL_STACK_SIZE,
+		  "Bypass buffer size must be smaller than shell stack size");
+
 static inline void receive_state_change(const struct shell *sh,
 					enum shell_receive_state state)
 {
@@ -990,11 +993,7 @@ static void state_collect(const struct shell *sh)
 		void *bypass_user_data = sh->ctx->bypass_user_data;
 
 		if (bypass) {
-#if defined(CONFIG_SHELL_BACKEND_RTT) && defined(CONFIG_SEGGER_RTT_BUFFER_SIZE_DOWN)
-			uint8_t buf[CONFIG_SEGGER_RTT_BUFFER_SIZE_DOWN];
-#else
-			uint8_t buf[16];
-#endif
+			uint8_t buf[CONFIG_SHELL_BYPASS_READ_BUF_SIZE];
 
 			(void)sh->iface->api->read(sh->iface, buf,
 							sizeof(buf), &count);
@@ -1449,12 +1448,6 @@ int shell_start(const struct shell *sh)
 		z_shell_vt100_color_set(sh, SHELL_NORMAL);
 	}
 
-	/* print new line before printing the prompt to clear the line
-	 * vt100 are not used here for compatibility reasons
-	 */
-	z_cursor_next_line_move(sh);
-	state_set(sh, SHELL_STATE_ACTIVE);
-
 	/*
 	 * If the shell is stopped with the shell_stop function, its backend remains active
 	 * and continues to buffer incoming data. As a result, when the shell is resumed,
@@ -1462,6 +1455,12 @@ int shell_start(const struct shell *sh)
 	 * received while the shell was stopped.
 	 */
 	z_shell_backend_rx_buffer_flush(sh);
+
+	/* print new line before printing the prompt to clear the line
+	 * vt100 are not used here for compatibility reasons
+	 */
+	z_cursor_next_line_move(sh);
+	state_set(sh, SHELL_STATE_ACTIVE);
 
 	z_shell_unlock(sh);
 
@@ -1689,7 +1688,7 @@ int shell_prompt_change(const struct shell *sh, const char *prompt)
 		return -EBUSY;
 	}
 
-	if ((prompt_length + 1 > CONFIG_SHELL_PROMPT_BUFF_SIZE) || (prompt_length == 0)) {
+	if (prompt_length + 1 > CONFIG_SHELL_PROMPT_BUFF_SIZE) {
 		z_shell_unlock(sh);
 		return -EINVAL;
 	}

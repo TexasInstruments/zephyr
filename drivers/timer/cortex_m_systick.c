@@ -11,12 +11,16 @@
 #include <zephyr/irq.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/drivers/counter.h>
+#include <zephyr/devicetree.h>
 
 #include "cortex_m_systick.h"
 
 #define COUNTER_MAX 0x00ffffff
 #define TIMER_STOPPED 0xff000000
 
+#define SYSTICK_CTRL_CLKSOURCE_MSK_GET()					\
+	COND_CODE_1(DT_PROP(DT_NODELABEL(systick), external_clock_source),	\
+		    (0), (SysTick_CTRL_CLKSOURCE_Msk))
 
 #if defined(CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME)
 extern unsigned int z_clock_hw_cycles_per_sec;
@@ -172,9 +176,9 @@ uint64_t z_cms_lptim_hook_on_lpm_exit(void)
 	uint32_t idle_timer_post, idle_timer_diff, idle_timer_top;
 	bool idle_timer_int_pending, idle_timer_wrap;
 
-	counter_get_value(idle_timer, &idle_timer_post);
 	idle_timer_int_pending = counter_get_pending_int(idle_timer) ? true : false;
 	idle_timer_top = counter_get_top_value(idle_timer);
+	counter_get_value(idle_timer, &idle_timer_post);
 
 	/**
 	 * Check for counter timer overflow
@@ -380,6 +384,17 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 		 * to it after waking up.
 		 */
 		sys_clock_disable();
+		/* Ensure the SysTick interrupt is not pending. This is safe
+		 * as we just did the ISR's job, and MUST be done because
+		 * a pending interrupt could inhibit low-power mode entry.
+		 * Note: On Armv8-M, ICSR.STTNS is R/W, so preserve it while
+		 * writing the write-1-to-clear PENDSTCLR bit.
+		 */
+#ifdef SCB_ICSR_STTNS_Msk
+		SCB->ICSR = (SCB->ICSR & SCB_ICSR_STTNS_Msk) | SCB_ICSR_PENDSTCLR_Msk;
+#else
+		SCB->ICSR = SCB_ICSR_PENDSTCLR_Msk;
+#endif
 
 		cycle_count += elapsed();
 		overflow_cyc = 0;
@@ -556,7 +571,14 @@ void sys_clock_idle_exit(void)
 			last_load = CYC_PER_TICK;
 			SysTick->LOAD = last_load - 1;
 			SysTick->VAL = 0; /* resets timer to last_load */
-			SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+			if (!IS_ENABLED(CONFIG_CORTEX_M_SYSTICK_RESET_BY_LPM)) {
+				SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+			} else {
+				NVIC_SetPriority(SysTick_IRQn, _IRQ_PRIO_OFFSET);
+				SysTick->CTRL |= (SysTick_CTRL_ENABLE_Msk |
+						  SysTick_CTRL_TICKINT_Msk |
+						  SYSTICK_CTRL_CLKSOURCE_MSK_GET());
+			}
 		}
 	}
 }
@@ -574,9 +596,13 @@ static int sys_clock_driver_init(void)
 	overflow_cyc = 0U;
 	SysTick->LOAD = last_load - 1;
 	SysTick->VAL = 0; /* resets timer to last_load */
-	SysTick->CTRL |= (SysTick_CTRL_ENABLE_Msk |
-			  SysTick_CTRL_TICKINT_Msk |
-			  SysTick_CTRL_CLKSOURCE_Msk);
+
+	uint32_t ctrl_flags = SysTick_CTRL_ENABLE_Msk |
+			      SysTick_CTRL_TICKINT_Msk |
+			      SYSTICK_CTRL_CLKSOURCE_MSK_GET();
+
+	SysTick->CTRL = ctrl_flags;
+
 	return 0;
 }
 

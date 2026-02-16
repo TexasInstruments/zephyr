@@ -25,8 +25,8 @@
 #include "../modem_context.h"
 #include "../modem_socket.h"
 #include <stdint.h>
-
-#define MDM_CMD_TIMEOUT                      (10)  /*K_SECONDS*/
+/* clang-format off */
+#define MDM_CMD_TIMEOUT                      (40)  /*K_SECONDS*/
 #define MDM_DNS_TIMEOUT                      (70)  /*K_SECONDS*/
 #define MDM_CELL_BAND_SEARCH_TIMEOUT         (60)  /*K_SECONDS*/
 #define MDM_CMD_CONN_TIMEOUT                 (120) /*K_SECONDS*/
@@ -37,6 +37,18 @@
 #define MDM_BOOT_TIME                        (12)  /*K_SECONDS*/
 #define MDM_DNS_ADD_TIMEOUT                  (100) /*K_MSEC*/
 #define MODEM_HL78XX_PERIODIC_SCRIPT_TIMEOUT K_MSEC(CONFIG_MODEM_HL78XX_PERIODIC_SCRIPT_MS)
+
+#ifdef CONFIG_HL78XX_GNSS
+/**
+ * GNSS $PSGSA sentence comes with more arguments
+ * So we need a larger argv buffer
+ * see some discussion about this:
+ * https://forum.sierrawireless.com/t/clarification-on-proprietary-nmea-sentence-hl7812-5-5-14-0/34478
+ */
+#define MDM_CHAT_ARGV_BUFFER_SIZE 40
+#else
+#define MDM_CHAT_ARGV_BUFFER_SIZE 32
+#endif /* CONFIG_HL78XX_GNSS */
 
 #define MDM_MAX_DATA_LENGTH CONFIG_MODEM_HL78XX_UART_BUFFER_SIZES
 
@@ -73,6 +85,7 @@
 #define TERMINATION_PATTERN "+++"
 #define CONNECT_STRING      "CONNECT"
 #define CME_ERROR_STRING    "+CME ERROR: "
+#define ERROR_STRING        "ERROR"
 #define OK_STRING           "OK"
 
 /* RAT (Radio Access Technology) commands */
@@ -112,6 +125,9 @@
  */
 #define WDSI_USER_INITIATED_CONNECTION_START_CMD "AT+WDSS=1,1"
 #define WDSI_USER_INITIATED_CONNECTION_STOP_CMD  "AT+WDSS=1,0"
+/* Baud rate commands */
+#define GET_BAUDRATE_CMD                         "AT+IPR?"
+#define SET_BAUDRATE_CMD_FMT                     "AT+IPR=%d"
 
 /* Helper macros */
 #define ATOI(s_, value_, desc_) modem_atoi(s_, value_, desc_, __func__)
@@ -121,6 +137,8 @@
 	COND_CODE_1(CONFIG_MODEM_HL78XX_LOG_CONTEXT_VERBOSE_DEBUG, \
 		    (LOG_DBG(str, ##__VA_ARGS__)), \
 		    ((void)0))
+
+/* clang-format on */
 
 /* HL78XX States */
 enum hl78xx_state {
@@ -149,6 +167,10 @@ enum hl78xx_state {
 	 * CFUN=4
 	 */
 	MODEM_HL78XX_STATE_AIRPLANE,
+#ifdef CONFIG_HL78XX_GNSS
+	MODEM_HL78XX_STATE_RUN_GNSS_INIT_SCRIPT,
+	MODEM_HL78XX_STATE_GNSS_SEARCH_STARTED,
+#endif /* CONFIG_HL78XX_GNSS */
 	MODEM_HL78XX_STATE_INIT_POWER_OFF,
 	MODEM_HL78XX_STATE_POWER_OFF_PULSE,
 	MODEM_HL78XX_STATE_AWAIT_POWER_OFF,
@@ -168,6 +190,19 @@ enum hl78xx_event {
 	/* Modem unexpected restart event */
 	MODEM_HL78XX_EVENT_MDM_RESTART,
 	MODEM_HL78XX_EVENT_SOCKET_READY,
+	MODEM_HL78XX_EVENT_PHONE_FUNCTIONALITY_CHANGED,
+#ifdef CONFIG_HL78XX_GNSS
+	MODEM_HL78XX_EVENT_GNSS_START_REQUESTED,
+	MODEM_HL78XX_EVENT_GNSS_SEARCH_STARTED,
+	MODEM_HL78XX_EVENT_GNSS_SEARCH_STARTED_FAILED,
+	MODEM_HL78XX_EVENT_GNSS_FIX_ACQUIRED,
+	MODEM_HL78XX_EVENT_GNSS_FIX_LOST,
+	MODEM_HL78XX_EVENT_GNSS_STOP_REQUESTED,
+	MODEM_HL78XX_EVENT_GNSS_STOPPED,
+	/* Explicit GNSS mode switching events */
+	MODEM_HL78XX_EVENT_GNSS_MODE_ENTER_REQUESTED,
+	MODEM_HL78XX_EVENT_GNSS_MODE_EXIT_REQUESTED,
+#endif /* CONFIG_HL78XX_GNSS */
 #ifdef CONFIG_MODEM_HL78XX_AIRVANTAGE
 
 	/* WDSI FOTA events */
@@ -181,6 +216,7 @@ enum hl78xx_event {
 	MODEM_HL78XX_EVENT_WDSI_FIRMWARE_INSTALL_SUCCEEDED,
 	MODEM_HL78XX_EVENT_WDSI_FIRMWARE_INSTALL_FAILED,
 #endif /* CONFIG_MODEM_HL78XX_AIRVANTAGE */
+	MODEM_HL78XX_EVENT_AT_CMD_TIMEOUT,
 	MODEM_HL78XX_EVENT_COUNT
 };
 
@@ -259,9 +295,11 @@ struct modem_buffers {
 	uint8_t uart_rx[CONFIG_MODEM_HL78XX_UART_BUFFER_SIZES];
 	uint8_t uart_tx[CONFIG_MODEM_HL78XX_UART_BUFFER_SIZES];
 	uint8_t chat_rx[CONFIG_MODEM_HL78XX_CHAT_BUFFER_SIZES];
+	uint8_t cmd_buffer[CONFIG_MODEM_HL78XX_COMMAND_BUFFER_SIZE];
+	size_t cmd_len;
 	uint8_t *delimiter;
 	uint8_t *filter;
-	uint8_t *argv[32];
+	uint8_t *argv[MDM_CHAT_ARGV_BUFFER_SIZE];
 	uint8_t *eof_pattern;
 	uint8_t eof_pattern_size;
 	uint8_t *termination_pattern;
@@ -322,6 +360,13 @@ struct hl78xx_wdsi_status {
 
 #endif /* CONFIG_MODEM_HL78XX_AIRVANTAGE */
 
+struct hl78xx_modem_uart_status {
+	uint32_t current_baudrate;
+#ifdef CONFIG_MODEM_HL78XX_AUTO_BAUDRATE
+	uint32_t target_baudrate;
+	uint8_t baudrate_detection_retry;
+#endif /* CONFIG_MODEM_HL78XX_AUTO_BAUDRATE */
+};
 struct modem_status {
 	struct registration_status registration;
 	int16_t rssi;
@@ -340,6 +385,7 @@ struct modem_status {
 #ifdef CONFIG_MODEM_HL78XX_AIRVANTAGE
 	struct hl78xx_wdsi_status wdsi;
 #endif /* CONFIG_MODEM_HL78XX_AIRVANTAGE */
+	struct hl78xx_modem_uart_status uart;
 };
 
 struct modem_gpio_callbacks {
@@ -360,6 +406,8 @@ struct hl78xx_data {
 	struct modem_pipe *uart_pipe;
 	struct modem_backend_uart uart_backend;
 	struct modem_chat chat;
+	struct modem_chat_script dynamic_script;
+	struct modem_chat_script_chat dynamic_chat;
 
 	struct k_mutex tx_lock;
 	struct k_mutex api_lock;
@@ -444,9 +492,10 @@ bool hl78xx_is_registered(struct hl78xx_data *data);
  *
  * @param dev Pointer to the device structure.
  * @param hard_reset Boolean indicating if a hard reset is required.
+ * @return int 0 on success, negative errno code on failure.
  * Should be used internally to handle DNS resolution events.
  */
-void dns_work_cb(const struct device *dev, bool hard_reset);
+int dns_work_cb(const struct device *dev, bool hard_reset);
 
 /**
  * @brief Callback to update and handle network interface status.
@@ -472,14 +521,34 @@ void iface_status_work_cb(struct hl78xx_data *data,
  * @param cmd_len Length of the command in bytes.
  * @param response_matches Array of expected response match patterns.
  * @param matches_size Number of elements in the response_matches array.
+ * @param response_timeout Response timeout in seconds.
  *
  * @return 0 on success, negative errno code on failure.
  */
 int modem_dynamic_cmd_send(struct hl78xx_data *data,
 			   modem_chat_script_callback script_user_callback, const uint8_t *cmd,
 			   uint16_t cmd_len, const struct modem_chat_match *response_matches,
-			   uint16_t matches_size, bool user_cmd);
+			   uint16_t matches_size, uint16_t response_timeout, bool user_cmd);
 
+/**
+ * @brief Send a command to the modem asynchronously and handle responses via callback.
+ * This function sends a command to the modem and processes responses asynchronously
+ * using the provided match patterns and callback function.
+ * @param data Pointer to the modem HL78xx driver data structure.
+ * @param script_user_callback Callback function invoked on matched responses or errors.
+ * @param cmd Pointer to the command buffer to send.
+ * @param cmd_size Size of the command in bytes.
+ * @param response_matches Array of expected response match patterns.
+ * @param matches_size Number of elements in the response_matches array.
+ * @param response_timeout Response timeout in seconds.
+ * @param user_cmd Boolean indicating if this is a user-initiated command.
+ * @return 0 on success, negative errno code on failure.
+ */
+int modem_dynamic_cmd_send_async(struct hl78xx_data *data,
+				 modem_chat_script_callback script_user_callback,
+				 const uint8_t *cmd, uint16_t cmd_size,
+				 const struct modem_chat_match *response_matches,
+				 uint16_t matches_size, uint16_t response_timeout, bool user_cmd);
 #define HASH_MULTIPLIER 37
 /**
  * @brief Generate a 32-bit hash from a string.
@@ -721,5 +790,18 @@ void notif_carrier_on(const struct device *dev);
  * @return int Description of return value.
  */
 int check_if_any_socket_connected(const struct device *dev);
+
+/**
+ * @brief Schedule a work to generate MODEM_HL78XX_EVENT_TIMEOUT
+ * @param data pointer to hl78xx_data.
+ * @param timeout the time to wait before submitting the work item.
+ *
+ */
+void hl78xx_start_timer(struct hl78xx_data *data, k_timeout_t timeout);
+/**
+ * @brief Dispatch an event
+ * @param notif event information.
+ */
+void event_dispatcher_dispatch(struct hl78xx_evt *notif);
 
 #endif /* HL78XX_H */

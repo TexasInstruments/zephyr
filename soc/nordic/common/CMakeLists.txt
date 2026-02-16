@@ -3,8 +3,6 @@
 
 add_subdirectory_ifdef(CONFIG_RISCV_CORE_NORDIC_VPR vpr)
 
-add_subdirectory(uicr)
-
 # Let SystemInit() be called in place of soc_reset_hook() by default.
 zephyr_linker_symbol(SYMBOL soc_reset_hook EXPR "@SystemInit@")
 
@@ -21,7 +19,7 @@ if(CONFIG_ARM)
   zephyr_library_sources_ifdef(CONFIG_NRF_PLATFORM_HALTIUM soc_lrcconf.c)
 endif()
 
-if((CONFIG_SOC_SERIES_NRF54HX OR CONFIG_SOC_SERIES_NRF92X) AND CONFIG_CPU_HAS_CUSTOM_FIXED_SOC_MPU_REGIONS)
+if((CONFIG_SOC_SERIES_NRF54H OR CONFIG_SOC_SERIES_NRF92) AND CONFIG_CPU_HAS_CUSTOM_FIXED_SOC_MPU_REGIONS)
   zephyr_library_sources(nrf54hx_nrf92x_mpu_regions.c)
 endif()
 

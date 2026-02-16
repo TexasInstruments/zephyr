@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include <nxp/nxp_rw6xx.dtsi>
+#include <nxp/rw/nxp_rw6xx.dtsi>
 #include "rd_rw612_bga-pinctrl.dtsi"
 #include <zephyr/dt-bindings/gpio/arduino-header-r3.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
@@ -254,6 +254,10 @@ arduino_i2c: &flexcomm2 {
 };
 
 zephyr_udc0: &usb_otg {
+	status = "okay";
+};
+
+zephyr_uhc0: &usbh {
 	status = "okay";
 };
 

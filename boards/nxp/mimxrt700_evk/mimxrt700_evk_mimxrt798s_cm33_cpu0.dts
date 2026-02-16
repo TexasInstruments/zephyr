@@ -6,7 +6,7 @@
 
 /dts-v1/;
 
-#include <nxp/nxp_rt7xx_cm33_cpu0.dtsi>
+#include <nxp/imxrt/nxp_rt7xx_cm33_cpu0.dtsi>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 #include "mimxrt700_evk-pinctrl.dtsi"
@@ -108,6 +108,15 @@
 			reg = <0x08000000 DT_SIZE_M(32)>;
 			zephyr,memory-region = "PSRAM";
 		};
+	};
+
+	/* Memory region controlled by XSPI2, can be used by media domain masters. */
+	psram2: memory@70000000 {
+		compatible = "zephyr,memory-region";
+		device_type = "memory";
+		reg = <0x70000000 0x8000000>;
+		status = "okay";
+		zephyr,memory-region = "PSRAM2";
 	};
 };
 
@@ -386,9 +395,9 @@ zephyr_lcdif: &lcdif {};
 					reg = <0x00720000 DT_SIZE_M(7)>;
 				};
 
-				storage_partition: partition@E20000 {
+				storage_partition: partition@e20000 {
 					label = "storage";
-					reg = <0x00E20000 (DT_SIZE_M(2) - DT_SIZE_K(128))>;
+					reg = <0x00e20000 (DT_SIZE_M(2) - DT_SIZE_K(128))>;
 				};
 			};
 		};
@@ -457,6 +466,7 @@ zephyr_udc0: &usb0 {
 		disk-name = "SD2";
 		status = "okay";
 	};
+
 	pinctrl-0 = <&pinmux_usdhc>;
 	pinctrl-names = "default";
 	mmc-hs200-1_8v;

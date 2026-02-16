@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2025 Texas Instruments
+ * Copyright (c) 2025 - 2026 Siemens Mobility GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,13 +18,25 @@
 #endif
 
 static const struct arm_mpu_region mpu_regions[] = {
-#if defined CONFIG_SOC_AM2434_R5F0_0
+#if defined CONFIG_SOC_AM2434_R5F
 	MPU_REGION_ENTRY("Device", 0x0, REGION_2G, {MPU_RASR_S_Msk | NOT_EXEC | PERM_Msk}),
+	/* Also explicitly allow executing the exception vector since the TCM might
+	 * be disabled and therefor it might be not executable
+	 */
+	MPU_REGION_ENTRY(
+		"Exception vector", 0x0, REGION_64B,
+		{P_RO_U_NA_Msk | ((1 << MPU_RASR_TEX_Pos) | MPU_RASR_C_Msk | MPU_RASR_B_Msk)}),
 #endif
 
 	MPU_REGION_ENTRY(
 		"SRAM", CONFIG_SRAM_BASE_ADDRESS, REGION_SRAM_SIZE,
 		{NORMAL_OUTER_INNER_WRITE_BACK_WRITE_READ_ALLOCATE_NON_SHAREABLE | PERM_Msk}),
+#if defined(SOC_SERIES_AM6X_R5)
+#if DT_NODE_HAS_STATUS(DT_PATH(mspi_fc40000), okay)
+	MPU_REGION_ENTRY("FSS0", DT_REG_ADDR_BY_IDX(DT_PATH(mspi_fc40000), 1), REGION_128M,
+			 {STRONGLY_ORDERED_SHAREABLE | P_RW_U_NA_Msk}),
+#endif
+#endif
 };
 
 const struct arm_mpu_config mpu_config = {

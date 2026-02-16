@@ -881,7 +881,7 @@ void z_init_thread_base(struct _thread_base *thread_base, int priority,
 {
 	/* k_q_node is initialized upon first insertion in a list */
 	thread_base->pended_on = NULL;
-	thread_base->user_options = (uint8_t)options;
+	thread_base->user_options = (uint16_t)options;
 	thread_base->thread_state = (uint8_t)initial_state;
 
 	thread_base->prio = priority;
@@ -890,6 +890,12 @@ void z_init_thread_base(struct _thread_base *thread_base, int priority,
 
 #ifdef CONFIG_SMP
 	thread_base->is_idle = 0;
+
+	/*
+	 * Pretend that the thread was last executing on CPU0 to prevent
+	 * out-of-bounds memory accesses to the _kernel.cpus[] array.
+	 */
+	thread_base->cpu = 0;
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_TIMESLICE_PER_THREAD

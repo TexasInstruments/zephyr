@@ -169,8 +169,6 @@ int eth_stm32_tx(const struct device *dev, struct net_pkt *pkt)
 		return -EIO;
 	}
 
-	k_mutex_lock(&dev_data->tx_mutex, K_FOREVER);
-
 	while (ctx == NULL) {
 		ctx = allocate_tx_context_async(pkt);
 		if (ctx == NULL) {
@@ -232,8 +230,6 @@ error:
 		HAL_ETH_TxFreeCallback((uint32_t *)ctx);
 	}
 
-	k_mutex_unlock(&dev_data->tx_mutex);
-
 	return res;
 }
 #else
@@ -276,8 +272,6 @@ int eth_stm32_tx(const struct device *dev, struct net_pkt *pkt)
 		LOG_ERR("PKT too big");
 		return -EIO;
 	}
-
-	k_mutex_lock(&dev_data->tx_mutex, K_FOREVER);
 
 	ctx = allocate_tx_context(pkt);
 	buf_header = &dma_tx_buffer_header[ctx->first_tx_buffer_index];
@@ -390,8 +384,6 @@ error:
 		HAL_ETH_TxFreeCallback(STM32_ETH_ARGS(heth, (uint32_t *)ctx));
 	}
 
-	k_mutex_unlock(&dev_data->tx_mutex);
-
 	return res;
 }
 #endif /* ETH_STM32_HAL_TX_ASYNC */
@@ -490,6 +482,47 @@ void HAL_ETH_TxCpltCallback(ETH_HandleTypeDef *heth_handle)
 
 }
 
+#if defined(CONFIG_NET_STATISTICS_ETHERNET)
+static void eth_stm32_update_dma_error(struct eth_stm32_hal_dev_data *dev_data, uint32_t dma_error)
+{
+#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet)
+	if ((dma_error & ETH_DMA_RX_WATCHDOG_TIMEOUT_FLAG) ||
+	    (dma_error & ETH_DMA_RX_PROCESS_STOPPED_FLAG) ||
+	    (dma_error & ETH_DMA_RX_BUFFER_UNAVAILABLE_FLAG)) {
+		eth_stats_update_errors_rx(dev_data->iface);
+	}
+	if ((dma_error & ETH_DMA_EARLY_TX_IT_FLAG) ||
+	    (dma_error & ETH_DMA_TX_PROCESS_STOPPED_FLAG)) {
+		eth_stats_update_errors_tx(dev_data->iface);
+	}
+#else
+	if ((dma_error & ETH_DMASR_RWTS) || (dma_error & ETH_DMASR_RPSS) ||
+	    (dma_error & ETH_DMASR_RBUS)) {
+		eth_stats_update_errors_rx(dev_data->iface);
+	}
+	if ((dma_error & ETH_DMASR_ETS) || (dma_error & ETH_DMASR_TPSS) ||
+	    (dma_error & ETH_DMASR_TJTS)) {
+		eth_stats_update_errors_tx(dev_data->iface);
+	}
+#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet) */
+}
+
+static void eth_stm32_update_rx_error_details(ETH_HandleTypeDef *heth,
+					      struct eth_stm32_hal_dev_data *dev_data)
+{
+#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32mp13_ethernet)
+	dev_data->stats.error_details.rx_crc_errors = heth->Instance->MMCRXCRCEPR;
+	dev_data->stats.error_details.rx_align_errors = heth->Instance->MMCRXAEPR;
+#elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet)
+	dev_data->stats.error_details.rx_crc_errors = heth->Instance->MMCRCRCEPR;
+	dev_data->stats.error_details.rx_align_errors = heth->Instance->MMCRAEPR;
+#else
+	dev_data->stats.error_details.rx_crc_errors = heth->Instance->MMCRFCECR;
+	dev_data->stats.error_details.rx_align_errors = heth->Instance->MMCRFAECR;
+#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32mp13_ethernet) */
+}
+#endif /* CONFIG_NET_STATISTICS_ETHERNET */
+
 void HAL_ETH_ErrorCallback(ETH_HandleTypeDef *heth)
 {
 	/* Do not log errors. If errors are reported due to high traffic,
@@ -516,28 +549,8 @@ void HAL_ETH_ErrorCallback(ETH_HandleTypeDef *heth)
 #endif
 		dma_error = HAL_ETH_GetDMAError(heth);
 
-#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet)
-		if ((dma_error & ETH_DMA_RX_WATCHDOG_TIMEOUT_FLAG)   ||
-			(dma_error & ETH_DMA_RX_PROCESS_STOPPED_FLAG)    ||
-			(dma_error & ETH_DMA_RX_BUFFER_UNAVAILABLE_FLAG)) {
-			eth_stats_update_errors_rx(dev_data->iface);
-		}
-		if ((dma_error & ETH_DMA_EARLY_TX_IT_FLAG) ||
-			(dma_error & ETH_DMA_TX_PROCESS_STOPPED_FLAG)) {
-			eth_stats_update_errors_tx(dev_data->iface);
-		}
-#else
-		if ((dma_error & ETH_DMASR_RWTS) ||
-			(dma_error & ETH_DMASR_RPSS) ||
-			(dma_error & ETH_DMASR_RBUS)) {
-			eth_stats_update_errors_rx(dev_data->iface);
-		}
-		if ((dma_error & ETH_DMASR_ETS)  ||
-			(dma_error & ETH_DMASR_TPSS) ||
-			(dma_error & ETH_DMASR_TJTS)) {
-			eth_stats_update_errors_tx(dev_data->iface);
-		}
-#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet) */
+		eth_stm32_update_dma_error(dev_data, dma_error);
+
 		break;
 
 #if DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet)
@@ -560,16 +573,7 @@ void HAL_ETH_ErrorCallback(ETH_HandleTypeDef *heth)
 #endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet) */
 	}
 
-#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32mp13_ethernet)
-	dev_data->stats.error_details.rx_crc_errors = heth->Instance->MMCRXCRCEPR;
-	dev_data->stats.error_details.rx_align_errors = heth->Instance->MMCRXAEPR;
-#elif DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet)
-	dev_data->stats.error_details.rx_crc_errors = heth->Instance->MMCRCRCEPR;
-	dev_data->stats.error_details.rx_align_errors = heth->Instance->MMCRAEPR;
-#else
-	dev_data->stats.error_details.rx_crc_errors = heth->Instance->MMCRFCECR;
-	dev_data->stats.error_details.rx_align_errors = heth->Instance->MMCRFAECR;
-#endif /* DT_HAS_COMPAT_STATUS_OKAY(st_stm32h7_ethernet) */
+	eth_stm32_update_rx_error_details(heth, dev_data);
 
 #endif /* CONFIG_NET_STATISTICS_ETHERNET */
 }
@@ -623,7 +627,6 @@ int eth_stm32_hal_init(const struct device *dev)
 #endif /* CONFIG_PTP_CLOCK_STM32_HAL */
 
 	/* Initialize semaphores */
-	k_mutex_init(&dev_data->tx_mutex);
 	k_sem_init(&dev_data->rx_int_sem, 0, K_SEM_MAX_LIMIT);
 	k_sem_init(&dev_data->tx_int_sem, 0, 1);
 
@@ -667,6 +670,14 @@ void eth_stm32_set_mac_config(const struct device *dev, struct phy_link_state *s
 #if DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_ethernet)
 	mac_config.PortSelect = PHY_LINK_IS_SPEED_1000M(state->speed) ? DISABLE : ENABLE;
 #endif
+
+	/* Always disable hardware source address replacement.
+	 * Zephyr network stack sets the source MAC address and
+	 * therefore hardware replacement should not be enabled,
+	 * since it may affect bridging applications, for example.
+	 */
+	mac_config.SourceAddrControl = ETH_SOURCEADDRESS_DISABLE;
+
 	hal_ret = HAL_ETH_SetMACConfig(heth, &mac_config);
 	if (hal_ret != HAL_OK) {
 		LOG_ERR("HAL_ETH_SetMACConfig failed: %d", hal_ret);

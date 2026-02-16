@@ -10,6 +10,7 @@ The Wi-Fi management API is used to manage Wi-Fi networks. It supports below mod
 
 * IEEE802.11 Station (STA)
 * IEEE802.11 Access Point (AP)
+* IEEE802.11 P2P (Wi-Fi Direct)
 
 Only personal mode security is supported with below types:
 
@@ -44,6 +45,64 @@ Wi-Fi PSA crypto supported build
 ********************************
 
 To enable PSA crypto API supported Wi-Fi build, the :kconfig:option:`CONFIG_WIFI_NM_WPA_SUPPLICANT_CRYPTO_ALT` and the :kconfig:option:`CONFIG_WIFI_NM_WPA_SUPPLICANT_CRYPTO_MBEDTLS_PSA` need to be set.
+
+Wi-Fi Security
+**************
+
+The Wi-Fi stack supports various security methods for authentication and
+encryption. The implementation uses either PSA (Platform Security
+Architecture) APIs or legacy MbedTLS APIs depending on the build
+configuration and method support. When
+:kconfig:option:`CONFIG_WIFI_NM_WPA_SUPPLICANT_CRYPTO_MBEDTLS_PSA` is
+enabled, security methods that have PSA API support use PSA APIs;
+otherwise, all methods use legacy MbedTLS APIs.
+
+The following table lists the supported security methods and the
+cryptographic API used. When PSA crypto is enabled, methods that support
+PSA APIs use them; otherwise, legacy MbedTLS APIs are used.
+
+.. list-table:: Wi-Fi Security Methods and API Usage
+   :widths: 40 60
+   :header-rows: 1
+
+   * - Security Method
+     - Cryptographic API
+   * - Open (No security)
+     - N/A
+   * - WPA2-PSK
+     - PSA APIs
+   * - WPA2-PSK-256
+     - PSA APIs
+   * - WPA3-SAE
+     - Legacy MbedTLS
+   * - EAP-TLS
+     - Legacy MbedTLS
+   * - EAP-TTLS-MSCHAPV2
+     - Legacy MbedTLS
+   * - EAP-PEAP-MSCHAPV2
+     - Legacy MbedTLS
+
+When PSA crypto is enabled, the following cryptographic operations use
+PSA APIs:
+
+* Message digest operations (MD5, SHA1, SHA256, SHA384, SHA512)
+* HMAC operations (HMAC-SHA1, HMAC-SHA256, etc.)
+* PBKDF2-SHA1 (used for WPA2-PSK key derivation)
+* AES encryption/decryption (AES-128, AES-256, ECB, CTR, CBC modes)
+* OMAC1-AES (used for key wrapping)
+
+The following operations continue to use legacy MbedTLS APIs even when
+PSA crypto is enabled:
+
+* TLS/SSL operations (EAP-TLS, EAP-TTLS, EAP-PEAP)
+* Elliptic curve operations (ECDH, ECDSA) for WPA3-SAE
+* RSA operations
+* X.509 certificate parsing and validation
+* Big number operations
+
+The crypto implementation is located in the hostap module at
+``modules/lib/hostap/src/crypto/crypto_mbedtls_alt.c`` and
+``modules/lib/hostap/src/crypto/tls_mbedtls_alt.c``.
 
 Wi-Fi Enterprise test: X.509 Certificate management
 ***************************************************
@@ -214,6 +273,19 @@ The test certificates in ``samples/net/wifi/test_certs/rsa2k`` are generated usi
 
 .. note::
    These certificates are for testing only and should not be used in production.
+
+Wi-Fi P2P (Wi-Fi Direct)
+************************
+
+Wi-Fi P2P or Wi-Fi Direct enables devices to communicate directly with each other without requiring
+a traditional access point. This feature is particularly useful for device-to-device communication
+scenarios.
+
+To enable and build with Wi-Fi P2P support:
+
+.. code-block:: bash
+
+    $ west build -p -b <board> samples/net/wifi/shell -- -DCONFIG_WIFI_NM_WPA_SUPPLICANT_P2P=y
 
 API Reference
 *************

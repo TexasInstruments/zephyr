@@ -103,7 +103,7 @@ int sdl_display_init_bottom(struct sdl_display_init_params *params)
 	SDL_RenderSetLogicalSize(*params->renderer, params->width, params->height);
 
 	*params->texture =
-		SDL_CreateTexture(*params->renderer, SDL_PIXELFORMAT_ARGB8888,
+		SDL_CreateTexture(*params->renderer, SDL_PIXELFORMAT_BGRA32,
 				  SDL_TEXTUREACCESS_STATIC, params->width, params->height);
 	if (*params->texture == NULL) {
 		nsi_print_warning("Failed to create SDL texture: %s", SDL_GetError());
@@ -112,7 +112,7 @@ int sdl_display_init_bottom(struct sdl_display_init_params *params)
 	SDL_SetTextureBlendMode(*params->texture, SDL_BLENDMODE_BLEND);
 
 	*params->read_texture =
-		SDL_CreateTexture(*params->renderer, SDL_PIXELFORMAT_ARGB8888,
+		SDL_CreateTexture(*params->renderer, SDL_PIXELFORMAT_BGRA32,
 				  SDL_TEXTUREACCESS_TARGET, params->width, params->height);
 	if (*params->read_texture == NULL) {
 		nsi_print_warning("Failed to create SDL texture for read: %s", SDL_GetError());
@@ -120,7 +120,7 @@ int sdl_display_init_bottom(struct sdl_display_init_params *params)
 	}
 
 	*params->background_texture =
-		SDL_CreateTexture(*params->renderer, SDL_PIXELFORMAT_ARGB8888,
+		SDL_CreateTexture(*params->renderer, SDL_PIXELFORMAT_BGRA32,
 				  SDL_TEXTUREACCESS_STREAMING, params->width, params->height);
 	if (*params->background_texture == NULL) {
 		nsi_print_warning("Failed to create SDL texture: %s", SDL_GetError());
@@ -166,7 +166,8 @@ int sdl_display_init_bottom(struct sdl_display_init_params *params)
 
 	SDL_SetRenderDrawColor(*params->renderer, 0, 0, 0, 0xFF);
 	SDL_RenderClear(*params->renderer);
-	SDL_RenderCopy(*params->renderer, *params->background_texture, NULL, NULL);
+	SDL_RenderCopyEx(*params->renderer, *params->background_texture, NULL, NULL,
+		params->angle, NULL, SDL_FLIP_NONE);
 	SDL_RenderPresent(*params->renderer);
 
 	return 0;
@@ -192,18 +193,21 @@ void sdl_display_write_bottom(const struct sdl_display_write_params *params)
 
 	if (params->display_on && !params->frame_incomplete) {
 		SDL_RenderClear(params->renderer);
-		SDL_RenderCopy(params->renderer, params->background_texture, NULL, NULL);
+		SDL_RenderCopyEx(params->renderer, params->background_texture, NULL,
+			NULL, params->angle, NULL, SDL_FLIP_NONE);
 		SDL_SetTextureColorMod(params->texture,
 				       (params->color_tint >> 16) & 0xff,
 				       (params->color_tint >> 8) & 0xff,
 				       params->color_tint & 0xff);
-		SDL_RenderCopy(params->renderer, params->texture, NULL, NULL);
+		SDL_RenderCopyEx(params->renderer, params->texture, NULL, NULL,
+			params->angle, NULL, SDL_FLIP_NONE);
 		SDL_SetTextureColorMod(params->texture, 255, 255, 255);
 
 		/* Apply ellipse mask if enabled */
 		if (params->round_disp_mask != NULL) {
 			SDL_SetRenderDrawBlendMode(params->renderer, SDL_BLENDMODE_MOD);
-			SDL_RenderCopy(params->renderer, params->round_disp_mask, NULL, NULL);
+			SDL_RenderCopyEx(params->renderer, params->round_disp_mask, NULL,
+				NULL, params->angle, NULL, SDL_FLIP_NONE);
 			SDL_SetRenderDrawBlendMode(params->renderer, SDL_BLENDMODE_BLEND);
 		}
 
@@ -233,8 +237,9 @@ int sdl_display_read_bottom(const struct sdl_display_read_params *params)
 	SDL_SetTextureBlendMode(params->texture, SDL_BLENDMODE_NONE);
 
 	SDL_RenderClear(params->renderer);
-	SDL_RenderCopy(params->renderer, params->texture, NULL, NULL);
-	SDL_RenderReadPixels(params->renderer, &rect, SDL_PIXELFORMAT_ARGB8888, params->buf,
+	SDL_RenderCopyEx(params->renderer, params->texture, NULL, NULL,
+		params->angle, NULL, SDL_FLIP_NONE);
+	SDL_RenderReadPixels(params->renderer, &rect, SDL_PIXELFORMAT_BGRA32, params->buf,
 			     params->width * 4);
 
 	SDL_SetTextureBlendMode(params->texture, SDL_BLENDMODE_BLEND);
@@ -248,16 +253,19 @@ int sdl_display_read_bottom(const struct sdl_display_read_params *params)
 void sdl_display_blanking_off_bottom(const struct sdl_display_blanking_off_params *params)
 {
 	SDL_RenderClear(params->renderer);
-	SDL_RenderCopy(params->renderer, params->background_texture, NULL, NULL);
+	SDL_RenderCopyEx(params->renderer, params->background_texture, NULL, NULL,
+		params->angle, NULL, SDL_FLIP_NONE);
 	SDL_SetTextureColorMod(params->texture, (params->color_tint >> 16) & 0xff,
 			       (params->color_tint >> 8) & 0xff, params->color_tint & 0xff);
-	SDL_RenderCopy(params->renderer, params->texture, NULL, NULL);
+	SDL_RenderCopyEx(params->renderer, params->texture, NULL, NULL,
+		params->angle, NULL, SDL_FLIP_NONE);
 	SDL_SetTextureColorMod(params->texture, 255, 255, 255);
 
 	/* Apply ellipse mask if enabled */
 	if (params->round_disp_mask != NULL) {
 		SDL_SetRenderDrawBlendMode(params->renderer, SDL_BLENDMODE_MOD);
-		SDL_RenderCopy(params->renderer, params->round_disp_mask, NULL, NULL);
+		SDL_RenderCopyEx(params->renderer, params->round_disp_mask, NULL, NULL,
+			params->angle, NULL, SDL_FLIP_NONE);
 		SDL_SetRenderDrawBlendMode(params->renderer, SDL_BLENDMODE_BLEND);
 	}
 

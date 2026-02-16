@@ -74,7 +74,7 @@
 };
 
 &gpio16 {
-	irqs = <3 7>;
+	irqs = <&irq7 3>;
 	status = "okay";
 };
 
@@ -90,5 +90,13 @@
 	trigger-type = "falling";
 	pinctrl-0 = <&irq7_default>;
 	pinctrl-names = "default";
+	status = "okay";
+};
+
+&adc0 {
+	status = "okay";
+};
+
+&adc1 {
 	status = "okay";
 };

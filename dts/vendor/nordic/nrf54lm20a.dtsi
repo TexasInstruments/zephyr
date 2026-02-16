@@ -39,10 +39,11 @@
 		};
 
 		cpuflpr: cpu@1 {
-			compatible = "nordic,vpr";
+			compatible = "nordic,vpr", "riscv";
 			reg = <1>;
 			device_type = "cpu";
-			riscv,isa = "rv32emc";
+			riscv,isa-base = "rv32e";
+			riscv,isa-extensions = "e", "m", "c", "zicsr";
 			nordic,bus-width = <32>;
 		};
 	};
@@ -99,13 +100,22 @@
 #ifdef USE_NON_SECURE_ADDRESS_MAP
 		/* intentionally empty because UICR is hardware fixed to Secure */
 #else
-
 		uicr: uicr@ffd000 {
 			compatible = "nordic,nrf-uicr";
 			reg = <0xffd000 0x1000>;
 		};
 #endif
 
+#ifdef USE_NON_SECURE_ADDRESS_MAP
+		/* FLPR/VPR is not used with TF-M so NS can use its memory */
+		cpuapp_sram: memory@20000000 {
+			compatible = "mmio-sram";
+			reg = <0x20000000 0x2007fe40>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x20000000 0x2007fe40>;
+		};
+#else
 		cpuapp_sram: memory@20000000 {
 			compatible = "mmio-sram";
 			reg = <0x20000000 DT_SIZE_K(511)>;
@@ -121,6 +131,7 @@
 			#size-cells = <1>;
 			ranges = <0x0 0x20067c00 DT_SIZE_K(96)>;
 		};
+#endif
 
 #ifdef USE_NON_SECURE_ADDRESS_MAP
 		global_peripherals: peripheral@40000000 {
@@ -129,7 +140,6 @@
 			#size-cells = <1>;
 			ranges = <0x0 0x40000000 0x10000000>;
 #else
-
 		global_peripherals: peripheral@50000000 {
 			reg = <0x50000000 0x10000000>;
 			ranges = <0x0 0x50000000 0x10000000>;
@@ -618,8 +628,6 @@
 				interrupts = <232 NRF_DEFAULT_IRQ_PRIORITY>;
 				status = "disabled";
 				clocks = <&pclk32m>;
-				nordic,clockpin-enable = <NRF_FUN_TDM_SCK_M>,
-							 <NRF_FUN_TDM_MCK>;
 			};
 
 			i2c23: i2c@ed000 {
@@ -765,7 +773,6 @@
 #ifdef USE_NON_SECURE_ADDRESS_MAP
 			/* intentionally empty because WDT30 is hardware fixed to Secure */
 #else
-
 			wdt30: watchdog@108000 {
 				compatible = "nordic,nrf-wdt";
 				reg = <0x108000 0x620>;
@@ -856,19 +863,37 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+#ifdef USE_NON_SECURE_ADDRESS_MAP
 			cpuapp_rram: rram@0 {
 				compatible = "soc-nv-flash";
 				reg = <0x0 DT_SIZE_K(2036)>;
+				ranges = <0x0 0x0 DT_SIZE_K(2036)>;
 				erase-block-size = <4096>;
 				write-block-size = <16>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+			};
+#else
+			cpuapp_rram: rram@0 {
+				compatible = "soc-nv-flash";
+				reg = <0x0 DT_SIZE_K(1940)>;
+				ranges = <0x0 0x0 DT_SIZE_K(1940)>;
+				erase-block-size = <4096>;
+				write-block-size = <16>;
+				#address-cells = <1>;
+				#size-cells = <1>;
 			};
 
 			cpuflpr_rram: rram@1e5000 {
 				compatible = "soc-nv-flash";
 				reg = <0x1e5000 DT_SIZE_K(96)>;
+				ranges = <0x0 0x1e5000 DT_SIZE_K(96)>;
 				erase-block-size = <4096>;
 				write-block-size = <16>;
+				#address-cells = <1>;
+				#size-cells = <1>;
 			};
+#endif
 		};
 
 		nrf_mpc: memory@50041000 {

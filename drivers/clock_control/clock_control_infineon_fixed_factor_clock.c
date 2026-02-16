@@ -32,6 +32,7 @@ struct fixed_factor_clock_config {
 	uint32_t source_path;
 };
 
+#if defined(CONFIG_SOC_SERIES_PSE84) || defined(CONFIG_SOC_SERIES_PSC3)
 static int check_legal_max_min(const struct device *dev)
 {
 	const struct fixed_factor_clock_config *const config = dev->config;
@@ -54,30 +55,75 @@ static int check_legal_max_min(const struct device *dev)
 
 	return 0;
 }
+#endif
 
 static int fixed_factor_clk_init(const struct device *dev)
 {
 	const struct fixed_factor_clock_config *const config = dev->config;
+#if defined(CONFIG_SOC_SERIES_PSE84) || defined(CONFIG_SOC_SERIES_PSC3)
 	uint32_t rslt;
+#endif
+	int err;
 
 	switch (config->block) {
 
 	case IFX_PATHMUX:
+#if !defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
 		Cy_SysClk_ClkPathSetSource(config->instance, config->source_path);
+#endif
 		break;
 
 	case IFX_HF:
-		Cy_SysClk_ClkHfSetSource(config->instance, config->source_path);
-		Cy_SysClk_ClkHfSetDivider(config->instance, config->divider);
-		Cy_SysClk_ClkHfEnable(config->instance);
+#if defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
+		err = Cy_SysClk_ClkHfSetSource(config->source_path);
+		if (err != CY_SYSCLK_SUCCESS) {
+			return -EIO;
+		}
+
+		/* Note : you can use only 4 divider types
+		 *
+		 * - IFX_CLK_HF_NO_DIVIDE
+		 * - IFX_CLK_HF_DIVIDE_BY_2
+		 * - IFX_CLK_HF_DIVIDE_BY_4
+		 * - IFX_CLK_HF_DIVIDE_BY_8
+		 */
+		Cy_SysClk_ClkHfSetDivider(IFX_PSOC4_HFCLK_DIV(config->divider));
+#else
+		uint32_t source_instance = 0;
+
+		err = Cy_SysClk_ClkHfSetSource(config->instance, source_instance);
+		if (err != CY_SYSCLK_SUCCESS) {
+			return -EIO;
+		}
+
+		err = Cy_SysClk_ClkHfSetDivider(config->instance, config->divider);
+		if (err != CY_SYSCLK_SUCCESS) {
+			return -EIO;
+		}
+
+		err = Cy_SysClk_ClkHfEnable(config->instance);
+		if (err != CY_SYSCLK_SUCCESS) {
+			return -EIO;
+		}
+#endif
+		break;
+
+	case IFX_PUMP:
+#if defined(CONFIG_SOC_FAMILY_INFINEON_PSOC4)
+		err = Cy_SysClk_ClkPumpSetSource(config->source_path);
+		if (err != CY_SYSCLK_SUCCESS) {
+			return -EIO;
+		}
+#endif
 		break;
 
 	default:
 		return -EINVAL;
 	}
 
+#if defined(CONFIG_SOC_SERIES_PSE84) || defined(CONFIG_SOC_SERIES_PSC3)
 	rslt = check_legal_max_min(dev);
-
+#endif
 	return 0;
 }
 

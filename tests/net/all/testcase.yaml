@@ -19,8 +19,6 @@ tests:
     extra_configs:
       - CONFIG_NET_NAMESPACE_COMPAT_MODE=n
       - CONFIG_POSIX_API=n
-      - CONFIG_SHELL_GETOPT=n
-      - CONFIG_NET_L2_WIFI_SHELL=n
   net.build.compat_namespacing:
     platform_allow: qemu_x86
     extra_configs:
@@ -33,8 +31,6 @@ tests:
     extra_configs:
       - CONFIG_NET_NAMESPACE_COMPAT_MODE=n
       - CONFIG_POSIX_API=n
-      - CONFIG_SHELL_GETOPT=n
-      - CONFIG_NET_L2_WIFI_SHELL=n
       - CONFIG_NET_CANBUS=y
       - CONFIG_CAN=y
       - CONFIG_NET_SOCKETS_CAN=y
@@ -50,8 +46,6 @@ tests:
     extra_configs:
       - CONFIG_NET_NAMESPACE_COMPAT_MODE=n
       - CONFIG_POSIX_API=n
-      - CONFIG_SHELL_GETOPT=n
-      - CONFIG_NET_L2_WIFI_SHELL=n
       - CONFIG_NET_L2_OPENTHREAD=y
       - CONFIG_CPP=y
       - CONFIG_NET_SLIP_TAP=n
@@ -109,7 +103,6 @@ tests:
       - CONFIG_OPENTHREAD_SRP_ADV_PROXY=y
       - CONFIG_OPENTHREAD_DNSSD_DISCOVERY_PROXY=y
       - CONFIG_OPENTHREAD_PING_SENDER=y
-      - CONFIG_OPENTHREAD_REFERENCE_DEVICE=y
       - CONFIG_OPENTHREAD_LINK_METRICS_INITIATOR=y
       - CONFIG_OPENTHREAD_DUA=y
       - CONFIG_OPENTHREAD_MLR=y
@@ -128,4 +121,3 @@ tests:
       - CONFIG_NET_ROUTE_MCAST=y
       - CONFIG_OPENTHREAD_SHELL=y
       - CONFIG_DNS_RESOLVER_PACKET_FORWARDING=y
-      - CONFIG_MAX_THREAD_BYTES=5

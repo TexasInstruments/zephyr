@@ -231,12 +231,33 @@ static whd_security_t convert_zephyr_security_to_whd(int security)
 	return whd_security;
 }
 
+static uint8_t convert_whd_band_to_zephyr(whd_802_11_band_t band)
+{
+	uint8_t zephyr_band = WIFI_FREQ_BAND_UNKNOWN;
+
+	switch (band) {
+	case WHD_802_11_BAND_2_4GHZ:
+		zephyr_band = WIFI_FREQ_BAND_2_4_GHZ;
+		break;
+
+	case WHD_802_11_BAND_5GHZ:
+		zephyr_band = WIFI_FREQ_BAND_5_GHZ;
+		break;
+
+	case WHD_802_11_BAND_6GHZ:
+		zephyr_band = WIFI_FREQ_BAND_6_GHZ;
+		break;
+	}
+	return zephyr_band;
+}
+
 static void parse_scan_result(whd_scan_result_t *p_whd_result, struct wifi_scan_result *p_zy_result)
 {
 	if (p_whd_result->SSID.length != 0) {
 		p_zy_result->ssid_length = p_whd_result->SSID.length;
 		strncpy(p_zy_result->ssid, p_whd_result->SSID.value, p_whd_result->SSID.length);
 		p_zy_result->channel = p_whd_result->channel;
+		p_zy_result->band = convert_whd_band_to_zephyr(p_whd_result->band);
 		p_zy_result->security = convert_whd_security_to_zephyr(p_whd_result->security);
 		p_zy_result->rssi = (int8_t)p_whd_result->signal_strength;
 		p_zy_result->mac_length = 6;
@@ -679,7 +700,7 @@ static int airoc_mgmt_ap_enable(const struct device *dev, struct wifi_connect_re
 	struct airoc_wifi_data *data = dev->data;
 	whd_security_t security;
 	whd_ssid_t ssid;
-	uint8_t channel;
+	uint16_t chanspec;
 	int ret = 0;
 
 	if (k_sem_take(&data->sema_common, K_MSEC(AIROC_WIFI_WAIT_SEMA_MS)) != 0) {
@@ -715,13 +736,26 @@ static int airoc_mgmt_ap_enable(const struct device *dev, struct wifi_connect_re
 	 * - 2G channels from 1 to 11,
 	 * - 5G channels from 36 to 165
 	 */
-	if (((params->channel > 0) && (params->channel < 12)) ||
-	    ((params->channel > 35) && (params->channel < 166))) {
-		channel = params->channel;
+	if ((params->channel > 0) && (params->channel < 12)) {
+		chanspec = params->channel | GET_C_VAR(airoc_ap_if->whd_driver, CHANSPEC_BAND_2G);
+	} else if ((params->channel > 35) && (params->channel < 166)) {
+		chanspec = params->channel | GET_C_VAR(airoc_ap_if->whd_driver, CHANSPEC_BAND_5G);
 	} else {
-		channel = 1;
+		chanspec = 1 | GET_C_VAR(airoc_ap_if->whd_driver, CHANSPEC_BAND_2G);
 		LOG_WRN("Discard of setting unsupported channel: %u (will set 1)",
 			params->channel);
+	}
+
+	switch (params->bandwidth) {
+	case WIFI_FREQ_BANDWIDTH_20MHZ:
+		chanspec |= GET_C_VAR(airoc_ap_if->whd_driver, CHANSPEC_BW_20);
+		break;
+	case WIFI_FREQ_BANDWIDTH_40MHZ:
+		chanspec |= GET_C_VAR(airoc_ap_if->whd_driver, CHANSPEC_BW_40);
+		break;
+	case WIFI_FREQ_BANDWIDTH_80MHZ:
+		chanspec |= GET_C_VAR(airoc_ap_if->whd_driver, CHANSPEC_BW_80);
+		break;
 	}
 
 	switch (params->security) {
@@ -739,7 +773,7 @@ static int airoc_mgmt_ap_enable(const struct device *dev, struct wifi_connect_re
 	}
 
 	if (whd_wifi_init_ap(airoc_ap_if, &ssid, security, (const uint8_t *)params->psk,
-			     params->psk_length, channel) != 0) {
+			     params->psk_length, chanspec) != 0) {
 		LOG_ERR("Failed to init whd ap interface");
 		ret = -EAGAIN;
 		goto error;

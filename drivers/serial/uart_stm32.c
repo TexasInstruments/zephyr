@@ -177,7 +177,6 @@ static inline int uart_stm32_set_baudrate(const struct device *dev, uint32_t bau
 {
 	const struct uart_stm32_config *config = dev->config;
 	USART_TypeDef *usart = config->usart;
-	struct uart_stm32_data *data = dev->data;
 
 	if (baud_rate == 0) {
 		return -EINVAL;
@@ -187,7 +186,7 @@ static inline int uart_stm32_set_baudrate(const struct device *dev, uint32_t bau
 
 	/* Get clock rate */
 	if (IS_ENABLED(STM32_UART_DOMAIN_CLOCK_SUPPORT) && (config->pclk_len > 1)) {
-		int ret = clock_control_get_rate(data->clock,
+		int ret = clock_control_get_rate(config->clock,
 						 (clock_control_subsys_t)&config->pclken[1],
 						 &clock_rate);
 		if (ret < 0) {
@@ -195,7 +194,7 @@ static inline int uart_stm32_set_baudrate(const struct device *dev, uint32_t bau
 			return ret;
 		}
 	} else {
-		int ret = clock_control_get_rate(data->clock,
+		int ret = clock_control_get_rate(config->clock,
 						 (clock_control_subsys_t)&config->pclken[0],
 						 &clock_rate);
 		if (ret < 0) {
@@ -877,14 +876,6 @@ static int uart_stm32_err_check(const struct device *dev)
 	return err;
 }
 
-static inline void __uart_stm32_get_clock(const struct device *dev)
-{
-	struct uart_stm32_data *data = dev->data;
-	const struct device *const clk = DEVICE_DT_GET(STM32_CLOCK_CONTROL_NODE);
-
-	data->clock = clk;
-}
-
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 
 typedef void (*fifo_fill_fn)(USART_TypeDef *usart, const void *tx_data, const int offset);
@@ -1290,28 +1281,56 @@ static void uart_stm32_dma_rx_flush(const struct device *dev, int status)
 {
 	struct dma_status stat;
 	struct uart_stm32_data *data = dev->data;
-
 	size_t rx_rcv_len = 0;
 
 	switch (status) {
 	case DMA_STATUS_COMPLETE:
 		/* fully complete */
+
+		/* If offset is already at the end, just reset for next lap and return. */
+		if (data->dma_rx.offset >= data->dma_rx.buffer_length) {
+			data->dma_rx.offset = 0;
+			return;
+		}
+
 		data->dma_rx.counter = data->dma_rx.buffer_length;
 		break;
 	case DMA_STATUS_BLOCK:
 		/* half complete */
-		data->dma_rx.counter = data->dma_rx.buffer_length / 2;
+		uint32_t half_pos = data->dma_rx.buffer_length / 2;
 
+		/* Already handled by timeout path has already dealt with this data.
+		 * Return immediately.
+		 */
+		if (data->dma_rx.offset >= half_pos) {
+			return;
+		}
+
+		data->dma_rx.counter = half_pos;
 		break;
 	default: /* likely STM32_ASYNC_STATUS_TIMEOUT */
 		if (dma_get_status(data->dma_rx.dma_dev, data->dma_rx.dma_channel, &stat) == 0) {
 			rx_rcv_len = data->dma_rx.buffer_length - stat.pending_length;
+
+			/* If DMA wrapped: emit tail [offset..end), then head [0..counter). */
+			if (rx_rcv_len < data->dma_rx.offset) {
+				/* tail end and emit*/
+				data->dma_rx.counter = data->dma_rx.buffer_length;
+				async_evt_rx_rdy(data);
+
+				/* prepare head */
+				data->dma_rx.offset = 0;
+			}
+
 			data->dma_rx.counter = rx_rcv_len;
 		}
 		break;
 	}
 
-	async_evt_rx_rdy(data);
+	/* Emit contiguous segment if any (BLOCK/COMPLETE or non-wrapping TIMEOUT).*/
+	if (data->dma_rx.counter > data->dma_rx.offset) {
+		async_evt_rx_rdy(data);
+	}
 
 	switch (status) { /* update offset*/
 	case DMA_STATUS_COMPLETE:
@@ -1323,7 +1342,7 @@ static void uart_stm32_dma_rx_flush(const struct device *dev, int status)
 		data->dma_rx.offset = data->dma_rx.buffer_length / 2;
 		break;
 	default: /* likely STM32_ASYNC_STATUS_TIMEOUT */
-		data->dma_rx.offset += rx_rcv_len - data->dma_rx.offset;
+		data->dma_rx.offset = rx_rcv_len;
 		break;
 	}
 }
@@ -1998,6 +2017,11 @@ static int uart_stm32_async_rx_buf_rsp(const struct device *dev, uint8_t *buf,
 
 	LOG_DBG("replace buffer (%d)", len);
 
+	if (!stm32_buf_in_nocache((uintptr_t)buf, len)) {
+		LOG_ERR("Rx buffer should be placed in a nocache memory region");
+		return -EFAULT;
+	}
+
 	key = irq_lock();
 
 	if (data->rx_next_buffer != NULL) {
@@ -2005,10 +2029,6 @@ static int uart_stm32_async_rx_buf_rsp(const struct device *dev, uint8_t *buf,
 	} else if (!data->dma_rx.enabled) {
 		err = -EACCES;
 	} else {
-		if (!stm32_buf_in_nocache((uintptr_t)buf, len)) {
-			LOG_ERR("Rx buffer should be placed in a nocache memory region");
-			return -EFAULT;
-		}
 		data->rx_next_buffer = buf;
 		data->rx_next_buffer_len = len;
 	}
@@ -2201,18 +2221,15 @@ static DEVICE_API(uart, uart_stm32_driver_api) = {
 static int uart_stm32_clocks_enable(const struct device *dev)
 {
 	const struct uart_stm32_config *config = dev->config;
-	struct uart_stm32_data *data = dev->data;
 	int err;
 
-	__uart_stm32_get_clock(dev);
-
-	if (!device_is_ready(data->clock)) {
+	if (!device_is_ready(config->clock)) {
 		LOG_ERR("clock control device not ready");
 		return -ENODEV;
 	}
 
 	/* enable clock */
-	err = clock_control_on(data->clock, (clock_control_subsys_t)&config->pclken[0]);
+	err = clock_control_on(config->clock, (clock_control_subsys_t)&config->pclken[0]);
 	if (err != 0) {
 		LOG_ERR("Could not enable (LP)UART clock");
 		return err;
@@ -2418,7 +2435,6 @@ static void uart_stm32_suspend_setup(const struct device *dev)
 static int uart_stm32_pm_action(const struct device *dev, enum pm_device_action action)
 {
 	const struct uart_stm32_config *config = dev->config;
-	struct uart_stm32_data *data = dev->data;
 	int err;
 
 	switch (action) {
@@ -2430,7 +2446,7 @@ static int uart_stm32_pm_action(const struct device *dev, enum pm_device_action 
 		}
 
 		/* Enable bus clock */
-		err = clock_control_on(data->clock, (clock_control_subsys_t)&config->pclken[0]);
+		err = clock_control_on(config->clock, (clock_control_subsys_t)&config->pclken[0]);
 		if (err < 0) {
 			LOG_ERR("Could not enable (LP)UART clock");
 			return err;
@@ -2462,7 +2478,7 @@ static int uart_stm32_pm_action(const struct device *dev, enum pm_device_action 
 	case PM_DEVICE_ACTION_SUSPEND:
 		uart_stm32_suspend_setup(dev);
 		/* Stop device clock. Note: fixed clocks are not handled yet. */
-		err = clock_control_off(data->clock, (clock_control_subsys_t)&config->pclken[0]);
+		err = clock_control_off(config->clock, (clock_control_subsys_t)&config->pclken[0]);
 		if (err < 0) {
 			LOG_ERR("Could not disable (LP)UART clock");
 			return err;
@@ -2658,6 +2674,7 @@ static int uart_stm32_pm_action(const struct device *dev, enum pm_device_action 
 										\
 	static const struct uart_stm32_config uart_stm32_cfg_##index = {	\
 		.usart = (USART_TypeDef *)DT_INST_REG_ADDR(index),		\
+		.clock = DEVICE_DT_GET(STM32_CLOCK_CONTROL_NODE),		\
 		.reset = RESET_DT_SPEC_GET(DT_DRV_INST(index)),			\
 		.pclken = pclken_##index,					\
 		.pclk_len = DT_INST_NUM_CLOCKS(index),				\

@@ -202,7 +202,7 @@ testing:
   testing relating keywords to provide best coverage for the features of this
   board.
 
-.. _twister_default_testing_board:
+  .. _twister_default_testing_board:
 
   binaries:
     A list of custom binaries to be kept for device testing.
@@ -215,14 +215,18 @@ testing:
     tags.
   only_tags:
     Only execute tests with this list of tags on a specific platform.
-
-  .. _twister_board_timeout_multiplier:
-
   timeout_multiplier: <float> (default 1)
+    .. _twister_board_timeout_multiplier:
+
     Multiply each test scenario timeout by specified ratio. This option allows to tune timeouts only
     for required platform. It can be useful in case naturally slow platform I.e.: HW board with
     power-efficient but slow CPU or simulation platform which can perform instruction accurate
     simulation but does it slowly.
+
+  flash_before: [True|False] (default False)
+    For pytest/shell harness hardware testing, flash the device before opening the serial port.
+    This prevents serial port disconnection issues during flashing on some boards (e.g., those
+    with USB CDC that reset during flash operations).
 
 env:
   A list of environment variables. Twister will check if all these environment variables are set,
@@ -300,9 +304,6 @@ The ``--no-detailed-test-id`` command line option modifies the above rules in th
 
 #. With short Test Suite names in this mode, all corresponding Test Scenario names
    must be unique for the Twister execution scope.
-
-#. **Ztest** Test Case names have only Ztest components ``<Ztest suite name>.<Ztest test name>``.
-   Its parent Test Suite name equals to the corresponding Test Scenario identifier.
 
 
 The following is an example test configuration with a few options that are
@@ -1565,9 +1566,8 @@ The ``--device-serial`` option denotes the serial device the board is connected 
 This needs to be accessible by the user running twister. You can run this on
 only one board at a time, specified using the ``--platform`` option.
 If the platform supports multiple serial ports, you can provide ``--device-serial``
-multiple times, and it will be passed to the pytest harness.
-However, currently the pytest-twister-harness plugin handles only the first serial port,
-other ports must be opened manually in the test code.
+multiple times, and it will be passed to the pytest harness. Alternatively you can use
+the hardware map, see :ref:`multi-core testing <twister_multi_core_testing>` for more details
 
 The ``--device-serial-baud`` option is only needed if your device does not run at
 115200 baud.
@@ -1914,6 +1914,34 @@ Using Single Board For Multiple Variants
       product: J-Link
       runner: nrfjprog
       serial: /dev/ttyACM1
+
+.. _twister_multi_core_testing:
+
+Multi-Core testing support
+--------------------------
+
+Twister supports testing multi-core applications where different cores use
+separate UART interfaces. This feature works only with the pytest harness
+(``harness: pytest``). Generated hardware map should contain multiple entries
+for the same physical device, each representing a different core connection.
+For example:
+
+.. code-block:: yaml
+
+    - connected: true
+      id: 001234567890
+      serial: /dev/ttyACM0
+    - connected: true
+      id: 001234567890
+      platform:
+      - nrf54l15dk/nrf54l15/cpuapp
+      product: J-Link
+      runner: nrfutil
+      serial: /dev/ttyACM1
+
+Both instances share the same device ID but have different serial ports, allowing
+tests to interact with multiple cores simultaneously. Each connection
+is handled independently with separate log files.
 
 Quarantine
 ----------

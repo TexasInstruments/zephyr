@@ -7,6 +7,7 @@
 
 #include <renesas/ra/ra2/r7fa2a1ab3cfm.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 #include "ek_ra2a1-pinctrl.dtsi"
@@ -120,6 +121,14 @@
 	status = "okay";
 };
 
+&adc0 {
+	pinctrl-0 = <&adc0_default>;
+	pinctrl-names = "default";
+	interrupts = <13 3>;
+	interrupt-names = "scanend";
+	status = "okay";
+};
+
 &dac0 {
 	pinctrl-0 = <&dac0_default>;
 	pinctrl-names = "default";
@@ -150,7 +159,7 @@
 		ssdiv = "1.00";
 		so = <0x108>;
 		snum = <0x01>;
-		sdpa = <0x0B>;
+		sdpa = <0x0b>;
 		on-freq = <3>;
 		off-freq = <3>;
 		drift-freq = <255>;

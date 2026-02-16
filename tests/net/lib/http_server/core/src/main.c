@@ -252,15 +252,22 @@ HTTP_RESOURCE_DEFINE(static_resource, test_http_service, "/",
 static uint8_t dynamic_payload[32];
 static size_t dynamic_payload_len = sizeof(dynamic_payload);
 static bool dynamic_error;
+static bool dynamic_complete;
 
-static int dynamic_cb(struct http_client_ctx *client, enum http_data_status status,
+static int dynamic_cb(struct http_client_ctx *client, enum http_transaction_status status,
 		      const struct http_request_ctx *request_ctx,
 		      struct http_response_ctx *response_ctx, void *user_data)
 {
 	static size_t offset;
 
-	if (status == HTTP_SERVER_DATA_ABORTED) {
+	if (status == HTTP_SERVER_TRANSACTION_ABORTED ||
+	    status == HTTP_SERVER_TRANSACTION_COMPLETE) {
 		offset = 0;
+		if (status == HTTP_SERVER_TRANSACTION_COMPLETE) {
+			zassert_false(dynamic_complete,
+				      "Transaction complete called multiple times");
+			dynamic_complete = true;
+		}
 		return 0;
 	}
 
@@ -291,7 +298,7 @@ static int dynamic_cb(struct http_client_ctx *client, enum http_data_status stat
 			offset += request_ctx->data_len;
 		}
 
-		if (status == HTTP_SERVER_DATA_FINAL) {
+		if (status == HTTP_SERVER_REQUEST_DATA_FINAL) {
 			/* All data received, reset progress. */
 			dynamic_payload_len = offset;
 			offset = 0;
@@ -327,7 +334,8 @@ struct test_headers_clone {
 	enum http_header_status status;
 };
 
-static int dynamic_request_headers_cb(struct http_client_ctx *client, enum http_data_status status,
+static int dynamic_request_headers_cb(struct http_client_ctx *client,
+				      enum http_transaction_status status,
 				      const struct http_request_ctx *request_ctx,
 				      struct http_response_ctx *response_ctx, void *user_data)
 {
@@ -335,6 +343,11 @@ static int dynamic_request_headers_cb(struct http_client_ctx *client, enum http_
 	struct http_header *hdrs_src;
 	struct http_header *hdrs_dst;
 	struct test_headers_clone *clone = (struct test_headers_clone *)user_data;
+
+	if (status == HTTP_SERVER_TRANSACTION_ABORTED ||
+	    status == HTTP_SERVER_TRANSACTION_COMPLETE) {
+		return 0;
+	}
 
 	if (request_ctx->header_count != 0) {
 		/* Copy the captured header info to static buffer for later assertions in testcase.
@@ -425,7 +438,8 @@ enum dynamic_response_headers_variant {
 static uint8_t dynamic_response_headers_variant;
 static uint8_t dynamic_response_headers_buffer[sizeof(long_payload)];
 
-static int dynamic_response_headers_cb(struct http_client_ctx *client, enum http_data_status status,
+static int dynamic_response_headers_cb(struct http_client_ctx *client,
+				       enum http_transaction_status status,
 				       const struct http_request_ctx *request_ctx,
 				       struct http_response_ctx *response_ctx, void *user_data)
 {
@@ -440,7 +454,13 @@ static int dynamic_response_headers_cb(struct http_client_ctx *client, enum http
 		{.name = "Content-Type", .value = "application/json"},
 	};
 
-	if (status != HTTP_SERVER_DATA_FINAL &&
+	if (status == HTTP_SERVER_TRANSACTION_ABORTED ||
+	    status == HTTP_SERVER_TRANSACTION_COMPLETE) {
+		offset = 0;
+		return 0;
+	}
+
+	if (status != HTTP_SERVER_REQUEST_DATA_FINAL &&
 	    dynamic_response_headers_variant != DYNAMIC_RESPONSE_HEADERS_VARIANT_BODY_LONG) {
 		/* Long body variant is the only one which needs to take some action before final
 		 * data has been received from server
@@ -515,7 +535,7 @@ static int dynamic_response_headers_cb(struct http_client_ctx *client, enum http
 			       request_ctx->data_len);
 			offset += request_ctx->data_len;
 
-			if (status == HTTP_SERVER_DATA_FINAL) {
+			if (status == HTTP_SERVER_REQUEST_DATA_FINAL) {
 				offset = 0;
 			}
 		} else {
@@ -855,6 +875,7 @@ static void common_verify_http2_dynamic_post_request(const uint8_t *request,
 		      "Wrong dynamic resource length");
 	zassert_mem_equal(dynamic_payload, TEST_DYNAMIC_POST_PAYLOAD,
 			  dynamic_payload_len, "Wrong dynamic resource data");
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http2_dynamic_post)
@@ -909,6 +930,7 @@ static void common_verify_http1_dynamic_upgrade_post(const uint8_t *method)
 		      "Wrong dynamic resource length");
 	zassert_mem_equal(dynamic_payload, TEST_DYNAMIC_POST_PAYLOAD,
 			  dynamic_payload_len, "Wrong dynamic resource data");
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http1_dynamic_upgrade_post)
@@ -951,6 +973,7 @@ static void common_verify_http1_dynamic_post(const uint8_t *method)
 		      "Wrong dynamic resource length");
 	zassert_mem_equal(dynamic_payload, TEST_DYNAMIC_POST_PAYLOAD,
 			  dynamic_payload_len, "Wrong dynamic resource data");
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http1_dynamic_post)
@@ -977,6 +1000,7 @@ static void common_verify_http2_dynamic_get_request(const uint8_t *request,
 	expect_http2_headers_frame(&offset, TEST_STREAM_ID_1, HTTP2_FLAG_END_HEADERS, NULL, 0);
 	expect_http2_data_frame(&offset, TEST_STREAM_ID_1, TEST_DYNAMIC_GET_PAYLOAD,
 				strlen(TEST_DYNAMIC_GET_PAYLOAD), HTTP2_FLAG_END_STREAM);
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http2_dynamic_get)
@@ -1024,6 +1048,7 @@ ZTEST(server_function_tests, test_http1_dynamic_upgrade_get)
 	expect_http2_headers_frame(&offset, UPGRADE_STREAM_ID, HTTP2_FLAG_END_HEADERS, NULL, 0);
 	expect_http2_data_frame(&offset, UPGRADE_STREAM_ID, TEST_DYNAMIC_GET_PAYLOAD,
 				strlen(TEST_DYNAMIC_GET_PAYLOAD), HTTP2_FLAG_END_STREAM);
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http1_dynamic_get)
@@ -1055,6 +1080,7 @@ ZTEST(server_function_tests, test_http1_dynamic_get)
 	test_read_data(&offset, sizeof(expected_response) - 1);
 	zassert_mem_equal(buf, expected_response, sizeof(expected_response) - 1,
 			  "Received data doesn't match expected response");
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http2_dynamic_put)
@@ -1367,6 +1393,7 @@ ZTEST(server_function_tests, test_http2_post_trailing_headers)
 		      "Wrong dynamic resource length");
 	zassert_mem_equal(dynamic_payload, TEST_DYNAMIC_POST_PAYLOAD,
 			  dynamic_payload_len, "Wrong dynamic resource data");
+	zassert_true(dynamic_complete, "Callback not called with transaction complete status");
 }
 
 ZTEST(server_function_tests, test_http2_get_headers_with_padding)
@@ -2778,6 +2805,100 @@ ZTEST(server_function_tests, test_http1_static_fs_compression)
 	zassert_mem_equal(buf, expected_response, expected_response_size,
 			  "Received data doesn't match expected response");
 }
+
+#define TEST_DIR_OVERLAP	LFS_MNTP "/testfs"
+#define TEST_FILE_OVERLAP	"test_file"
+
+static struct http_resource_detail_static_fs static_file_resource_detail_dir = {
+	.common = {
+			.type = HTTP_RESOURCE_TYPE_STATIC_FS,
+			.bitmask_of_supported_http_methods = BIT(HTTP_GET),
+			.content_type = "text/html",
+		},
+	.fs_path = LFS_MNTP,
+};
+
+HTTP_RESOURCE_DEFINE(static_fs_resource_dir, test_http_service, "/testfs",
+		     &static_file_resource_detail_dir);
+
+static const char static_overlap_resource_payload[] = TEST_STATIC_PAYLOAD;
+struct http_resource_detail_static static_overlap_resource_detail = {
+	.common = {
+			.type = HTTP_RESOURCE_TYPE_STATIC,
+			.bitmask_of_supported_http_methods = BIT(HTTP_GET),
+		},
+	.static_data = static_overlap_resource_payload,
+	.static_data_len = sizeof(static_overlap_resource_payload) - 1,
+};
+
+HTTP_RESOURCE_DEFINE(static_overlap_resource, test_http_service, "/testfs/static",
+		     &static_overlap_resource_detail);
+
+static void setup_fs_with_subdir(void)
+{
+	test_clear_flash();
+
+	zassert_equal(test_unmount(), TC_PASS, "Failed to unmount fs");
+	zassert_equal(test_mount(), TC_PASS, "Failed to mount fs");
+
+	zassert_equal(test_mkdir(TEST_DIR_OVERLAP, TEST_FILE_OVERLAP), TC_PASS,
+		      "Failed to create dir");
+}
+
+/* Verify that if the filesystem resource overlaps with a statically defined one,
+ * the latter takes preference.
+ */
+ZTEST(server_function_tests, test_http1_static_fs_overlap)
+{
+	static const char http1_request_file[] =
+		"GET /testfs/test_file HTTP/1.1\r\n"
+		"Host: 127.0.0.1:8080\r\n"
+		"User-Agent: curl/7.68.0\r\n"
+		"Accept: */*\r\n"
+		"\r\n";
+	static const char expected_response_file[] =
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Length: 30\r\n"
+		"Content-Type: text/html\r\n"
+		"\r\n"
+		TEST_STATIC_FS_PAYLOAD;
+	static const char http1_request_static[] =
+		"GET /testfs/static HTTP/1.1\r\n"
+		"Host: 127.0.0.1:8080\r\n"
+		"User-Agent: curl/7.68.0\r\n"
+		"Accept: */*\r\n"
+		"\r\n";
+	static const char expected_response_static[] =
+		"HTTP/1.1 200 OK\r\n"
+		"Content-Type: text/html\r\n"
+		"Content-Length: 13\r\n"
+		"\r\n"
+		TEST_STATIC_PAYLOAD;
+	size_t offset = 0;
+	int ret;
+
+	setup_fs_with_subdir();
+
+	ret = zsock_send(client_fd, http1_request_static, strlen(http1_request_static), 0);
+	zassert_not_equal(ret, -1, "send() failed (%d)", errno);
+
+	memset(buf, 0, sizeof(buf));
+
+	test_read_data(&offset, sizeof(expected_response_static) - 1);
+	zassert_mem_equal(buf, expected_response_static, sizeof(expected_response_static) - 1,
+			  "Received data doesn't match expected response");
+
+	ret = zsock_send(client_fd, http1_request_file, strlen(http1_request_file), 0);
+	zassert_not_equal(ret, -1, "send() failed (%d)", errno);
+
+	memset(buf, 0, sizeof(buf));
+	offset = 0;
+
+	test_read_data(&offset, sizeof(expected_response_file) - 1);
+	zassert_mem_equal(buf, expected_response_file, sizeof(expected_response_file) - 1,
+			  "Received data doesn't match expected response");
+}
+
 #endif /* DT_HAS_COMPAT_STATUS_OKAY(zephyr_ram_disk) */
 
 static void http_server_tests_before(void *fixture)
@@ -2797,6 +2918,7 @@ static void http_server_tests_before(void *fixture)
 	memset(&request_headers_clone2, 0, sizeof(request_headers_clone2));
 	dynamic_payload_len = 0;
 	dynamic_error = false;
+	dynamic_complete = false;
 
 	ret = http_server_start();
 	if (ret < 0) {

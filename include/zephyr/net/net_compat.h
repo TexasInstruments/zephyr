@@ -140,7 +140,9 @@ extern "C" {
 #define IN6ADDR_ANY_INIT       NET_IN6ADDR_ANY_INIT
 #define IN6ADDR_LOOPBACK_INIT  NET_IN6ADDR_LOOPBACK_INIT
 
+#if !defined(IFNAMSIZ)
 #define IFNAMSIZ NET_IFNAMSIZ
+#endif /* IFNAMSIZ */
 
 #define in_pktinfo   net_in_pktinfo
 #define ip_mreqn     net_ip_mreqn
@@ -297,10 +299,6 @@ extern "C" {
 #define IN6_IS_ADDR_MC_LINKLOCAL(addr)  ZSOCK_IN6_IS_ADDR_MC_LINKLOCAL(addr)
 #define IN6_IS_ADDR_MC_SITELOCAL(addr)  ZSOCK_IN6_IS_ADDR_MC_SITELOCAL(addr)
 #define IN6_IS_ADDR_MC_ORGLOCAL(addr)   ZSOCK_IN6_IS_ADDR_MC_ORGLOCAL(addr)
-
-#if !defined(ARPHRD_ETHER)
-#define ARPHRD_ETHER NET_ARPHRD_ETHER
-#endif
 
 #ifdef __cplusplus
 }

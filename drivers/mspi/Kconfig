@@ -1,6 +1,7 @@
 # MSPI driver configuration options
 
 # Copyright (c) 2024 Ambiq Micro Inc. <www.ambiq.com>
+# Copyright (c) 2025 Siemens Mobility GmbH
 # SPDX-License-Identifier: Apache-2.0
 
 #
@@ -57,6 +58,7 @@ config MSPI_TIMING
 
 config MSPI_DMA
 	bool "DMA support"
+	select DMA
 	help
 	  Enables DMA capabilities, depending on the driver and hardware it
 	  runs on.
@@ -67,8 +69,9 @@ source "subsys/logging/Kconfig.template.log_config"
 
 # zephyr-keep-sorted-start
 source "drivers/mspi/Kconfig.ambiq"
+source "drivers/mspi/Kconfig.cadence"
 source "drivers/mspi/Kconfig.dw"
 source "drivers/mspi/Kconfig.mspi_emul"
+source "drivers/mspi/Kconfig.stm32"
 # zephyr-keep-sorted-stop
-
 endif # MSPI

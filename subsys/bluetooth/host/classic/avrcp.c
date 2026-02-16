@@ -5,6 +5,7 @@
 /*
  * Copyright (c) 2015-2016 Intel Corporation
  * Copyright (C) 2024 Xiaomi Corporation
+ * Copyright 2025 NXP
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -1296,7 +1297,7 @@ static int process_register_notification_rsp(struct bt_avrcp *avrcp, uint8_t tid
 
 	if ((rsp_code == BT_AVRCP_RSP_INTERIM) && (ct->ct_notify[event_id].interim_received == 0)) {
 		/* Mark as interim_received flag on interim response */
-		ct->ct_notify[event_id].interim_received = 1;
+		ct->ct_notify[event_id].interim_received = true;
 		avrcp_ct_cb->notification(get_avrcp_ct(avrcp), tid, BT_AVRCP_STATUS_SUCCESS,
 					  event_id, (struct bt_avrcp_event_data *)event_data);
 		return BT_AVRCP_STATUS_OPERATION_COMPLETED;
@@ -1304,7 +1305,7 @@ static int process_register_notification_rsp(struct bt_avrcp *avrcp, uint8_t tid
 	}
 
 	if ((ct->ct_notify[event_id].interim_received == 1) && (rsp_code == BT_AVRCP_RSP_CHANGED)) {
-		ct->ct_notify[event_id].interim_received = 0;
+		ct->ct_notify[event_id].interim_received = false;
 		if (ct->ct_notify[event_id].cb != NULL) {
 			bt_avrcp_notify_changed_cb_t cb;
 
@@ -1322,7 +1323,7 @@ notify_callback:
 		if (ct->ct_notify[i].tid == tid && ct->ct_notify[i].cb != NULL) {
 			failed_evt = i;
 			ct->ct_notify[i].cb = NULL;
-			ct->ct_notify[i].interim_received = 0;
+			ct->ct_notify[i].interim_received = false;
 			found = true;
 			break;
 		}
@@ -1972,7 +1973,7 @@ static void avrcp_pass_through_rsp_handler(struct bt_avrcp *avrcp, uint8_t tid, 
 
 	avrcp_hdr = net_buf_pull_mem(buf, sizeof(*avrcp_hdr));
 
-	if ((avrcp_ct_cb != NULL) && (avrcp_ct_cb->subunit_info_rsp != NULL)) {
+	if ((avrcp_ct_cb != NULL) && (avrcp_ct_cb->passthrough_rsp != NULL)) {
 		if (buf->len < sizeof(*rsp)) {
 			LOG_ERR("Invalid passthrough length: %d", buf->len);
 			return;
@@ -2935,17 +2936,44 @@ static int avrcp_browsing_accept(struct bt_conn *conn, struct bt_avctp **session
 }
 #endif /* CONFIG_BT_AVRCP_BROWSING */
 
-int bt_avrcp_init(void)
+void bt_avrcp_init(void)
 {
-	int err;
+	__maybe_unused int err;
+
+	static bool initialized;
+
+	/* Init CT and TG connection pool*/
+	__ASSERT(ARRAY_SIZE(bt_avrcp_ct_pool) == ARRAY_SIZE(avrcp_connection), "CT size mismatch");
+	__ASSERT(ARRAY_SIZE(bt_avrcp_tg_pool) == ARRAY_SIZE(avrcp_connection), "TG size mismatch");
+
+	ARRAY_FOR_EACH(avrcp_connection, i) {
+		bt_avrcp_ct_pool[i].avrcp = &avrcp_connection[i];
+		bt_avrcp_tg_pool[i].avrcp = &avrcp_connection[i];
+
+		if (!initialized) {
+			/* Init delay work */
+			k_work_init_delayable(&bt_avrcp_tg_pool[i].vd_rsp_tx_work,
+					      bt_avrcp_tg_vendor_tx_work);
+			sys_slist_init(&bt_avrcp_tg_pool[i].vd_rsp_tx_pending);
+
+			k_sem_init(&bt_avrcp_tg_pool[i].lock, 1, 1);
+		}
+
+		memset(bt_avrcp_ct_pool[i].ct_notify, 0, sizeof(bt_avrcp_ct_pool[i].ct_notify));
+		memset(bt_avrcp_tg_pool[i].tg_notify, 0, sizeof(bt_avrcp_tg_pool[i].tg_notify));
+	}
+
+	if (initialized) {
+		return;
+	}
 
 	/* Register event handlers with AVCTP */
 	avctp_server.l2cap.psm = BT_L2CAP_PSM_AVRCP;
 	avctp_server.accept = avrcp_accept;
 	err = bt_avctp_server_register(&avctp_server);
 	if (err < 0) {
-		LOG_ERR("AVRCP registration failed");
-		return err;
+		LOG_ERR("AVRCP registration failed (err %d)", err);
+		return;
 	}
 
 #if defined(CONFIG_BT_AVRCP_BROWSING)
@@ -2953,16 +2981,16 @@ int bt_avrcp_init(void)
 	avctp_browsing_server.accept = avrcp_browsing_accept;
 	err = bt_avctp_server_register(&avctp_browsing_server);
 	if (err < 0) {
-		LOG_ERR("AVRCP browsing registration failed");
-		return err;
+		LOG_ERR("AVRCP browsing registration failed (err %d)", err);
+		return;
 	}
 #endif /* CONFIG_BT_AVRCP_BROWSING */
 
 #if defined(CONFIG_BT_AVRCP_TG_COVER_ART)
 	err = bt_avrcp_tg_cover_art_init(&bt_avrcp_tg_cover_art_psm);
 	if (err < 0) {
-		LOG_ERR("AVRCP Cover Art initialization failed");
-		return err;
+		LOG_ERR("AVRCP Cover Art initialization failed (err %d)", err);
+		return;
 	}
 #endif /* CONFIG_BT_AVRCP_TG_COVER_ART */
 
@@ -2974,26 +3002,9 @@ int bt_avrcp_init(void)
 	bt_sdp_register_service(&avrcp_ct_rec);
 #endif /* CONFIG_BT_AVRCP_CONTROLLER */
 
-	/* Init CT and TG connection pool*/
-	__ASSERT(ARRAY_SIZE(bt_avrcp_ct_pool) == ARRAY_SIZE(avrcp_connection), "CT size mismatch");
-	__ASSERT(ARRAY_SIZE(bt_avrcp_tg_pool) == ARRAY_SIZE(avrcp_connection), "TG size mismatch");
-
-	ARRAY_FOR_EACH(avrcp_connection, i) {
-		bt_avrcp_ct_pool[i].avrcp = &avrcp_connection[i];
-		bt_avrcp_tg_pool[i].avrcp = &avrcp_connection[i];
-		/* Init delay work */
-		k_work_init_delayable(&bt_avrcp_tg_pool[i].vd_rsp_tx_work,
-				      bt_avrcp_tg_vendor_tx_work);
-		sys_slist_init(&bt_avrcp_tg_pool[i].vd_rsp_tx_pending);
-
-		k_sem_init(&bt_avrcp_tg_pool[i].lock, 1, 1);
-
-		memset(bt_avrcp_ct_pool[i].ct_notify, 0, sizeof(bt_avrcp_ct_pool[i].ct_notify));
-
-		memset(bt_avrcp_tg_pool[i].tg_notify, 0, sizeof(bt_avrcp_tg_pool[i].tg_notify));
-	}
 	LOG_DBG("AVRCP Initialized successfully.");
-	return 0;
+
+	initialized = true;
 }
 
 int bt_avrcp_connect(struct bt_conn *conn)
@@ -3245,9 +3256,6 @@ int bt_avrcp_ct_register_notification(struct bt_avrcp_ct *ct, uint8_t tid, uint8
 	if (ct->ct_notify[event_id].cb != NULL) {
 		return -EBUSY;
 	}
-	ct->ct_notify[event_id].cb = cb;
-	ct->ct_notify[event_id].interim_received = 0;
-	ct->ct_notify[event_id].tid = tid;
 
 	buf = avrcp_prepare_vendor_pdu(ct->avrcp, BT_AVRCP_PKT_TYPE_SINGLE, BT_AVRCP_CTYPE_NOTIFY,
 				       BT_AVRCP_PDU_ID_REGISTER_NOTIFICATION, param_len);
@@ -3260,15 +3268,18 @@ int bt_avrcp_ct_register_notification(struct bt_avrcp_ct *ct, uint8_t tid, uint8
 	/* Add playback interval */
 	net_buf_add_be32(buf, interval);
 
-	err = avrcp_send(ct->avrcp, buf, BT_AVCTP_CMD, ct->ct_notify[event_id].tid);
+	err = avrcp_send(ct->avrcp, buf, BT_AVCTP_CMD, tid);
 	if (err < 0) {
 		LOG_ERR("Failed to send AVRCP PDU (err: %d)", err);
 		net_buf_unref(buf);
-		/* Roll back state so the app can retry */
-		ct->ct_notify[event_id].cb = NULL;
-		ct->ct_notify[event_id].interim_received = 0;
+		return err;
 	}
-	return err;
+
+	ct->ct_notify[event_id].cb = cb;
+	ct->ct_notify[event_id].interim_received = false;
+	ct->ct_notify[event_id].tid = tid;
+
+	return 0;
 }
 
 static int bt_avrcp_ct_vendor_dependent(struct bt_avrcp_ct *ct, uint8_t tid, uint8_t pdu_id,

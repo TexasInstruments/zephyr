@@ -13,7 +13,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/byteorder.h>
 #include <zephyr/init.h>
-#include <zephyr/sys/byteorder.h>
 #include <zephyr/drivers/usb/uhc.h>
 #include <zephyr/drivers/pinctrl.h>
 
@@ -122,6 +121,10 @@ static void uhc_mcux_transfer_callback(void *param, usb_host_transfer_t *transfe
 				mcux_ep->update_addr = 1U;
 			}
 		}
+	}
+
+	if (status == kStatus_USB_TransferStall) {
+		err = -EPIPE;
 	}
 
 	if ((xfer->buf != NULL) && (transfer->transferBuffer != NULL) &&

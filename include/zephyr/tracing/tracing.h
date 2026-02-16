@@ -24,13 +24,14 @@
 #include "tracing_test.h"
 #elif defined CONFIG_TRACING_USER
 #include "tracing_user.h"
+#elif defined CONFIG_TRACING_CUSTOM
+#include "zephyr_custom_tracing.h"
 #else
 /**
  * @brief Interfaces for the tracing subsystem.
  *
- * The tracing subsystem provides that permits you to collect data from
- * your application and allows tools running on a host to visualize the
- * inner-working of the kernel and various other subsystems.
+ * The tracing subsystem permits you to collect data from your application and allows tools
+ * running on a host to visualize the inner-working of the kernel and various other subsystems.
  *
  * @defgroup subsys_tracing Tracing
  * @ingroup os_services
@@ -1180,14 +1181,14 @@
  * @param fifo FIFO object
  * @param list Syslist object
  */
-#define sys_port_trace_k_fifo_alloc_put_slist_enter(fifo, list)
+#define sys_port_trace_k_fifo_put_slist_enter(fifo, list)
 
 /**
  * @brief Trace FIFO Queue put slist exit
  * @param fifo FIFO object
  * @param list Syslist object
  */
-#define sys_port_trace_k_fifo_alloc_put_slist_exit(fifo, list)
+#define sys_port_trace_k_fifo_put_slist_exit(fifo, list)
 
 /**
  * @brief Trace FIFO Queue get entry
@@ -1922,6 +1923,30 @@
  * @param result Return value
  */
 #define sys_port_trace_k_timer_status_sync_exit(timer, result)
+
+/**
+ * @brief Trace Timer expiry entry
+ * @param timer Timer object
+ */
+#define sys_port_trace_k_timer_expiry_enter(timer)
+
+/**
+ * @brief Trace Timer expiry exit
+ * @param timer Timer object
+ */
+#define sys_port_trace_k_timer_expiry_exit(timer)
+
+/**
+ * @brief Trace Timer stop function expiry entry
+ * @param timer Timer object
+ */
+#define sys_port_trace_k_timer_stop_fn_expiry_enter(timer)
+
+/**
+ * @brief Trace Timer stop function expiry exit
+ * @param timer Timer object
+ */
+#define sys_port_trace_k_timer_stop_fn_expiry_exit(timer)
 
 /** @} */ /* end of subsys_tracing_apis_timer */
 

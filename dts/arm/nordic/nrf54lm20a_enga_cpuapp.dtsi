@@ -13,12 +13,16 @@ systick: &cpuapp_systick {};
 nvic: &cpuapp_nvic {};
 
 /delete-node/ &cpuflpr;
+/delete-node/ &cpuflpr_clic;
+
+#ifndef USE_NON_SECURE_ADDRESS_MAP
 /delete-node/ &cpuflpr_rram;
 /delete-node/ &cpuflpr_sram;
-/delete-node/ &cpuflpr_clic;
+#endif
 
 / {
 	chosen {
+		zephyr,bt-hci = &bt_hci_controller;
 		zephyr,entropy = &rng;
 	};
 
@@ -37,6 +41,10 @@ nvic: &cpuapp_nvic {};
 		status = "okay";
 		compatible = "nordic,nrf-cracen-ctrdrbg";
 	};
+};
+
+&bt_hci_controller {
+	status = "okay";
 };
 
 &cpuflpr_vpr {

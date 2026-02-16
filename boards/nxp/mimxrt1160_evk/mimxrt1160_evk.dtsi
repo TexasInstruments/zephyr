@@ -5,7 +5,7 @@
  */
 
 #include "mimxrt1160_evk-pinctrl.dtsi"
-#include <nxp/nxp_rt1160.dtsi>
+#include <nxp/imxrt/nxp_rt1160.dtsi>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
@@ -128,9 +128,9 @@
 				reg = <0x00720000 DT_SIZE_M(7)>;
 			};
 
-			storage_partition: partition@E20000 {
+			storage_partition: partition@e20000 {
 				label = "storage";
-				reg = <0x00E20000 (DT_SIZE_M(2) - DT_SIZE_K(128))>;
+				reg = <0x00e20000 (DT_SIZE_M(2) - DT_SIZE_K(128))>;
 			};
 		};
 	};
@@ -160,7 +160,7 @@
 		compatible = "microchip,ksz8081";
 		reg = <0>;
 		status = "okay";
-		reset-gpios = <&gpio12 12 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio12 12 GPIO_ACTIVE_LOW>;
 		int-gpios = <&gpio9 11 GPIO_ACTIVE_HIGH>;
 		microchip,interface-type = "rmii";
 	};

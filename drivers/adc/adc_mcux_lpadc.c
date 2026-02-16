@@ -19,6 +19,11 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/opamp.h>
 
+#ifdef CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN
+#include <zephyr/drivers/dma.h>
+#endif
+#include <string.h>
+
 #define LOG_LEVEL CONFIG_ADC_LOG_LEVEL
 #include <zephyr/logging/log.h>
 #include <zephyr/irq.h>
@@ -41,8 +46,8 @@ struct mcux_lpadc_config {
 	lpadc_reference_voltage_source_t voltage_ref;
 	uint8_t power_level;
 	uint32_t calibration_average;
-	uint32_t offset_a;
-	uint32_t offset_b;
+	int16_t offset_a;
+	int16_t offset_b;
 	void (*irq_config_func)(const struct device *dev);
 	const struct pinctrl_dev_config *pincfg;
 	const struct device *ref_supplies;
@@ -60,6 +65,11 @@ struct mcux_lpadc_config {
 	 * (from that channel node's zephyr,vref-mv)
 	 */
 	uint16_t opamp_vref_mv;
+#ifdef CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN
+	const struct device *dma_dev;
+	uint32_t dma_channel;
+	uint32_t dma_slot;
+#endif
 };
 
 struct mcux_lpadc_data {
@@ -77,6 +87,14 @@ struct mcux_lpadc_data {
 	 */
 	uint16_t sample_min_raw;
 	uint16_t sample_max_raw;
+	uint8_t channels_count;
+	bool use_dma;
+#ifdef CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN
+	struct dma_config dma_cfg;
+	struct dma_block_config dma_block;
+	/* Staging buffer for 32-bit RESFIFO words (max channels per round) */
+	uint32_t dma_results[CONFIG_LPADC_CHANNEL_COUNT];
+#endif
 };
 
 static int mcux_lpadc_acquisition_time_setup(const struct device *dev, uint16_t acq_time,
@@ -280,8 +298,7 @@ static int mcux_lpadc_start_read(const struct device *dev,
 	struct mcux_lpadc_data *data = dev->data;
 	lpadc_hardware_average_mode_t hardware_average_mode;
 	uint8_t channel, last_enabled;
-#if defined(FSL_FEATURE_LPADC_HAS_CMDL_MODE) \
-	&& FSL_FEATURE_LPADC_HAS_CMDL_MODE
+#if defined(FSL_FEATURE_LPADC_HAS_CMDL_MODE) && FSL_FEATURE_LPADC_HAS_CMDL_MODE
 	lpadc_conversion_resolution_mode_t resolution_mode;
 
 	switch (sequence->resolution) {
@@ -461,13 +478,173 @@ static void mcux_lpadc_start_channel(const struct device *dev)
 	LPADC_DoSoftwareTrigger(config->base, 1);
 }
 
+#ifdef CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN
+static void mcux_lpadc_dma_callback(const struct device *dma_dev, void *user_data,
+				uint32_t channel, int status)
+{
+	struct mcux_lpadc_data *data = (struct mcux_lpadc_data *)user_data;
+	const struct device *dev = data->dev;
+	const struct mcux_lpadc_config *config = dev->config;
+
+	if (!data->use_dma) {
+		LOG_WRN("DMA callback called when DMA not in use");
+		return;
+	}
+
+	int ret = dma_stop(config->dma_dev, config->dma_channel);
+
+	if (ret != 0) {
+		LOG_ERR("DMA stop failed: %d", ret);
+	}
+
+	if (status < 0) {
+		adc_context_complete(&data->ctx, status);
+		LOG_ERR("DMA transfer error: %d", status);
+		return;
+	}
+
+	/* Disable LPADC DMA request */
+#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
+	LPADC_EnableFIFO0WatermarkDMA(config->base, false);
+#else
+	LPADC_EnableFIFOWatermarkDMA(config->base, false);
+#endif
+
+	/* Process the data in staging buffer and pass to data->buffer in enabled channel order. */
+	uint32_t written = 0U;
+
+	for (uint8_t ch = 0U;
+		ch < CONFIG_LPADC_CHANNEL_COUNT && written < data->channels_count; ch++) {
+		/* Skip channels not requested in this sequence. */
+		if (!(data->ctx.sequence.channels & BIT(ch))) {
+			continue;
+		}
+
+		uint32_t fifo_data = data->dma_results[written];
+		uint16_t conv_result = (uint16_t)(fifo_data & 0xFFFF);
+		uint16_t tmp;
+		bool is_diff = false;
+
+#if defined(FSL_FEATURE_LPADC_HAS_B_SIDE_CHANNELS) && (FSL_FEATURE_LPADC_HAS_B_SIDE_CHANNELS)
+		lpadc_sample_channel_mode_t conv_mode = data->cmd_config[ch].sampleChannelMode;
+#if defined(FSL_FEATURE_LPADC_HAS_CMDL_DIFF) && (FSL_FEATURE_LPADC_HAS_CMDL_DIFF)
+		is_diff = (conv_mode == kLPADC_SampleChannelDiffBothSideAB ||
+			   conv_mode == kLPADC_SampleChannelDiffBothSideBA);
+#else
+		is_diff = (conv_mode == kLPADC_SampleChannelDiffBothSide);
+#endif
+#endif
+
+		/* Format handling:
+		 * - 16-bit differential: bit 15 sign; bit [0-14] data (two's complement).
+		 * - 16-bit single-ended: bit [0-15] data (unsigned).
+		 * - 13-bit differential: bit 15 sign; bit [3-14] data; bit [0-2] zero.
+		 * - 12-bit single-ended: bit [3-14] data; bit [0-2] zero.
+		 */
+		if (data->ctx.sequence.resolution == 16) {
+			/* Keep raw 16-bit value; for differential, bit15 is sign. */
+			tmp = conv_result;
+		} else {
+			/* Right-align 12/13-bit payload from bit [3-14]. */
+			uint16_t value = (uint16_t)((conv_result >> 3) & 0xFFF);
+
+			if (is_diff && (conv_result & 0x8000)) {
+				/* 13-bit differential: apply two's complement sign
+				 * using 12-bit magnitude.
+				 */
+				value = (uint16_t)(value - 0x1000);
+			}
+			tmp = value;
+		}
+
+		*data->buffer++ = tmp;
+		written++;
+	}
+
+	adc_context_on_sampling_done(&data->ctx, dev);
+}
+
+/* Configure and start DMA before triggering conversions */
+static void mcux_lpadc_dma_configure(struct mcux_lpadc_data *data)
+{
+	const struct device *dev = data->dev;
+	const struct mcux_lpadc_config *config = dev->config;
+
+	if (!data->use_dma) {
+		LOG_DBG("DMA not used for this sequence");
+		return;
+	}
+
+	if (data->channels_count == 0U) {
+		adc_context_complete(&data->ctx, -EINVAL);
+		LOG_ERR("No channels to sample for DMA");
+		return;
+	}
+
+	/* Setup one DMA block from RESFIFO to staging buffer */
+	memset(&data->dma_block, 0, sizeof(data->dma_block));
+#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
+	data->dma_block.source_address = (uint32_t)&(config->base->RESFIFO[0]);
+#else
+	data->dma_block.source_address = (uint32_t)&(config->base->RESFIFO);
+#endif
+	data->dma_block.dest_address = (uint32_t)data->dma_results;
+	data->dma_block.block_size = data->channels_count * sizeof(uint32_t);
+	data->dma_block.source_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
+	data->dma_block.dest_addr_adj = DMA_ADDR_ADJ_INCREMENT;
+	data->dma_block.source_reload_en = 0;
+	data->dma_block.dest_reload_en = 0;
+
+	/* DMA configuration */
+	memset(&data->dma_cfg, 0, sizeof(data->dma_cfg));
+	data->dma_cfg.dma_slot = config->dma_slot;
+	data->dma_cfg.channel_direction = PERIPHERAL_TO_MEMORY;
+	data->dma_cfg.source_data_size = sizeof(uint32_t);
+	data->dma_cfg.dest_data_size = sizeof(uint32_t);
+	/* Use 32-bit per request to match LPADC RESFIFO register width */
+	data->dma_cfg.source_burst_length = sizeof(uint32_t);
+	data->dma_cfg.dest_burst_length = sizeof(uint32_t);
+	data->dma_cfg.block_count = 1;
+	data->dma_cfg.head_block = &data->dma_block;
+	data->dma_cfg.user_data = (void *)data;
+	data->dma_cfg.dma_callback = mcux_lpadc_dma_callback;
+
+	/* Enable LPADC DMA request on FIFO watermark */
+#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
+	LPADC_EnableFIFO0WatermarkDMA(config->base, true);
+#else
+	LPADC_EnableFIFOWatermarkDMA(config->base, true);
+#endif
+
+	/* Configure and start DMA */
+	if (dma_config(config->dma_dev, config->dma_channel, &data->dma_cfg) == 0) {
+		(void)dma_start(config->dma_dev, config->dma_channel);
+	}
+}
+#endif /* CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN */
+
 static void adc_context_start_sampling(struct adc_context *ctx)
 {
 	struct mcux_lpadc_data *data =
 	CONTAINER_OF(ctx, struct mcux_lpadc_data, ctx);
+	uint32_t channel_mask;
+	uint8_t count = 0;
 
 	data->channels = ctx->sequence.channels;
 	data->repeat_buffer = data->buffer;
+	channel_mask = data->channels;
+
+	while (channel_mask) {
+		count += (uint8_t)(channel_mask & 1U);
+		channel_mask >>= 1U;
+	}
+
+	/* Record the number of channels required for the sequence. */
+	data->channels_count = count;
+
+#ifdef CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN
+	mcux_lpadc_dma_configure(data);
+#endif
 
 	mcux_lpadc_start_channel(data->dev);
 }
@@ -494,8 +671,7 @@ static void mcux_lpadc_isr(const struct device *dev)
 	int16_t result;
 	uint16_t channel;
 
-#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) \
-	&& (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
+#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
 	LPADC_GetConvResult(base, &conv_result, 0U);
 #else
 	LPADC_GetConvResult(base, &conv_result);
@@ -529,8 +705,8 @@ static void mcux_lpadc_isr(const struct device *dev)
 				result -= 0x1000;
 			}
 		}
-		*data->buffer++ = result;
 #endif
+		*data->buffer++ = result;
 	} else {
 		*data->buffer++ = conv_result.convValue;
 	}
@@ -602,51 +778,60 @@ static int mcux_lpadc_init(const struct device *dev)
 	adc_config.enableAnalogPreliminary = true;
 	adc_config.referenceVoltageSource = config->voltage_ref;
 
-#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS) \
-	&& FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS
+#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS) && FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS
 	adc_config.conversionAverageMode = config->calibration_average;
 #endif /* FSL_FEATURE_LPADC_HAS_CTRL_CAL_AVGS */
 
 #if !(DT_ANY_INST_HAS_PROP_STATUS_OKAY(no_power_level))
-		adc_config.powerLevelMode = config->power_level;
+	adc_config.powerLevelMode = config->power_level;
 #endif
 
 	LPADC_Init(base, &adc_config);
 
 	/* Do ADC calibration. */
-#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CALOFS) \
-	&& FSL_FEATURE_LPADC_HAS_CTRL_CALOFS
-#if defined(FSL_FEATURE_LPADC_HAS_OFSTRIM) \
-	&& FSL_FEATURE_LPADC_HAS_OFSTRIM
+#if defined(FSL_FEATURE_LPADC_HAS_CTRL_CALOFS) && FSL_FEATURE_LPADC_HAS_CTRL_CALOFS
+#if defined(FSL_FEATURE_LPADC_HAS_OFSTRIM) && FSL_FEATURE_LPADC_HAS_OFSTRIM
 	/* Request offset calibration. */
-#if defined(CONFIG_LPADC_DO_OFFSET_CALIBRATION) \
-	&& CONFIG_LPADC_DO_OFFSET_CALIBRATION
+#if defined(CONFIG_LPADC_DO_OFFSET_CALIBRATION) && CONFIG_LPADC_DO_OFFSET_CALIBRATION
 	LPADC_DoOffsetCalibration(base);
 #else
-	LPADC_SetOffsetValue(base,
-			config->offset_a,
-			config->offset_b);
-#endif  /* DEMO_LPADC_DO_OFFSET_CALIBRATION */
-#endif  /* FSL_FEATURE_LPADC_HAS_OFSTRIM */
+#if defined(FSL_FEATURE_LPADC_OFSTRIM_COUNT) && (FSL_FEATURE_LPADC_OFSTRIM_COUNT == 1U)
+	LPADC_SetOffsetValue(base, config->offset_a);
+#else
+	LPADC_SetOffsetValue(base, config->offset_a, config->offset_b);
+#endif /* FSL_FEATURE_LPADC_OFSTRIM_COUNT */
+#endif /* DEMO_LPADC_DO_OFFSET_CALIBRATION */
+#endif /* FSL_FEATURE_LPADC_HAS_OFSTRIM */
 	/* Request gain calibration. */
 	LPADC_DoAutoCalibration(base);
 #endif /* FSL_FEATURE_LPADC_HAS_CTRL_CALOFS */
 
-#if (defined(FSL_FEATURE_LPADC_HAS_CFG_CALOFS) \
-	&& FSL_FEATURE_LPADC_HAS_CFG_CALOFS)
+#if (defined(FSL_FEATURE_LPADC_HAS_CFG_CALOFS) && FSL_FEATURE_LPADC_HAS_CFG_CALOFS)
 	/* Do auto calibration. */
 	LPADC_DoAutoCalibration(base);
 #endif /* FSL_FEATURE_LPADC_HAS_CFG_CALOFS */
 
-/* Enable the watermark interrupt. */
-#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) \
-	&& (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
-	LPADC_EnableInterrupts(base, kLPADC_FIFO0WatermarkInterruptEnable);
-#else
-	LPADC_EnableInterrupts(base, kLPADC_FIFOWatermarkInterruptEnable);
-#endif /* FSL_FEATURE_LPADC_FIFO_COUNT */
+	data->use_dma = false;
 
-	config->irq_config_func(dev);
+#if defined(CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN)
+	/* If DMA is present in DT and device is ready, use DMA and skip IRQs */
+	if (config->dma_dev && device_is_ready(config->dma_dev)) {
+		data->use_dma = true;
+	} else {
+		LOG_WRN("DMA device not ready, falling back to IRQ mode");
+	}
+#endif
+
+	/* Enable the watermark interrupt if not using DMA or if DMA setup failed */
+	if (!IS_ENABLED(CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN) || !data->use_dma) {
+#if (defined(FSL_FEATURE_LPADC_FIFO_COUNT) && (FSL_FEATURE_LPADC_FIFO_COUNT == 2U))
+		LPADC_EnableInterrupts(base, kLPADC_FIFO0WatermarkInterruptEnable);
+#else
+		LPADC_EnableInterrupts(base, kLPADC_FIFOWatermarkInterruptEnable);
+#endif
+		config->irq_config_func(dev);
+	}
+
 	data->dev = dev;
 
 	/* Initialize OPAMP gain control context */
@@ -683,29 +868,40 @@ static DEVICE_API(adc, mcux_lpadc_driver_api) = {
 		(COND_CODE_1(DT_NODE_HAS_PROP(OPAMP_NODE(n), programmable_gain),	\
 		(DT_PROP_LEN(OPAMP_NODE(n), programmable_gain)), (0))), (0)),
 
-#define LPADC_MCUX_INIT(n)						\
-									\
-	static void mcux_lpadc_config_func_##n(const struct device *dev);	\
-									\
-	PINCTRL_DT_INST_DEFINE(n);						\
-	static const struct mcux_lpadc_config mcux_lpadc_config_##n = {	\
-		.base = (ADC_Type *)DT_INST_REG_ADDR(n),	\
-		.voltage_ref =	DT_INST_PROP(n, voltage_ref),	\
-		.calibration_average = DT_INST_ENUM_IDX_OR(n, calibration_average, 0),	\
-		.power_level = DT_INST_PROP_OR(n, power_level, 0),	\
-		.offset_a = DT_INST_PROP(n, offset_value_a),	\
-		.offset_b = DT_INST_PROP(n, offset_value_b),	\
-		.irq_config_func = mcux_lpadc_config_func_##n,				\
-		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),			\
-		.ref_supplies = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, nxp_references),\
-						(DEVICE_DT_GET(DT_PHANDLE(DT_DRV_INST(n),\
-						nxp_references))), (NULL)),\
-		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),                                \
-		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, name),\
-		.ref_supply_val = COND_CODE_1(\
-						DT_INST_NODE_HAS_PROP(n, nxp_references),\
-						(DT_PHA(DT_DRV_INST(n), nxp_references, vref_mv)), \
-						(0)),\
+#if defined(CONFIG_ADC_MCUX_LPADC_DMA_DRIVEN)
+#define DMA_INIT(n)									\
+	.dma_dev = COND_CODE_1(DT_INST_DMAS_HAS_NAME(n, fifoa),				\
+			(DEVICE_DT_GET(DT_INST_DMAS_CTLR_BY_NAME(n, fifoa))), (NULL)),	\
+	.dma_channel = COND_CODE_1(DT_INST_DMAS_HAS_NAME(n, fifoa),			\
+			(DT_INST_DMAS_CELL_BY_NAME(n, fifoa, mux)), (0)),		\
+	.dma_slot = COND_CODE_1(DT_INST_DMAS_HAS_NAME(n, fifoa),			\
+			(DT_INST_DMAS_CELL_BY_NAME(n, fifoa, source)), (0)),
+#else
+#define DMA_INIT(n)
+#endif
+
+#define LPADC_MCUX_INIT(n)									\
+												\
+	static void mcux_lpadc_config_func_##n(const struct device *dev);			\
+												\
+	PINCTRL_DT_INST_DEFINE(n);								\
+	static const struct mcux_lpadc_config mcux_lpadc_config_##n = {				\
+		.base = (ADC_Type *)DT_INST_REG_ADDR(n),					\
+		.voltage_ref =	DT_INST_PROP(n, voltage_ref),					\
+		.calibration_average = DT_INST_ENUM_IDX_OR(n, calibration_average, 0),		\
+		.power_level = DT_INST_PROP_OR(n, power_level, 0),				\
+		.offset_a = (int16_t)DT_INST_PROP(n, offset_value_a),				\
+		.offset_b = (int16_t)DT_INST_PROP(n, offset_value_b),				\
+		.irq_config_func = mcux_lpadc_config_func_##n,					\
+		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),					\
+		.ref_supplies = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, nxp_references),		\
+					    (DEVICE_DT_GET(DT_PHANDLE(DT_DRV_INST(n),		\
+					    nxp_references))), (NULL)),				\
+		.clock_dev = DEVICE_DT_GET(DT_INST_CLOCKS_CTLR(n)),				\
+		.clock_subsys = (clock_control_subsys_t)DT_INST_CLOCKS_CELL(n, name),		\
+		.ref_supply_val = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, nxp_references),		\
+					      (DT_PHA(DT_DRV_INST(n), nxp_references, vref_mv)),\
+					      (0)),						\
 		.opamp = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, nxp_opamps),			\
 			(DEVICE_DT_GET(DT_INST_PHANDLE_BY_IDX(n, nxp_opamps, 0))), (NULL)),	\
 		.opamp_channel = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, nxp_opamps),		\
@@ -718,29 +914,28 @@ static DEVICE_API(adc, mcux_lpadc_driver_api) = {
 		.sample_max = COND_CODE_1(DT_INST_NODE_HAS_PROP(n, ideal_sample_range),		\
 			(DT_PROP_BY_IDX(DT_DRV_INST(n), ideal_sample_range, 1)), (UINT32_MAX)),	\
 			OPAMP_GAINS_INIT(n)							\
-	};									\
-	static struct mcux_lpadc_data mcux_lpadc_data_##n = {	\
-		ADC_CONTEXT_INIT_TIMER(mcux_lpadc_data_##n, ctx),	\
-		ADC_CONTEXT_INIT_LOCK(mcux_lpadc_data_##n, ctx),	\
-		ADC_CONTEXT_INIT_SYNC(mcux_lpadc_data_##n, ctx),	\
-	};														\
-										\
-	DEVICE_DT_INST_DEFINE(n,						\
-		mcux_lpadc_init, NULL, &mcux_lpadc_data_##n,			\
-		&mcux_lpadc_config_##n, POST_KERNEL,				\
-		CONFIG_ADC_INIT_PRIORITY,					\
-		&mcux_lpadc_driver_api);							\
-										\
-	static void mcux_lpadc_config_func_##n(const struct device *dev)	\
-	{									\
-		IRQ_CONNECT(DT_INST_IRQN(n),					\
-			DT_INST_IRQ(n, priority), mcux_lpadc_isr,	\
-			DEVICE_DT_INST_GET(n), 0);				\
-										\
-		irq_enable(DT_INST_IRQN(n));					\
-	}	\
-										\
-	BUILD_ASSERT((DT_INST_PROP_OR(n, power_level, 0) >= 0) && \
-		(DT_INST_PROP_OR(n, power_level, 0) <= 3), "power_level: wrong value");
+		DMA_INIT(n)									\
+	};											\
+												\
+	static struct mcux_lpadc_data mcux_lpadc_data_##n = {					\
+		ADC_CONTEXT_INIT_TIMER(mcux_lpadc_data_##n, ctx),				\
+		ADC_CONTEXT_INIT_LOCK(mcux_lpadc_data_##n, ctx),				\
+		ADC_CONTEXT_INIT_SYNC(mcux_lpadc_data_##n, ctx),				\
+	};											\
+												\
+	DEVICE_DT_INST_DEFINE(n, mcux_lpadc_init, NULL, &mcux_lpadc_data_##n,			\
+			      &mcux_lpadc_config_##n, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY,	\
+			      &mcux_lpadc_driver_api);						\
+												\
+	static void mcux_lpadc_config_func_##n(const struct device *dev)			\
+	{											\
+		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), mcux_lpadc_isr,		\
+			    DEVICE_DT_INST_GET(n), 0);						\
+												\
+		irq_enable(DT_INST_IRQN(n));							\
+	}											\
+												\
+	BUILD_ASSERT((DT_INST_PROP_OR(n, power_level, 0) >= 0) &&				\
+		     (DT_INST_PROP_OR(n, power_level, 0) <= 3), "power_level: wrong value");
 
 DT_INST_FOREACH_STATUS_OKAY(LPADC_MCUX_INIT)

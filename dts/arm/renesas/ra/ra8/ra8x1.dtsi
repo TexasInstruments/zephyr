@@ -230,7 +230,7 @@
 		iic0: iic0@4025e000 {
 			compatible = "renesas,ra-iic";
 			channel = <0>;
-			reg = <0x4025E000 0x100>;
+			reg = <0x4025e000 0x100>;
 			status = "disabled";
 		};
 
@@ -239,7 +239,7 @@
 			channel = <1>;
 			interrupts = <91 1>, <92 1>, <93 1>, <94 1>;
 			interrupt-names = "rxi", "txi", "tei", "eri";
-			reg = <0x4025E100 0x100>;
+			reg = <0x4025e100 0x100>;
 			status = "disabled";
 		};
 
@@ -445,9 +445,10 @@
 		};
 
 		adc0: adc@40332000 {
-			compatible = "renesas,ra-adc";
+			compatible = "renesas,ra-adc12";
 			interrupts = <38 1>;
 			interrupt-names = "scanend";
+			unit = <0>;
 			reg = <0x40332000 0x100>;
 			#io-channel-cells = <1>;
 			vref-mv = <3300>;
@@ -456,9 +457,10 @@
 		};
 
 		adc1: adc@40332200 {
-			compatible = "renesas,ra-adc";
+			compatible = "renesas,ra-adc12";
 			interrupts = <39 1>;
 			interrupt-names = "scanend";
+			unit = <1>;
 			reg = <0x40332200 0x100>;
 			#io-channel-cells = <1>;
 			vref-mv = <3300>;

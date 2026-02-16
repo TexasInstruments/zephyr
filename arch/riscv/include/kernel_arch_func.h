@@ -55,9 +55,7 @@ static ALWAYS_INLINE void arch_kernel_init(void)
 #ifdef CONFIG_RISCV_PMP
 	z_riscv_pmp_init();
 #endif
-#ifdef CONFIG_SOC_PER_CORE_INIT_HOOK
 	soc_per_core_init_hook();
-#endif /* CONFIG_SOC_PER_CORE_INIT_HOOK */
 }
 
 static ALWAYS_INLINE void
@@ -74,7 +72,7 @@ arch_switch(void *switch_to, void **switched_from)
 #endif
 }
 
-FUNC_NORETURN void z_riscv_fatal_error(unsigned int reason,
+void z_riscv_fatal_error(unsigned int reason,
 				       const struct arch_esf *esf);
 
 static inline bool arch_is_in_isr(void)

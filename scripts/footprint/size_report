@@ -43,6 +43,7 @@ if version.parse(elftools.__version__) < version.parse('0.24'):
 SHF_WRITE = 0x1
 SHF_ALLOC = 0x2
 SHF_EXEC = 0x4
+SHF_TLS = 0x400
 SHF_WRITE_ALLOC = SHF_WRITE | SHF_ALLOC
 SHF_ALLOC_EXEC = SHF_ALLOC | SHF_EXEC
 
@@ -155,8 +156,28 @@ def get_symbols(elf, addr_ranges):
                 if get_symbol_size(sym) == 0:
                     continue
 
-                ram_sym = is_symbol_in_ranges(sym, ram_addr_ranges)
-                rom_sym = is_symbol_in_ranges(sym, rom_addr_ranges)
+                # TLS sections (e.g. .tdata/.tbss) use addresses as TLS offsets
+                # and can overlap normal VMA ranges. Don't classify based on
+                # address ranges for TLS.
+                sym_is_tls = False
+                tls_section_name = None
+                try:
+                    shndx = sym['st_shndx']
+                    if isinstance(shndx, int):
+                        sec = elf.get_section(shndx)
+                        if sec['sh_flags'] & SHF_TLS:
+                            sym_is_tls = True
+                            tls_section_name = sec.name
+                except Exception:
+                    sym_is_tls = False
+                    tls_section_name = None
+
+                if sym_is_tls:
+                    ram_sym = {'name': tls_section_name}
+                    rom_sym = None
+                else:
+                    ram_sym = is_symbol_in_ranges(sym, ram_addr_ranges)
+                    rom_sym = is_symbol_in_ranges(sym, rom_addr_ranges)
 
                 # Determine the location(s) for this symbol.
                 loc = []
@@ -232,10 +253,12 @@ def get_section_ranges(elf):
         sec_end = sec_start + (size - 1 if size else 0)
         bound = {'start': sec_start, 'end': sec_end, 'name': section.name}
         is_assigned = False
+        flags = section['sh_flags']
 
         if section['sh_type'] == 'SHT_NOBITS':
             # BSS and noinit sections
-            ram_addr_ranges.append(bound)
+            if not (flags & SHF_TLS):
+                ram_addr_ranges.append(bound)
             ram_size += size
             total_size += size
             is_assigned = True
@@ -243,7 +266,6 @@ def get_section_ranges(elf):
 
         elif section['sh_type'] == 'SHT_PROGBITS':
             # Sections to be in flash or memory
-            flags = section['sh_flags']
             if (flags & SHF_ALLOC_EXEC) == SHF_ALLOC_EXEC:
                 # Text section
                 rom_addr_ranges.append(bound)
@@ -259,7 +281,8 @@ def get_section_ranges(elf):
                     # since at boot, content is copied from ROM to RAM
                     rom_addr_ranges.append(bound)
                     rom_size += size
-                ram_addr_ranges.append(bound)
+                if not (flags & SHF_TLS):
+                    ram_addr_ranges.append(bound)
                 ram_size += size
                 total_size += size
                 is_assigned = True
@@ -866,56 +889,58 @@ def main():
     assert os.path.exists(args.kernel), "{0} does not exist.".format(args.kernel)
     targets = args.target
 
-    elf = ELFFile(open(args.kernel, "rb"))
-    assert elf.has_dwarf_info(), "ELF file has no DWARF information"
+    with ELFFile(open(args.kernel, "rb")) as elf:
+        assert elf.has_dwarf_info(), "ELF file has no DWARF information"
 
-    set_global_machine_arch(elf.get_machine_arch())
-    addr_ranges = get_section_ranges(elf)
-    dwarfinfo = elf.get_dwarf_info()
+        set_global_machine_arch(elf.get_machine_arch())
+        addr_ranges = get_section_ranges(elf)
+        dwarfinfo = elf.get_dwarf_info()
 
-    symbols = get_symbols(elf, addr_ranges)
-    for sym in symbols['unassigned'].values():
-        for sym_entry in sym:
-            print(f"WARN: Symbol '{sym_entry['name']}' section '{sym_entry['section']}' "
-                    "is not in RAM or ROM.")
+        symbols = get_symbols(elf, addr_ranges)
+        for sym in symbols['unassigned'].values():
+            for sym_entry in sym:
+                print(f"WARN: Symbol '{sym_entry['name']}' section '{sym_entry['section']}' "
+                      "is not in RAM or ROM.")
 
-    for t in targets:
-        if args.json:
-            jsonout = args.json.replace('{target}', t)
-        else:
-            jsonout = os.path.join(args.output, f'{t}.json')
+        for t in targets:
+            if args.json:
+                jsonout = args.json.replace('{target}', t)
+            else:
+                jsonout = os.path.join(args.output, f'{t}.json')
 
-        symbol_dict = symbols[t]
-        symsize = addr_ranges[f'{t}_total_size']
-        ranges = addr_ranges[t]
+            symbol_dict = symbols[t]
+            symsize = addr_ranges[f'{t}_total_size']
+            ranges = addr_ranges[t]
 
-        if symbol_dict is not None:
-            processed = {"mapped_symbols": set(),
-                         "mapped_addr": set(),
-                         "unmapped_symbols": set(symbol_dict.keys())}
+            if symbol_dict is not None:
+                processed = {"mapped_symbols": set(),
+                             "mapped_addr": set(),
+                             "unmapped_symbols": set(symbol_dict.keys())}
 
-            do_simple_name_matching(dwarfinfo, symbol_dict, processed)
-            mark_address_aliases(symbol_dict, processed)
-            do_address_range_matching(dwarfinfo, symbol_dict, processed)
-            mark_address_aliases(symbol_dict, processed)
-            common_path_prefix = find_common_path_prefix(symbol_dict)
-            set_root_path_for_unmapped_symbols(symbol_dict, ranges, processed)
+                do_simple_name_matching(dwarfinfo, symbol_dict, processed)
+                mark_address_aliases(symbol_dict, processed)
+                do_address_range_matching(dwarfinfo, symbol_dict, processed)
+                mark_address_aliases(symbol_dict, processed)
+                common_path_prefix = find_common_path_prefix(symbol_dict)
+                set_root_path_for_unmapped_symbols(symbol_dict, ranges, processed)
 
-            if args.verbose:
-                for sym in processed['unmapped_symbols']:
-                    print("INFO: Unmapped symbol: {0}".format(sym))
+                if args.verbose:
+                    for sym in processed['unmapped_symbols']:
+                        print("INFO: Unmapped symbol: {0}".format(sym))
 
-            root = generate_any_tree(symbol_dict, symsize, common_path_prefix)
-            if not args.quiet:
-                header = f"{t.upper()} Report" if len(targets) > 1 else None
-                print_any_tree(root, symsize, args.depth, header)
+                root = generate_any_tree(symbol_dict, symsize, common_path_prefix)
+                if not args.quiet:
+                    header = f"{t.upper()} Report" if len(targets) > 1 else None
+                    print_any_tree(root, symsize, args.depth, header)
 
-            exporter = DictExporter(attriter=lambda attrs: [(k.lstrip('_'), v) for k, v in attrs])
-            data = dict()
-            data["symbols"] = exporter.export(root)
-            data["total_size"] = symsize
-            with open(jsonout, "w") as fp:
-                json.dump(data, fp, indent=4)
+                exporter = DictExporter(
+                    attriter=lambda attrs: [(k.lstrip('_'), v) for k, v in attrs]
+                )
+                data = dict()
+                data["symbols"] = exporter.export(root)
+                data["total_size"] = symsize
+                with open(jsonout, "w") as fp:
+                    json.dump(data, fp, indent=4)
 
 
 if __name__ == "__main__":

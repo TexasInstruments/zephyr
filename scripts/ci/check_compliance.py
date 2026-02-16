@@ -536,6 +536,7 @@ class DevicetreeLintingCheck(ComplianceTest):
     name = "DevicetreeLinting"
     doc = zephyr_doc_detail_builder("/contribute/style/devicetree.html")
     NPX_EXECUTABLE = "npx"
+    prefix = ZEPHYR_BASE / "scripts" / "ci"
 
     def ensure_npx(self) -> bool:
         if not (npx_executable := shutil.which(self.NPX_EXECUTABLE)):
@@ -544,7 +545,7 @@ class DevicetreeLintingCheck(ComplianceTest):
             self.npx_exe = npx_executable
             # --no prevents npx from fetching from registry
             subprocess.run(
-                [self.npx_exe, "--prefix", "./scripts/ci", "--no", 'dts-linter', "--", "--version"],
+                [self.npx_exe, "--prefix", self.prefix, "--no", 'dts-linter', "--", "--version"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=True,
@@ -625,7 +626,7 @@ class DevicetreeLintingCheck(ComplianceTest):
             cmd = [
                 self.npx_exe,
                 "--prefix",
-                "./scripts/ci",
+                self.prefix,
                 "--no",
                 "dts-linter",
                 "--",
@@ -1533,6 +1534,7 @@ flagged.
         "CRC",  # Used in TI CC13x2 / CC26x2 SDK comment
         "DEEP_SLEEP",  # #defined by RV32M1 in ext/
         "DESCRIPTION",
+        "DT_HAS_",  # example from doc/build/dts/dt-vs-kconfig.rst
         "ERR",
         "ESP_DIF_LIBRARY",  # Referenced in CMake comment
         "EXPERIMENTAL",
@@ -1554,6 +1556,8 @@ flagged.
         # with older versions of the ICMsg.
         "IPC_SERVICE_ICMSG_BOND_NOTIFY_REPEAT_TO_MS",
         "LIBGCC_RTLIB",
+        "LLEXT_EXPORT_SYMBOL_GROUP_",  # Used in regexp by
+        # scripts/build/llext_inspect_discarded_groups.py
         "LLVM_USE_LD",  # Both LLVM_USE_* are in cmake/toolchain/llvm/Kconfig
         # which are only included if LLVM is selected but
         # not other toolchains. Compliance check would complain,
@@ -1610,6 +1614,8 @@ flagged.
         "STACK_SIZE",  # Used as an example in the Kconfig docs
         "STD_CPP",  # Referenced in CMake comment
         "TEST1",
+        "TFM_SPM_BACKEND_IPC",  # Used in TFM sample dummy partition - belongs to TFM
+        "TFM_SPM_BACKEND_SFN",  # Used in TFM sample dummy partition - belongs to TFM
         # Defined in modules/hal_nxp/mcux/mcux-sdk-ng/basic.cmake.
         # It is used by MCUX SDK cmake functions to add content
         # based on current toolchain.
@@ -2362,7 +2368,7 @@ class KeepSorted(ComplianceTest):
 
     MARKER = "zephyr-keep-sorted"
 
-    def block_check_sorted(self, block_data, *, regex, strip, fold):
+    def block_check_sorted(self, block_data, *, regex, strip, fold, icase):
         def _test_indent(txt: str):
             return txt.startswith((" ", "\t"))
 
@@ -2393,6 +2399,9 @@ class KeepSorted(ComplianceTest):
                     for cont in takewhile(_test_indent, lines[idx + 1 :]):
                         line += cont.strip()
 
+            if icase:
+                line = line.casefold()
+
             if line < last:
                 return idx
 
@@ -2401,11 +2410,6 @@ class KeepSorted(ComplianceTest):
         return -1
 
     def check_file(self, file, fp):
-        mime_type = magic.from_file(os.fspath(file), mime=True)
-
-        if not mime_type.startswith("text/"):
-            return
-
         block_data = ""
         in_block = False
 
@@ -2414,10 +2418,12 @@ class KeepSorted(ComplianceTest):
         regex_marker = r"re\(([^)]+)\)"
         strip_marker = r"strip\(([^)]+)\)"
         nofold_marker = "nofold"
+        ignorecase_marker = "ignorecase"
         start_line = 0
         regex = None
         strip = None
         fold = True
+        icase = False
 
         for line_num, line in enumerate(fp.readlines(), start=1):
             if start_marker in line:
@@ -2436,13 +2442,16 @@ class KeepSorted(ComplianceTest):
                 strip = match.group(1) if match else None
 
                 fold = nofold_marker not in line
+                icase = ignorecase_marker in line
             elif stop_marker in line:
                 if not in_block:
                     desc = f"{stop_marker} without {start_marker}"
                     self.fmtd_failure("error", "KeepSorted", file, line_num, desc=desc)
                 in_block = False
 
-                idx = self.block_check_sorted(block_data, regex=regex, strip=strip, fold=fold)
+                idx = self.block_check_sorted(
+                    block_data, regex=regex, strip=strip, fold=fold, icase=icase
+                )
                 if idx >= 0:
                     desc = f"sorted block has out-of-order line at {start_line + idx}"
                     self.fmtd_failure("error", "KeepSorted", file, line_num, desc=desc)
@@ -2454,7 +2463,16 @@ class KeepSorted(ComplianceTest):
 
     def run(self):
         for file in get_files(filter="d"):
-            with open(file) as fp:
+            file_path = GIT_TOP / file
+
+            mime_type = magic.from_file(os.fspath(file_path), mime=True)
+            if not mime_type.startswith("text/"):
+                continue
+
+            # Text in the Zephyr tree is UTF-8. On Windows, the default text
+            # encoding depends on the active code page (e.g. GBK), which can
+            # break local runs with UnicodeDecodeError.
+            with open(file_path, encoding="utf-8", errors="surrogateescape") as fp:
                 self.check_file(file, fp)
 
 
@@ -2467,9 +2485,11 @@ class Ruff(ComplianceTest):
     doc = "Check python files with ruff."
 
     def run(self):
+        if (ruff := shutil.which("ruff")) is None:
+            raise FileNotFoundError("ruff is not installed")
         try:
             subprocess.run(
-                "ruff check --output-format=json",
+                f"{ruff} check --output-format=json",
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
@@ -2477,12 +2497,23 @@ class Ruff(ComplianceTest):
                 cwd=GIT_TOP,
             )
         except subprocess.CalledProcessError as ex:
-            output = ex.output.decode("utf-8")
-            messages = json.loads(output)
+            try:
+                output = ex.output.decode("utf-8")
+            except UnicodeDecodeError as exc:
+                print("Decode error:", exc)
+                raise
+            try:
+                messages = json.loads(output)
+            except json.decoder.JSONDecodeError:
+                print(
+                    "Cannot parse output from ruff check, output is not valid JSON format:\n"
+                    f"{output}"
+                )
+                raise
             for m in messages:
                 self.fmtd_failure(
                     "error",
-                    f'Python lint error ({m.get("code")}) see {m.get("url")}',
+                    f'Python lint error ({m.get("code")}) see {m.get("url")} ',
                     m.get("filename"),
                     line=m.get("location", {}).get("row"),
                     col=m.get("location", {}).get("column"),
@@ -2497,7 +2528,7 @@ class Ruff(ComplianceTest):
 
             try:
                 subprocess.run(
-                    f"ruff format --force-exclude --diff {file}",
+                    f"{ruff} format --force-exclude --diff {file}",
                     check=True,
                     shell=True,
                     cwd=GIT_TOP,

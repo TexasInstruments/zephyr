@@ -1,6 +1,5 @@
 /*
- * Copyright 2025 NXP
- *
+ * SPDX-FileCopyrightText: Copyright 2025-2026 NXP
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,7 +9,7 @@ LOG_MODULE_REGISTER(net_dsa_port, CONFIG_NET_DSA_LOG_LEVEL);
 #include <zephyr/net/ethernet.h>
 #include <zephyr/net/phy.h>
 #include <zephyr/net/dsa_core.h>
-#include "dsa_tag.h"
+#include <zephyr/net/dsa_tag.h>
 
 #if defined(CONFIG_NET_INTERFACE_NAME_LEN)
 #define INTERFACE_NAME_LEN CONFIG_NET_INTERFACE_NAME_LEN
@@ -89,6 +88,10 @@ static void dsa_port_iface_init(struct net_if *iface)
 	net_if_set_link_addr(iface, cfg->mac_addr, sizeof(cfg->mac_addr), NET_LINK_ETHERNET);
 
 	if (cfg->ethernet_connection != NULL) {
+		/* DSA CPU port used only for DSA management */
+		net_if_flag_clear(iface, NET_IF_IPV4);
+		net_if_flag_clear(iface, NET_IF_IPV6);
+
 		net_if_carrier_off(iface);
 		return;
 	}

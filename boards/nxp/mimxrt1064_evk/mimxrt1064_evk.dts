@@ -6,7 +6,7 @@
 
 /dts-v1/;
 
-#include <nxp/nxp_rt1064.dtsi>
+#include <nxp/imxrt/nxp_rt1064.dtsi>
 #include "mimxrt1064_evk-pinctrl.dtsi"
 #include <zephyr/dt-bindings/gpio/arduino-header-r3.h>
 #include <zephyr/dt-bindings/input/input-event-codes.h>
@@ -85,7 +85,7 @@
 		compatible = "pwm-leds";
 
 		green_pwm_led: green_pwm_led {
-			pwms = <&flexpwm2_pwm3 0 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+			pwms = <&flexpwm2_pwm3 0 PWM_MSEC(20) PWM_POLARITY_INVERTED>;
 		};
 	};
 
@@ -244,7 +244,7 @@ arduino_serial: &lpuart3 {
 		compatible = "microchip,ksz8081";
 		reg = <0>;
 		status = "okay";
-		reset-gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio1 9 GPIO_ACTIVE_LOW>;
 		int-gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
 		microchip,interface-type = "rmii";
 	};

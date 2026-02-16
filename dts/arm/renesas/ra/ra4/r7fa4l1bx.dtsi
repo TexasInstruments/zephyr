@@ -153,9 +153,9 @@
 			status = "disabled";
 		};
 
-		pinctrl: pin-controller@4001F800 {
+		pinctrl: pin-controller@4001f800 {
 			compatible = "renesas,ra-pinctrl-pfs";
-			reg = <0x4001F800 0x3c0>;
+			reg = <0x4001f800 0x3c0>;
 			status = "okay";
 		};
 
@@ -176,6 +176,15 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				channel = <0>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,ra-spi-sci";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				channel = <0>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -199,6 +208,15 @@
 				channel = <1>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,ra-spi-sci";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				channel = <1>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci3: sci@40118300 {
@@ -220,6 +238,15 @@
 				channel = <3>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,ra-spi-sci";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				channel = <3>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci4: sci@40118400 {
@@ -239,6 +266,15 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				channel = <4>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,ra-spi-sci";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				channel = <4>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -264,6 +300,15 @@
 				channel = <5>;
 				status = "disabled";
 			};
+
+			spi {
+				compatible = "renesas,ra-spi-sci";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				channel = <5>;
+				overrun-character = <0x00>;
+				status = "disabled";
+			};
 		};
 
 		sci9: sci@40118900 {
@@ -285,6 +330,15 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				channel = <9>;
+				status = "disabled";
+			};
+
+			spi {
+				compatible = "renesas,ra-spi-sci";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				channel = <9>;
+				overrun-character = <0x00>;
 				status = "disabled";
 			};
 		};
@@ -312,9 +366,10 @@
 		};
 
 		adc0: adc@40170000 {
-			compatible = "renesas,ra-adc";
+			compatible = "renesas,ra-adc12";
 			interrupts = <38 1>;
 			interrupt-names = "scanend";
+			unit = <0>;
 			reg = <0x40170000 0x100>;
 			#io-channel-cells = <1>;
 			vref-mv = <3300>;

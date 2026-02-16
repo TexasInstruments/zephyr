@@ -55,16 +55,21 @@ LOG_MODULE_REGISTER(hl78xx_socket, CONFIG_MODEM_LOG_LEVEL);
 	(0 + (IS_ENABLED(CONFIG_NET_IPV6) ? 1 : 0) + (IS_ENABLED(CONFIG_NET_IPV4) ? 1 : 0) +       \
 	 1 /* for NULL terminator */                                                               \
 	)
-RING_BUF_DECLARE(mdm_recv_pool, CONFIG_MODEM_HL78XX_UART_BUFFER_SIZES);
+/* true once payload has been pushed into ring_buf */
+#define PARSER_FLAG_DATA_RECEIVED BIT(0)
+/* set when EOF pattern was found and payload pushed */
+#define PARSER_FLAG_EOF_DETECTED  BIT(1)
+/* set when OK token was matched after payload */
+#define PARSER_FLAG_OK_DETECTED   BIT(2)
 
 struct hl78xx_dns_info {
 #ifdef CONFIG_NET_IPV4
 	char v4_string[NET_IPV4_ADDR_LEN];
-	struct in_addr v4;
+	struct net_in_addr v4;
 #endif
 #ifdef CONFIG_NET_IPV6
 	char v6_string[NET_IPV6_ADDR_LEN];
-	struct in6_addr v6;
+	struct net_in6_addr v6;
 #endif
 	bool ready;
 };
@@ -72,19 +77,19 @@ struct hl78xx_dns_info {
 /* IPv4 information is optional and only present when IPv4 is enabled */
 #ifdef CONFIG_NET_IPV4
 struct hl78xx_ipv4_info {
-	struct in_addr addr;
-	struct in_addr subnet;
-	struct in_addr gateway;
-	struct in_addr new_addr;
+	struct net_in_addr addr;
+	struct net_in_addr subnet;
+	struct net_in_addr gateway;
+	struct net_in_addr new_addr;
 };
 #endif
 /* IPv6 information is optional and only present when IPv6 is enabled */
 #ifdef CONFIG_NET_IPV6
 struct hl78xx_ipv6_info {
-	struct in6_addr addr;
-	struct in6_addr subnet;
-	struct in6_addr gateway;
-	struct in6_addr new_addr;
+	struct net_in6_addr addr;
+	struct net_in6_addr subnet;
+	struct net_in6_addr gateway;
+	struct net_in6_addr new_addr;
 };
 #endif
 /* TLS information is optional and only present when TLS is enabled */
@@ -140,6 +145,8 @@ struct hl78xx_socket_data {
 	struct hl78xx_ipv6_info ipv6;
 #endif
 	/* rx net buffer */
+	struct ring_buf recv_ring_buf;
+	uint8_t recv_ring_buf_data[CONFIG_MODEM_HL78XX_UART_BUFFER_SIZES];
 	struct ring_buf *buf_pool;
 	uint32_t expected_buf_len;
 	uint32_t collected_buf_len;
@@ -165,12 +172,8 @@ struct hl78xx_socket_data {
 	bool parser_match_found;
 	uint16_t parser_start_index_eof;
 	uint16_t parser_size_of_socketdata;
-	/* true once payload has been pushed into ring_buf */
-	bool parser_socket_data_received;
-	/* set when EOF pattern was found and payload pushed */
-	bool parser_eof_detected;
-	/* set when OK token was matched after payload */
-	bool parser_ok_detected;
+
+	atomic_t parser_flags;
 };
 
 static struct hl78xx_socket_data *socket_data_global;
@@ -647,6 +650,7 @@ void hl78xx_on_cgdcontrdp(struct modem_chat *chat, char **argv, uint16_t argc, v
 			false,
 #endif
 			dns_field ? dns_field : "")) {
+		LOG_DBG("Failed to update DNS from CGCONTRDP");
 		return;
 	}
 	/* Configure the interface addresses so net_if_is_up()/address selection
@@ -828,12 +832,12 @@ static int validate_socket(const struct modem_socket *sock, struct hl78xx_socket
 		return -1;
 	}
 
-	bool not_connected = (!sock->is_connected && sock->type != SOCK_DGRAM);
+	bool not_connected = (!sock->is_connected && sock->type != NET_SOCK_DGRAM);
 	bool tcp_disconnected =
-		(sock->type == SOCK_STREAM &&
+		(sock->type == NET_SOCK_STREAM &&
 		 !socket_data->tcp_conn_status[HL78XX_TCP_STATUS_ID(sock->id)].is_connected);
 	bool udp_not_created =
-		(sock->type == SOCK_DGRAM &&
+		(sock->type == NET_SOCK_DGRAM &&
 		 !socket_data->udp_conn_status[HL78XX_UDP_STATUS_ID(sock->id)].is_created);
 
 	if (not_connected || tcp_disconnected || udp_not_created) {
@@ -862,9 +866,9 @@ static void found_reset(struct hl78xx_socket_data *socket_data)
 	/* Clear all parser progress state so a new transfer can start cleanly. */
 	socket_data->parser_state = HL78XX_PARSER_IDLE;
 	socket_data->parser_match_found = false;
-	socket_data->parser_socket_data_received = false;
-	socket_data->parser_eof_detected = false;
-	socket_data->parser_ok_detected = false;
+	atomic_clear_bit(&socket_data->parser_flags, PARSER_FLAG_DATA_RECEIVED);
+	atomic_clear_bit(&socket_data->parser_flags, PARSER_FLAG_EOF_DETECTED);
+	atomic_clear_bit(&socket_data->parser_flags, PARSER_FLAG_OK_DETECTED);
 }
 
 static bool modem_chat_parse_end_del_start(struct hl78xx_socket_data *socket_data,
@@ -953,8 +957,8 @@ static int handle_eof_pattern(struct hl78xx_socket_data *socket_data)
 		}
 
 		/* Mark that payload was successfully pushed and EOF was detected */
-		socket_data->parser_socket_data_received = true;
-		socket_data->parser_eof_detected = true;
+		atomic_set_bit(&socket_data->parser_flags, PARSER_FLAG_DATA_RECEIVED);
+		atomic_set_bit(&socket_data->parser_flags, PARSER_FLAG_EOF_DETECTED);
 		LOG_DBG("pushed %d bytes to ring_buf; "
 			"collected_buf_len(before)=%u",
 			ret, socket_data->collected_buf_len);
@@ -1071,10 +1075,11 @@ static void socket_process_bytes(struct hl78xx_socket_data *socket_data, char by
 		socket_data->parser_state = HL78XX_PARSER_EOF_OK_MATCHED;
 		/* Mark that OK was observed. Payload may have already been pushed by EOF handler.
 		 */
-		socket_data->parser_ok_detected = true;
+		atomic_set_bit(&socket_data->parser_flags, PARSER_FLAG_OK_DETECTED);
 		LOG_DBG("OK matched. parser_ok_detected=%d parser_socket_data_received=%d "
 			"collected=%u",
-			socket_data->parser_ok_detected, socket_data->parser_socket_data_received,
+			atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_OK_DETECTED),
+			atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_DATA_RECEIVED),
 			socket_data->collected_buf_len);
 	}
 }
@@ -1116,17 +1121,20 @@ static int modem_process_handler(struct hl78xx_data *data)
 		"expected=%u collected=%u socket_data_received=%d",
 		socket_data->parser_state, recv_len, socket_data->receive_buf.len,
 		socket_data->expected_buf_len, socket_data->collected_buf_len,
-		socket_data->parser_socket_data_received);
+		atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_DATA_RECEIVED));
 
 	/* Check if we've completed reception */
-	if (socket_data->parser_eof_detected && socket_data->parser_ok_detected &&
-	    socket_data->parser_socket_data_received) {
+	if (atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_EOF_DETECTED) &&
+	    atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_OK_DETECTED) &&
+	    atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_DATA_RECEIVED)) {
 		LOG_DBG("All data received: %d bytes", socket_data->parser_size_of_socketdata);
 		socket_data->expected_buf_len = 0;
 		LOG_DBG("About to give RX semaphore (eof=%d ok=%d socket_data_received=%d "
 			"collected=%u)",
-			socket_data->parser_eof_detected, socket_data->parser_ok_detected,
-			socket_data->parser_socket_data_received, socket_data->collected_buf_len);
+			atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_EOF_DETECTED),
+			atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_OK_DETECTED),
+			atomic_test_bit(&socket_data->parser_flags, PARSER_FLAG_DATA_RECEIVED),
+			socket_data->collected_buf_len);
 		k_sem_give(&socket_data->mdata_global->script_stopped_sem_rx_int);
 		/* Clear parser progress after the receiver has been notified */
 		found_reset(socket_data);
@@ -1179,14 +1187,14 @@ void iface_status_work_cb(struct hl78xx_data *data, modem_chat_script_callback s
 	int ret = 0;
 
 	ret = modem_dynamic_cmd_send(data, script_user_callback, cmd, strlen(cmd),
-				     hl78xx_get_cgdcontrdp_match(), 1, false);
+				     hl78xx_get_cgdcontrdp_match(), 1, MDM_CMD_TIMEOUT, false);
 	if (ret < 0) {
 		LOG_ERR("Failed to send AT+CGCONTRDP command: %d", ret);
 		return;
 	}
 }
 
-void dns_work_cb(const struct device *dev, bool hard_reset)
+int dns_work_cb(const struct device *dev, bool hard_reset)
 {
 #if defined(CONFIG_DNS_RESOLVER) && !defined(CONFIG_DNS_SERVER_IP_ADDRESSES)
 	int ret;
@@ -1194,18 +1202,41 @@ void dns_work_cb(const struct device *dev, bool hard_reset)
 	struct hl78xx_socket_data *socket_data =
 		(struct hl78xx_socket_data *)data->offload_dev->data;
 	struct dns_resolve_context *dnsCtx;
-	struct net_sockaddr temp_addr;
 	bool valid_address = false;
 	bool retry = false;
-	const char *const dns_servers_str[DNS_SERVERS_COUNT] = {
-#ifdef CONFIG_NET_IPV6
-		socket_data->dns.v6_string,
-#endif
+	struct net_sockaddr_storage dns_addr;
+	const struct net_sockaddr *dns_servers_sa[2] = {};
+
+	/* Initialize the storage to zero */
+	memset(&dns_addr, 0, sizeof(dns_addr));
+
+	/* Try to parse DNS address. We only need one DNS server, prefer IPv4 if available. */
 #ifdef CONFIG_NET_IPV4
-		socket_data->dns.v4_string,
+	if (strlen(socket_data->dns.v4_string) > 0) {
+		struct net_sockaddr_in *addr4 = (struct net_sockaddr_in *)&dns_addr;
+
+		if (net_addr_pton(AF_INET, socket_data->dns.v4_string, &addr4->sin_addr) == 0) {
+			addr4->sin_family = AF_INET;
+			addr4->sin_port = 0;
+			valid_address = true;
+		}
+	}
 #endif
-		NULL};
-	const char *dns_servers_wrapped[ARRAY_SIZE(dns_servers_str)];
+#ifdef CONFIG_NET_IPV6
+	if (!valid_address && strlen(socket_data->dns.v6_string) > 0) {
+		struct net_sockaddr_in6 *addr6 = (struct net_sockaddr_in6 *)&dns_addr;
+
+		if (net_addr_pton(AF_INET6, socket_data->dns.v6_string, &addr6->sin6_addr) == 0) {
+			addr6->sin6_family = AF_INET6;
+			addr6->sin6_port = 0;
+			valid_address = true;
+		}
+	}
+#endif
+
+	if (valid_address) {
+		dns_servers_sa[0] = (struct net_sockaddr *)&dns_addr;
+	}
 
 	if (hard_reset) {
 		LOG_DBG("Resetting DNS resolver");
@@ -1214,7 +1245,7 @@ void dns_work_cb(const struct device *dev, bool hard_reset)
 			LOG_WRN("No default DNS resolver context available; skipping "
 				"reconfigure");
 			socket_data->dns.ready = true;
-			return;
+			return 0;
 		}
 		if (dnsCtx->state != DNS_RESOLVE_CONTEXT_INACTIVE) {
 			dns_resolve_close(dnsCtx);
@@ -1222,51 +1253,34 @@ void dns_work_cb(const struct device *dev, bool hard_reset)
 		socket_data->dns.ready = false;
 	}
 
-#ifdef CONFIG_NET_IPV6
-	valid_address = net_ipaddr_parse(socket_data->dns.v6_string,
-					 strlen(socket_data->dns.v6_string), &temp_addr);
-	if (!valid_address && IS_ENABLED(CONFIG_NET_IPV4)) {
-		/* IPv6 DNS string is not valid, replace it with IPv4 address and recheck */
-#ifdef CONFIG_NET_IPV4
-		strncpy(socket_data->dns.v6_string, socket_data->dns.v4_string,
-			sizeof(socket_data->dns.v4_string) - 1);
-		valid_address = net_ipaddr_parse(socket_data->dns.v6_string,
-						 strlen(socket_data->dns.v6_string), &temp_addr);
-#endif
-	}
-#elif defined(CONFIG_NET_IPV4)
-	valid_address = net_ipaddr_parse(socket_data->dns.v4_string,
-					 strlen(socket_data->dns.v4_string), &temp_addr);
-#else
-	/* No IP stack configured */
-	valid_address = false;
-#endif
 	if (!valid_address) {
 		LOG_WRN("No valid DNS address!");
-		return;
+		return -EINVAL;
 	}
 	if (!socket_data->net_iface || !net_if_is_up(socket_data->net_iface) ||
 	    socket_data->dns.ready) {
 		LOG_DBG("DNS already ready or net_iface problem %d %d %d", !socket_data->net_iface,
 			!net_if_is_up(socket_data->net_iface), socket_data->dns.ready);
-		return;
+		return 0;
 	}
-	memcpy(dns_servers_wrapped, dns_servers_str, sizeof(dns_servers_wrapped));
 	/* set new DNS addr in DNS resolver */
 	LOG_DBG("Refresh DNS resolver");
 	dnsCtx = dns_resolve_get_default();
-	ret = dns_resolve_reconfigure(dnsCtx, dns_servers_wrapped, NULL, DNS_SOURCE_MANUAL);
+	ret = dns_resolve_reconfigure(dnsCtx, NULL, dns_servers_sa, DNS_SOURCE_MANUAL);
 	if (ret < 0) {
 		LOG_ERR("dns_resolve_reconfigure fail (%d)", ret);
 		retry = true;
 	} else {
 		LOG_DBG("DNS ready");
 		socket_data->dns.ready = true;
+		return 0;
 	}
 	if (retry) {
 		LOG_WRN("DNS not ready, scheduling a retry");
+		return -EAGAIN;
 	}
 #endif
+	return 0;
 }
 
 static int on_cmd_sockread_common(int socket_id, uint16_t socket_data_length, uint16_t len,
@@ -1402,7 +1416,7 @@ static int send_tcp_or_tls_config(struct modem_socket *sock, uint16_t dst_port, 
 	snprintk(cmd_buf, sizeof(cmd_buf), "AT+KTCPCFG=1,%d,\"%s\",%u,,,,%d,%s,0", mode,
 		 socket_data->tls.hostname, dst_port, af, mode == 3 ? "0" : "");
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, cmd_buf, strlen(cmd_buf),
-				     hl78xx_get_ktcpcfg_match(), 1, false);
+				     hl78xx_get_ktcpcfg_match(), 1, MDM_CMD_TIMEOUT, false);
 	if (ret < 0 ||
 	    socket_data->tcp_conn_status[HL78XX_TCP_STATUS_ID(sock->id)].is_created == false) {
 		LOG_ERR("%s ret:%d", cmd_buf, ret);
@@ -1430,7 +1444,9 @@ static int send_udp_config(const struct net_sockaddr *addr, struct hl78xx_socket
 		 (addr->sa_family - 1), 0);
 
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, cmd_buf, strlen(cmd_buf),
-				     hl78xx_get_kudpind_match(), 1, false);
+				     hl78xx_get_kudpind_match(),
+				     hl78xx_get_kudpind_allow_matches_size(), MDM_CMD_TIMEOUT,
+				     false);
 	if (ret < 0) {
 		goto error;
 	}
@@ -1493,7 +1509,8 @@ static int socket_close(struct hl78xx_socket_data *socket_data, struct modem_soc
 	}
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, buf, strlen(buf),
 				     hl78xx_get_sockets_allow_matches(),
-				     hl78xx_get_sockets_allow_matches_size(), false);
+				     hl78xx_get_sockets_allow_matches_size(), MDM_CMD_TIMEOUT,
+				     false);
 	if (ret < 0) {
 		LOG_ERR("%s ret:%d", buf, ret);
 	}
@@ -1516,7 +1533,8 @@ static int socket_delete(struct hl78xx_socket_data *socket_data, struct modem_so
 	snprintk(buf, sizeof(buf), "AT+KTCPDEL=%d", sock->id);
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, buf, strlen(buf),
 				     hl78xx_get_sockets_allow_matches(),
-				     hl78xx_get_sockets_allow_matches_size(), false);
+				     hl78xx_get_sockets_allow_matches_size(), MDM_CMD_TIMEOUT,
+				     false);
 	if (ret < 0) {
 		LOG_ERR("%s ret:%d", buf, ret);
 	}
@@ -1559,7 +1577,7 @@ static int offload_close(void *obj)
 	socket_data = hl78xx_get_socket_global();
 	if (!socket_data || !socket_data->offload_dev ||
 	    socket_data->offload_dev->data != socket_data) {
-		LOG_WRN("parent mismatch: parent != offload_dev->data (%p != %p)", socket_data,
+		LOG_ERR("parent mismatch: parent != offload_dev->data (%p != %p)", socket_data,
 			socket_data ? socket_data->offload_dev->data : NULL);
 		errno = EINVAL;
 		return -1;
@@ -1649,7 +1667,7 @@ static int offload_connect(void *obj, const struct net_sockaddr *addr, net_sockl
 	/* send connect command */
 	snprintk(cmd_buf, sizeof(cmd_buf), "AT+KTCPCNX=%d", sock->id);
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, cmd_buf, strlen(cmd_buf),
-				     hl78xx_get_ktcpind_match(), 1, false);
+				     hl78xx_get_ktcpind_match(), 1, MDM_CMD_TIMEOUT, false);
 	if (ret < 0 ||
 	    socket_data->tcp_conn_status[HL78XX_TCP_STATUS_ID(sock->id)].is_connected == false) {
 		sock->is_connected = false;
@@ -1744,7 +1762,28 @@ static int hl78xx_perform_receive_transaction(struct hl78xx_socket_data *socket_
 	}
 
 	rv = modem_handle_data_capture(socket_data->sizeof_socket_data, socket_data->mdata_global);
+
+	if (rv == -EAGAIN) {
+		/* Can retry */
+		LOG_ERR("Incomplete data, can retry");
+		return rv;
+	}
+
+	if (rv == -ECONNABORTED) {
+		/* Connection lost, close socket */
+		LOG_ERR("Connection aborted");
+		return rv;
+	}
+
+	if (rv == -EINVAL) {
+		/* Programming error */
+		LOG_ERR("Invalid argument");
+		return rv;
+	}
+
 	if (rv < 0) {
+		/* Other errors */
+		LOG_ERR("Data capture error: %d", rv);
 		return rv;
 	}
 
@@ -1776,7 +1815,7 @@ static void check_tcp_state_if_needed(struct hl78xx_socket_data *socket_data,
 {
 	const char *check_ktcp_stat = "AT+KTCPSTAT";
 	/* Only check for TCP sockets */
-	if (sock->type != SOCK_STREAM) {
+	if (sock->type != NET_SOCK_STREAM) {
 		return;
 	}
 	if (atomic_test_and_clear_bit(&socket_data->mdata_global->state_leftover,
@@ -1784,7 +1823,7 @@ static void check_tcp_state_if_needed(struct hl78xx_socket_data *socket_data,
 	    sock && sock->ip_proto == NET_IPPROTO_TCP) {
 		modem_dynamic_cmd_send(socket_data->mdata_global, NULL, check_ktcp_stat,
 				       strlen(check_ktcp_stat), hl78xx_get_ktcp_state_match(), 1,
-				       true);
+				       MDM_CMD_TIMEOUT, true);
 	}
 }
 
@@ -1959,7 +1998,7 @@ static int validate_and_prepare(struct modem_socket *sock, const struct net_sock
 		errno = EINVAL;
 		return -1;
 	}
-	if (sock->type != SOCK_DGRAM && !sock->is_connected) {
+	if (sock->type != NET_SOCK_DGRAM && !sock->is_connected) {
 		errno = ENOTCONN;
 		return -1;
 	}
@@ -1967,7 +2006,7 @@ static int validate_and_prepare(struct modem_socket *sock, const struct net_sock
 		*dst_addr = &sock->dst;
 	}
 	if (*buf_len > MDM_MAX_DATA_LENGTH) {
-		if (sock->type == SOCK_DGRAM) {
+		if (sock->type == NET_SOCK_DGRAM) {
 			errno = EMSGSIZE;
 			return -1;
 		}
@@ -1998,9 +2037,8 @@ static int transmit_regular_data(struct hl78xx_socket_data *socket_data, const c
 
 /* send binary data via the +KUDPSND/+KTCPSND commands */
 static ssize_t send_socket_data(void *obj, struct hl78xx_socket_data *socket_data,
-				const struct net_sockaddr *dst_addr,
-				const char *buf, size_t buf_len,
-				k_timeout_t timeout)
+				const struct net_sockaddr *dst_addr, const char *buf,
+				size_t buf_len, k_timeout_t timeout)
 {
 	struct modem_socket *sock = (struct modem_socket *)obj;
 	char cmd_buf[82] = {0}; /* AT+KUDPSND/KTCP=,IP,PORT,LENGTH */
@@ -2017,7 +2055,7 @@ static ssize_t send_socket_data(void *obj, struct hl78xx_socket_data *socket_dat
 	}
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, cmd_buf, strlen(cmd_buf),
 				     (const struct modem_chat_match *)hl78xx_get_connect_matches(),
-				     hl78xx_get_connect_matches_size(), false);
+				     hl78xx_get_connect_matches_size(), MDM_CMD_TIMEOUT, false);
 	if (ret < 0 || socket_data->socket_data_error) {
 		hl78xx_set_errno_from_code(ret);
 		ret = -1;
@@ -2030,8 +2068,8 @@ static ssize_t send_socket_data(void *obj, struct hl78xx_socket_data *socket_dat
 		goto cleanup;
 	}
 	modem_chat_attach(&socket_data->mdata_global->chat, socket_data->mdata_global->uart_pipe);
-	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, "", 0,
-				     hl78xx_get_sockets_ok_match(), 1, false);
+	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, "", 0, hl78xx_get_ok_match(),
+				     hl78xx_get_ok_match_size(), MDM_CMD_TIMEOUT, false);
 	if (ret < 0) {
 		LOG_ERR("Final confirmation failed: %d", ret);
 		goto cleanup;
@@ -2068,7 +2106,7 @@ static int handle_tls_sockopts(void *obj, int optname, const void *optval, net_s
 		memcpy(socket_data->tls.hostname, optval, optlen);
 		socket_data->tls.hostname[optlen] = '\0';
 		socket_data->tls.hostname_set = true;
-		ret = hl78xx_configure_chipper_suit(socket_data);
+		ret = hl78xx_configure_chipher_suit(socket_data);
 		if (ret < 0) {
 			LOG_ERR("Failed to configure chipper suit: %d", ret);
 			return ret;
@@ -2137,7 +2175,7 @@ static ssize_t offload_sendto(void *obj, const void *buf, size_t len, int flags,
 	 * destination address is provided or the socket has a stored dst. The
 	 * helper validate_and_prepare will supply sock->dst for UDP when needed.
 	 */
-	if (sock->type != SOCK_DGRAM && !sock->is_connected) {
+	if (sock->type != NET_SOCK_DGRAM && !sock->is_connected) {
 		errno = ENOTCONN;
 		return -1;
 	}
@@ -2229,11 +2267,9 @@ static ssize_t offload_write(void *obj, const void *buffer, size_t count)
 static ssize_t offload_sendmsg(void *obj, const struct net_msghdr *msg, int flags)
 {
 	ssize_t sent = 0;
-	struct iovec bkp_iovec = {0};
-	struct net_msghdr crafted_msg = {
-		.msg_name = msg->msg_name,
-		.msg_namelen = msg->msg_namelen
-	};
+	struct net_iovec bkp_iovec = {0};
+	struct net_msghdr crafted_msg = {.msg_name = msg->msg_name,
+					 .msg_namelen = msg->msg_namelen};
 	struct modem_socket *sock = (struct modem_socket *)obj;
 	struct hl78xx_socket_data *socket_data = hl78xx_socket_data_from_sock(sock);
 	size_t full_len = 0;
@@ -2329,7 +2365,7 @@ static int hl78xx_init_sockets(const struct device *dev)
 	int ret;
 	struct hl78xx_socket_data *socket_data = (struct hl78xx_socket_data *)dev->data;
 
-	socket_data->buf_pool = &mdm_recv_pool;
+	socket_data->buf_pool = &socket_data->recv_ring_buf;
 	/* socket config */
 	ret = modem_socket_init(&socket_data->socket_config, &socket_data->sockets[0],
 				ARRAY_SIZE(socket_data->sockets), MDM_BASE_SOCKET_NUM, false,
@@ -2373,9 +2409,10 @@ static int hl78xx_configure_chipper_suit(struct hl78xx_socket_data *socket_data)
 {
 	const char *cmd_chipper_suit = "AT+KSSLCRYPTO=0,8,1,8192,4,4,3,0";
 
-	return modem_dynamic_cmd_send(
-		socket_data->mdata_global, NULL, cmd_chipper_suit, strlen(cmd_chipper_suit),
-		(const struct modem_chat_match *)hl78xx_get_ok_match(), 1, false);
+	return modem_dynamic_cmd_send(socket_data->mdata_global, NULL, cmd_chipper_suit,
+				      strlen(cmd_chipper_suit),
+				      (const struct modem_chat_match *)hl78xx_get_ok_match(),
+				      hl78xx_get_ok_match_size(), MDM_CMD_TIMEOUT, false);
 }
 /* send binary data via the K....STORE commands */
 static ssize_t hl78xx_send_cert(struct hl78xx_socket_data *socket_data, const char *cert_data,
@@ -2417,7 +2454,7 @@ static ssize_t hl78xx_send_cert(struct hl78xx_socket_data *socket_data, const ch
 	}
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, send_buf, strlen(send_buf),
 				     (const struct modem_chat_match *)hl78xx_get_connect_matches(),
-				     hl78xx_get_connect_matches_size(), false);
+				     hl78xx_get_connect_matches_size(), MDM_CMD_TIMEOUT, false);
 	if (ret < 0) {
 		LOG_ERR("Error sending AT command %d", ret);
 	}
@@ -2444,8 +2481,8 @@ static ssize_t hl78xx_send_cert(struct hl78xx_socket_data *socket_data, const ch
 	}
 	modem_chat_attach(&socket_data->mdata_global->chat, socket_data->mdata_global->uart_pipe);
 	ret = modem_dynamic_cmd_send(socket_data->mdata_global, NULL, "", 0,
-				     (const struct modem_chat_match *)hl78xx_get_ok_match(), 1,
-				     false);
+				     (const struct modem_chat_match *)hl78xx_get_ok_match(),
+				     hl78xx_get_ok_match_size(), MDM_CMD_TIMEOUT, false);
 	if (ret < 0) {
 		LOG_ERR("Final confirmation failed: %d", ret);
 		goto cleanup;
@@ -2511,6 +2548,9 @@ static int hl78xx_socket_init(const struct device *dev)
 
 	struct hl78xx_socket_data *data = (struct hl78xx_socket_data *)dev->data;
 
+	ring_buf_init(&data->recv_ring_buf, sizeof(data->recv_ring_buf_data),
+		      data->recv_ring_buf_data);
+	data->buf_pool = &data->recv_ring_buf;
 	data->offload_dev = dev;
 	/* Ensure the parent modem device pointer was set at static init time */
 	if (data->modem_dev == NULL) {
@@ -2531,7 +2571,7 @@ static int hl78xx_socket_init(const struct device *dev)
 	/* Keep original single global pointer usage but set via accessor. */
 	hl78xx_set_socket_global(data);
 	atomic_set(&data->mdata_global->state_leftover, 0);
-
+	atomic_set(&data->parser_flags, 0);
 	return 0;
 }
 
@@ -2597,7 +2637,7 @@ static bool offload_is_supported(int family, int type, int proto)
 		inst, "hl78xx_dev", hl78xx_socket_init, NULL, &hl78xx_socket_data_##inst, NULL,    \
 		CONFIG_MODEM_HL78XX_OFFLOAD_INIT_PRIORITY, &api_funcs, MDM_MAX_DATA_LENGTH);       \
                                                                                                    \
-	NET_SOCKET_OFFLOAD_REGISTER(inst, CONFIG_NET_SOCKETS_OFFLOAD_PRIORITY, NET_AF_UNSPEC,	   \
+	NET_SOCKET_OFFLOAD_REGISTER(inst, CONFIG_NET_SOCKETS_OFFLOAD_PRIORITY, NET_AF_UNSPEC,      \
 				    offload_is_supported, offload_socket);
 
 #define MODEM_OFFLOAD_DEVICE_SWIR_HL78XX(inst) MODEM_HL78XX_DEFINE_OFFLOAD_INSTANCE(inst)

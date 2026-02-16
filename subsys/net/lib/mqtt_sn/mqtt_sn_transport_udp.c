@@ -46,10 +46,39 @@ static char *get_ip_str(const struct net_sockaddr *sa, char *s, size_t maxlen)
 	return s;
 }
 
+static int get_multicast_ttl(struct mqtt_sn_transport_udp *udp, int *ttl, net_socklen_t *ttl_len)
+{
+	if (udp->bcaddr.sa_family == NET_AF_INET && IS_ENABLED(CONFIG_NET_IPV4)) {
+		return zsock_getsockopt(udp->sock, NET_IPPROTO_IP, ZSOCK_IP_MULTICAST_TTL, ttl,
+					ttl_len);
+	} else if (udp->bcaddr.sa_family == NET_AF_INET6 && IS_ENABLED(CONFIG_NET_IPV6)) {
+		return zsock_getsockopt(udp->sock, NET_IPPROTO_IPV6, ZSOCK_IPV6_MULTICAST_HOPS, ttl,
+					ttl_len);
+	}
+
+	LOG_ERR("Unknown AF");
+	return -EINVAL;
+}
+
+static int set_multicast_ttl(struct mqtt_sn_transport_udp *udp, int *ttl, net_socklen_t ttl_len)
+{
+	if (udp->bcaddr.sa_family == NET_AF_INET && IS_ENABLED(CONFIG_NET_IPV4)) {
+		return zsock_setsockopt(udp->sock, NET_IPPROTO_IP, ZSOCK_IP_MULTICAST_TTL, ttl,
+					ttl_len);
+	} else if (udp->bcaddr.sa_family == NET_AF_INET6 && IS_ENABLED(CONFIG_NET_IPV6)) {
+		return zsock_setsockopt(udp->sock, NET_IPPROTO_IPV6, ZSOCK_IPV6_MULTICAST_HOPS, ttl,
+					ttl_len);
+	}
+
+	LOG_ERR("Unknown AF");
+	return -EINVAL;
+}
+
 static int tp_udp_init(struct mqtt_sn_transport *transport)
 {
 	struct mqtt_sn_transport_udp *udp = UDP_TRANSPORT(transport);
 	int err;
+	int errno_backup;
 	struct net_sockaddr addrm;
 	int optval;
 	struct net_if *iface;
@@ -114,8 +143,9 @@ static int tp_udp_init(struct mqtt_sn_transport *transport)
 
 	err = zsock_bind(udp->sock, &addrm, sizeof(addrm));
 	if (err) {
-		LOG_ERR("Error during bind: %d", errno);
-		return -errno;
+		errno_backup = errno;
+		LOG_ERR("Error during bind: %d", errno_backup);
+		return errno_backup;
 	}
 
 	if (udp->bcaddr.sa_family == NET_AF_INET && IS_ENABLED(CONFIG_NET_IPV4)) {
@@ -158,18 +188,7 @@ static int tp_udp_init(struct mqtt_sn_transport *transport)
 	}
 
 	optval = CONFIG_MQTT_SN_LIB_BROADCAST_RADIUS;
-	if (udp->bcaddr.sa_family == NET_AF_INET && IS_ENABLED(CONFIG_NET_IPV4)) {
-		err = zsock_setsockopt(udp->sock, NET_IPPROTO_IP,
-				       ZSOCK_IP_MULTICAST_TTL, &optval,
-				       sizeof(optval));
-	} else if (udp->bcaddr.sa_family == NET_AF_INET6 && IS_ENABLED(CONFIG_NET_IPV6)) {
-		err = zsock_setsockopt(udp->sock, NET_IPPROTO_IPV6,
-				       ZSOCK_IPV6_MULTICAST_HOPS, &optval,
-				       sizeof(optval));
-	} else {
-		LOG_ERR("Unknown AF");
-		return -EINVAL;
-	}
+	err = set_multicast_ttl(udp, &optval, sizeof(optval));
 	if (err < 0) {
 		return -errno;
 	}
@@ -193,28 +212,17 @@ static int tp_udp_sendto(struct mqtt_sn_client *client, void *buf, size_t sz, co
 	net_socklen_t ttl_len;
 
 	if (dest_addr == NULL) {
-		int level, optname;
-
 		LOG_HEXDUMP_DBG(buf, sz, "Sending Broadcast UDP packet");
 
 		/* Set ttl if requested value does not match existing*/
-		if (udp->bcaddr.sa_family == NET_AF_INET && IS_ENABLED(CONFIG_NET_IPV4)) {
-			level = NET_IPPROTO_IP;
-			optname = ZSOCK_IP_MULTICAST_TTL;
-		} else if (udp->bcaddr.sa_family == NET_AF_INET6 && IS_ENABLED(CONFIG_NET_IPV6)) {
-			level = NET_IPPROTO_IPV6;
-			optname = ZSOCK_IPV6_MULTICAST_HOPS;
-		} else {
-			LOG_ERR("Unknown AF");
-			return -EINVAL;
-		}
-		rc = zsock_getsockopt(udp->sock, level, optname, &ttl, &ttl_len);
+		ttl_len = sizeof(ttl);
+		rc = get_multicast_ttl(udp, &ttl, &ttl_len);
 		if (rc < 0) {
 			return -errno;
 		}
 		if (ttl != addrlen) {
 			ttl = addrlen;
-			rc = zsock_setsockopt(udp->sock, level, optname, &ttl, sizeof(ttl));
+			rc = set_multicast_ttl(udp, &ttl, sizeof(ttl));
 			if (rc < 0) {
 				return -errno;
 			}
@@ -241,30 +249,22 @@ static ssize_t tp_udp_recvfrom(struct mqtt_sn_client *client, void *buffer, size
 			       void *src_addr, size_t *addrlen)
 {
 	struct mqtt_sn_transport_udp *udp = UDP_TRANSPORT(client->transport);
-	int rc;
-	struct net_sockaddr *srcaddr = src_addr;
+	ssize_t ret;
+	int errno_backup;
 	net_socklen_t addrlen_local = *addrlen;
 
-	rc = zsock_recvfrom(udp->sock, buffer, length, 0, src_addr, &addrlen_local);
-	LOG_DBG("recv %d", rc);
-	if (rc < 0) {
-		return -errno;
+	ret = zsock_recvfrom(udp->sock, buffer, length, 0, src_addr, &addrlen_local);
+	errno_backup = errno;
+	LOG_DBG("recv %zd", ret);
+	if (ret < 0) {
+		errno = errno_backup;
+		return -1;
 	}
 	*addrlen = addrlen_local;
 
-	LOG_HEXDUMP_DBG(buffer, rc, "recv");
+	LOG_HEXDUMP_DBG(buffer, ret, "recv");
 
-	if (*addrlen != udp->bcaddrlen) {
-		return rc;
-	}
-
-	if (memcmp(srcaddr->data, udp->bcaddr.data, *addrlen) != 0) {
-		return rc;
-	}
-
-	src_addr = NULL;
-	*addrlen = 1;
-	return rc;
+	return ret;
 }
 
 static int tp_udp_poll(struct mqtt_sn_client *client)

@@ -75,7 +75,7 @@ static int __read_data(struct eswifi_dev *eswifi, size_t len, char **data)
 }
 
 int __eswifi_bind(struct eswifi_dev *eswifi, struct eswifi_off_socket *socket,
-		      const struct net_sockaddr *addr, socklen_t addrlen)
+		      const struct net_sockaddr *addr, net_socklen_t addrlen)
 {
 	int err;
 
@@ -196,7 +196,7 @@ int __eswifi_off_start_client(struct eswifi_dev *eswifi,
 			      struct eswifi_off_socket *socket)
 {
 	struct net_sockaddr *addr = &socket->peer_addr;
-	struct in_addr *sin_addr = &net_sin(addr)->sin_addr;
+	struct net_in_addr *sin_addr = &net_sin(addr)->sin_addr;
 	int err;
 
 	LOG_DBG("");
@@ -273,7 +273,7 @@ int __eswifi_listen(struct eswifi_dev *eswifi, struct eswifi_off_socket *socket,
 	err = eswifi_at_cmd(eswifi, eswifi->buf);
 	if (err < 0) {
 		LOG_ERR("Unable to start set listen backlog");
-		err = -EIO;
+		return -EIO;
 	}
 
 	socket->is_server = true;

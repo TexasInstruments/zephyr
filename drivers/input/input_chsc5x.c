@@ -57,6 +57,9 @@ enum {
 #define CHSC5X_OFFSET_XY_COORDINATE 0x05
 #define CHSC5X_OFFSET_TOUCH_EVENT   0x06
 
+#define CHSC5X_EVENT_TYPE_TOUCH     0xFF
+#define CHSC5X_EVENT_TYPE_GESTURE   0xFE /* Not supported */
+
 static void chsc5x_work_handler(struct k_work *work)
 {
 	struct chsc5x_data *data = CONTAINER_OF(work, struct chsc5x_data, work);
@@ -80,6 +83,10 @@ static void chsc5x_work_handler(struct k_work *work)
 		return;
 	}
 
+	if (read_buffer[CHSC5X_OFFSET_EVENT_TYPE] != CHSC5X_EVENT_TYPE_TOUCH) {
+		return;
+	}
+
 	is_pressed = (read_buffer[CHSC5X_OFFSET_TOUCH_EVENT] & 0x40) == 0U;
 	col = read_buffer[CHSC5X_OFFSET_X_COORDINATE] +
 	      ((read_buffer[CHSC5X_OFFSET_XY_COORDINATE] & 0x0f) << 8);
@@ -100,7 +107,8 @@ static void chsc5x_isr_handler(const struct device *dev, struct gpio_callback *c
 	k_work_submit(&data->work);
 }
 
-static int chsc5x_chip_init(const struct device *dev)
+#if defined(CONFIG_INPUT_CHSC5X_VERIFY_IC_TYPE)
+static int chsc5x_verify_ic(const struct device *dev)
 {
 	const struct chsc5x_config *cfg = dev->config;
 	int ret;
@@ -141,6 +149,7 @@ static int chsc5x_chip_init(const struct device *dev)
 
 	return 0;
 }
+#endif /* CONFIG_INPUT_CHSC5X_VERIFY_IC_TYPE */
 
 static int chsc5x_reset(const struct device *dev)
 {
@@ -252,7 +261,17 @@ static int chsc5x_init(const struct device *dev)
 		return ret;
 	}
 
-	return chsc5x_chip_init(dev);
+#if defined(CONFIG_INPUT_CHSC5X_VERIFY_IC_TYPE)
+	/* It takes about 94ms until chip is ready after reset. */
+	k_msleep(100);
+
+	ret =  chsc5x_verify_ic(dev);
+	if (ret < 0) {
+		LOG_ERR("Failed to verify ic: %d", ret);
+		return ret;
+	}
+#endif /* CONFIG_INPUT_CHSC5X_VERIFY_IC_TYPE */
+	return ret;
 };
 
 #define CHSC5X_DEFINE(index)                                                                       \

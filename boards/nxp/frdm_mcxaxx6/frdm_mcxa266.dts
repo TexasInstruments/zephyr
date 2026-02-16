@@ -6,7 +6,7 @@
 
 /dts-v1/;
 
-#include <nxp/nxp_mcxa266.dtsi>
+#include <nxp/mcx/nxp_mcxa266.dtsi>
 #include "frdm_mcxa266-pinctrl.dtsi"
 #include "board_common.dtsi"
 #include <freq.h>
@@ -46,4 +46,9 @@
 
 &flexio0 {
 	status = "okay";
+};
+
+zephyr_udc0: &usb {
+	status = "okay";
+	num-bidir-endpoints = <8>;
 };

@@ -17,4 +17,6 @@ supported:
   - octospi
   - usbd
   - memc
+  - netif:eth
+  - rtc
 vendor: st

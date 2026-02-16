@@ -1,0 +1,49 @@
+# Copyright (c) 2023 Enphase Energy
+# Copyright (c) 2025 Siemens Mobility GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_AM6234_A53 || SOC_AM6234_M4 || SOC_AM6442_M4 || SOC_AM2434_R5F || SOC_AM2434_M4
+
+config NUM_IRQS
+	default 64 if SOC_SERIES_AM6X_M4
+	default 256 if SOC_SERIES_AM6X_R5
+	default 280 if SOC_SERIES_AM6X_A53
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 400000000 if SOC_SERIES_AM6X_M4
+	default 200000000 if SOC_SERIES_AM6X_R5
+	default 200000000 if SOC_SERIES_AM6X_A53
+
+config ARM_MPU
+	default y if SOC_SERIES_AM6X_R5
+
+config SOC_PREP_HOOK
+	default y if SOC_AM2434_R5F0_0_BOOT
+
+# Needed options when booting via SBL bootloader from the TI MCU+ SDK and not MCUBoot
+#
+# The SBL bootloader requires the vector at 0x0 since the remapping feature of
+# the SoC doesn't remap the addresses directly after the vector itself leading to
+# a wrong branch directly after the R5F core was reset.
+#
+# When using MCUboot however the core isn't resettet and instead MCUboot just
+# jumps into the vector itself for chainloading so the vector can be located in
+# the SRAM (which is also needed since MCUboot can't handle images with multiple
+# sections)
+config ROMSTART_RELOCATION_ROM
+	default y if SOC_AM2434_R5F && !MCUBOOT && !BOOTLOADER_MCUBOOT && !SOC_AM2434_R5F0_0_BOOT
+
+config ROMSTART_REGION_ADDRESS
+	default $(dt_nodelabel_reg_addr_hex,atcm_boot) if SOC_AM2434_R5F && !MCUBOOT && !BOOTLOADER_MCUBOOT && !SOC_AM2434_R5F0_0_BOOT
+
+config ROMSTART_REGION_SIZE
+	default $(dt_nodelabel_reg_size_hex,atcm_boot,0,K) if SOC_AM2434_R5F && !MCUBOOT && !BOOTLOADER_MCUBOOT && !SOC_AM2434_R5F0_0_BOOT
+
+# Needed options when Zephyr should run directly after the ROM bootloader (e.g. as MCUboot binary)
+config BUILD_OUTPUT_TI_K3_ROM_LOADABLE
+	default y if SOC_AM2434_R5F0_0_BOOT
+
+config CPU_USE_ONLY_ONE_CORE
+	default y if SOC_AM2434_R5F0_0_BOOT
+
+endif # SOC_AM6234_A53 || SOC_AM6234_M4 || SOC_AM6442_M4 || SOC_AM2434_R5F || SOC_AM2434_M4

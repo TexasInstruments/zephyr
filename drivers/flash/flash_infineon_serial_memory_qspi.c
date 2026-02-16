@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT     infineon_cat1_qspi_flash
+#define DT_DRV_COMPAT     infineon_qspi_flash
 #define SOC_NV_FLASH_NODE DT_PARENT(DT_INST(0, fixed_partitions))
 
 #define PAGE_LEN DT_PROP(SOC_NV_FLASH_NODE, erase_block_size)
@@ -19,7 +19,7 @@
 #include "mtb_serial_memory.h"
 #include "cy_device_headers.h"
 
-LOG_MODULE_REGISTER(flash_infineon_cat1, CONFIG_FLASH_LOG_LEVEL);
+LOG_MODULE_REGISTER(flash_infineon, CONFIG_FLASH_LOG_LEVEL);
 
 #define TIMEOUT_1_MS (1000ul) /* 1 ms timeout for all blocking functions */
 #define MEM_SLOT_NUM (0U)
@@ -257,7 +257,7 @@ static int ifx_serial_memory_flash_init(const struct device *dev)
 	return result;
 }
 
-static const struct flash_driver_api ifx_serial_memory_flash_driver_api = {
+static DEVICE_API(flash, ifx_serial_memory_flash_driver_api) = {
 	.read = ifx_serial_memory_flash_read,
 	.write = ifx_serial_memory_flash_write,
 	.erase = ifx_serial_memory_flash_erase,

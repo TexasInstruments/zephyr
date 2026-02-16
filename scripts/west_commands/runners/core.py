@@ -249,7 +249,17 @@ class MissingProgram(FileNotFoundError):
         super().__init__(errno.ENOENT, os.strerror(errno.ENOENT), program)
 
 
-_RUNNERCAPS_COMMANDS = {'flash', 'debug', 'debugserver', 'attach', 'simulate', 'robot', 'rtt'}
+_RUNNERCAPS_COMMANDS = {
+    "flash",
+    "debug",
+    "debugserver",
+    "attach",
+    "simulate",
+    "robot",
+    "rtt",
+    "reset",
+}
+
 
 @dataclass
 class RunnerCaps:
@@ -324,6 +334,11 @@ class RunnerCaps:
                        # to allow other commands to use the rtt address
     dry_run: bool = False
     skip_load: bool = False
+    batch_debug: bool = False # In batch mode, GDB exits with status 0 after loading;
+                              # for automated debugging, add --batch with 'monitor go',
+                              # 'disconnect', and 'quit' commands (named batch_debug in west),
+                              # unlike interactive debug mode (default),
+                              # which stops and waits for user input
 
     def __post_init__(self):
         if self.mult_dev_ids and not self.dev_id:
@@ -578,7 +593,8 @@ class ZephyrBinaryRunner(abc.ABC):
                                 help="path to binary file")
             parser.add_argument('-t', '--file-type',
                                 dest='file_type',
-                                help="type of binary file")
+                                help="type of binary file. If --file is not given, "
+                                     "selects the build artifact (hex, bin, elf)")
         else:
             parser.add_argument('-f', '--file', help=argparse.SUPPRESS)
             parser.add_argument('-t', '--file-type', help=argparse.SUPPRESS)
@@ -651,6 +667,10 @@ class ZephyrBinaryRunner(abc.ABC):
                                   if caps.skip_load else argparse.SUPPRESS),
                             default=True)
 
+        parser.add_argument('--batch', action=argparse.BooleanOptionalAction,
+                            help="enable west debug batch mode"
+                            if caps.batch_debug else argparse.SUPPRESS)
+
         # Runner-specific options.
         cls.do_add_parser(parser)
 
@@ -691,8 +711,6 @@ class ZephyrBinaryRunner(abc.ABC):
             _missing_cap(cls, '--tool-opt')
         if args.file and not caps.file:
             _missing_cap(cls, '--file')
-        if args.file_type and not args.file:
-            raise ValueError("--file-type requires --file")
         if args.file_type and not caps.file:
             _missing_cap(cls, '--file-type')
         if args.rtt_address and not caps.rtt:

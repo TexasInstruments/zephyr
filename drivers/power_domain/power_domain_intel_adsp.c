@@ -10,10 +10,6 @@
 #include <adsp_shim.h>
 #include <adsp_power.h>
 
-#if CONFIG_SOC_INTEL_ACE15_MTPM
-#include <adsp_power.h>
-#endif /* CONFIG_SOC_INTEL_ACE15_MTPM */
-
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(power_domain_intel_adsp, LOG_LEVEL_INF);
 
@@ -36,7 +32,7 @@ static int pd_intel_adsp_set_power_enable(struct pg_bits *bits, bool power_enabl
 			return -EIO;
 		}
 	} else {
-#if CONFIG_SOC_INTEL_ACE15_MTPM
+#if CONFIG_SOC_ACE15_MTPM
 		extern uint32_t adsp_pending_buffer;
 
 		if (bits->SPA_bit == INTEL_ADSP_HST_DOMAIN_BIT) {

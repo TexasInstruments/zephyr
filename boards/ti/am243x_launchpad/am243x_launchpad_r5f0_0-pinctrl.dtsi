@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2025 Siemens Mobility GmbH
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/ti-k3-pinctrl.h>
+
+&main_pinctrl {
+	uart0_rx_default: uart0_rx_default {
+		pinmux = <K3_PINMUX(0x0230, PIN_INPUT, MUX_MODE_0)>;
+	};
+
+	uart0_tx_default: uart0_tx_default {
+		pinmux = <K3_PINMUX(0x0234, PIN_OUTPUT, MUX_MODE_0)>;
+	};
+
+	led0_output: led0_output { // GPIO0 22
+		pinmux = <K3_PINMUX(0x0058, PIN_OUTPUT, MUX_MODE_7)>;
+	};
+
+	ospi_clk: ospi_clk {
+		pinmux = <K3_PINMUX(0x0000, PIN_OUTPUT, MUX_MODE_0)>;
+	};
+
+	ospi_csn0: ospi_csn0 { // GPIO0 11
+		pinmux = <K3_PINMUX(0x002c, PIN_OUTPUT, MUX_MODE_0)>;
+	};
+
+	ospi_d0: ospi_d0 {
+		pinmux = <K3_PINMUX(0x000c, PIN_INPUT, MUX_MODE_0)>;
+	};
+
+	ospi_d1: ospi_d1 {
+		pinmux = <K3_PINMUX(0x0010, PIN_INPUT, MUX_MODE_0)>;
+	};
+
+	ospi_d2: ospi_d2 {
+		pinmux = <K3_PINMUX(0x0014, PIN_INPUT, MUX_MODE_0)>;
+	};
+
+	ospi_d3: ospi_d3 {
+		pinmux = <K3_PINMUX(0x0018, PIN_INPUT, MUX_MODE_0)>;
+	};
+
+	ospi_dqs: ospi_dqs {
+		pinmux = <K3_PINMUX(0x0008, PIN_INPUT, MUX_MODE_0)>;
+	};
+
+	ospi_lbclko: ospi_lbclko {
+		pinmux = <K3_PINMUX(0x0004, PIN_OUTPUT, MUX_MODE_0)>;
+	};
+
+	// the other leds can't be controlled due to
+	// https://github.com/zephyrproject-rtos/zephyr/issues/81100
+
+	status = "okay";
+};

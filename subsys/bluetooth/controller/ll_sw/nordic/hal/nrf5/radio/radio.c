@@ -294,7 +294,7 @@ void radio_phy_set(uint8_t phy, uint8_t flags)
 
 	NRF_RADIO->MODE = (mode << RADIO_MODE_MODE_Pos) & RADIO_MODE_MODE_Msk;
 
-#if !defined(CONFIG_SOC_SERIES_NRF51X) && !defined(CONFIG_SOC_COMPATIBLE_NRF54LX)
+#if !defined(CONFIG_SOC_SERIES_NRF51) && !defined(CONFIG_SOC_COMPATIBLE_NRF54LX)
 #if defined(CONFIG_BT_CTLR_RADIO_ENABLE_FAST)
 	NRF_RADIO->MODECNF0 = ((RADIO_MODECNF0_DTX_Center <<
 				RADIO_MODECNF0_DTX_Pos) &
@@ -307,7 +307,7 @@ void radio_phy_set(uint8_t phy, uint8_t flags)
 			       RADIO_MODECNF0_DTX_Pos) &
 			      RADIO_MODECNF0_DTX_Msk;
 #endif /* !CONFIG_BT_CTLR_RADIO_ENABLE_FAST */
-#endif /* !CONFIG_SOC_SERIES_NRF51X && !CONFIG_SOC_COMPATIBLE_NRF54LX */
+#endif /* !CONFIG_SOC_SERIES_NRF51 && !CONFIG_SOC_COMPATIBLE_NRF54LX */
 }
 
 void radio_tx_power_set(int8_t power)
@@ -385,7 +385,7 @@ void radio_pkt_configure(uint8_t bits_len, uint8_t max_len, uint8_t flags)
 	uint32_t extra;
 	uint8_t phy;
 
-#if defined(CONFIG_SOC_SERIES_NRF51X)
+#if defined(CONFIG_SOC_SERIES_NRF51)
 	ARG_UNUSED(phy);
 
 	extra = 0U;
@@ -1056,7 +1056,7 @@ void radio_rssi_measure(void)
 {
 	NRF_RADIO->SHORTS |=
 	    (RADIO_SHORTS_ADDRESS_RSSISTART_Msk |
-#if defined(CONFIG_SOC_SERIES_NRF51X) || \
+#if defined(CONFIG_SOC_SERIES_NRF51) || \
 	defined(CONFIG_SOC_COMPATIBLE_NRF52X) || \
 	defined(CONFIG_SOC_COMPATIBLE_NRF5340_CPUNET)
 	     RADIO_SHORTS_DISABLED_RSSISTOP_Msk |
@@ -1071,7 +1071,7 @@ uint32_t radio_rssi_get(void)
 
 void radio_rssi_status_reset(void)
 {
-#if defined(CONFIG_SOC_SERIES_NRF51X) || \
+#if defined(CONFIG_SOC_SERIES_NRF51) || \
 	defined(CONFIG_SOC_COMPATIBLE_NRF52X) || \
 	defined(CONFIG_SOC_COMPATIBLE_NRF5340_CPUNET)
 	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_RSSIEND);
@@ -1080,7 +1080,7 @@ void radio_rssi_status_reset(void)
 
 uint32_t radio_rssi_is_ready(void)
 {
-#if defined(CONFIG_SOC_SERIES_NRF51X) || \
+#if defined(CONFIG_SOC_SERIES_NRF51) || \
 	defined(CONFIG_SOC_COMPATIBLE_NRF52X) || \
 	defined(CONFIG_SOC_COMPATIBLE_NRF5340_CPUNET)
 	return (NRF_RADIO->EVENTS_RSSIEND != 0);
@@ -1479,8 +1479,8 @@ uint32_t radio_tmr_start(uint8_t trx, uint32_t ticks_start, uint32_t remainder)
 	SW_SWITCH_TIMER->MODE = 0;
 	SW_SWITCH_TIMER->PRESCALER = HAL_EVENT_TIMER_PRESCALER_VALUE;
 	SW_SWITCH_TIMER->BITMODE = 0; /* 16 bit */
-	/* FIXME: start along with EVENT_TIMER, to save power */
-	nrf_timer_task_trigger(SW_SWITCH_TIMER, NRF_TIMER_TASK_START);
+
+	hal_sw_switch_timer_start_ppi_config();
 #endif /* !CONFIG_BT_CTLR_SW_SWITCH_SINGLE_TIMER */
 
 	hal_sw_switch_timer_clear_ppi_config();
@@ -2109,7 +2109,7 @@ static void *radio_ccm_ext_rx_pkt_set(struct ccm *cnf, uint8_t phy, uint8_t pdu_
 	mode |= (CCM_MODE_LENGTH_Extended << CCM_MODE_LENGTH_Pos) &
 		CCM_MODE_LENGTH_Msk;
 
-#elif defined(CONFIG_SOC_SERIES_NRF51X)
+#elif defined(CONFIG_SOC_SERIES_NRF51)
 	mode = (CCM_MODE_MODE_Decryption << CCM_MODE_MODE_Pos) &
 	       CCM_MODE_MODE_Msk;
 
@@ -2121,10 +2121,10 @@ static void *radio_ccm_ext_rx_pkt_set(struct ccm *cnf, uint8_t phy, uint8_t pdu_
 	switch (phy) {
 	default:
 	case PHY_1M:
-#if !defined(CONFIG_SOC_SERIES_NRF51X) && !defined(CONFIG_SOC_COMPATIBLE_NRF54LX)
+#if !defined(CONFIG_SOC_SERIES_NRF51) && !defined(CONFIG_SOC_COMPATIBLE_NRF54LX)
 		mode |= (CCM_MODE_DATARATE_1Mbit << CCM_MODE_DATARATE_Pos) &
 			CCM_MODE_DATARATE_Msk;
-#endif /* !CONFIG_SOC_SERIES_NRF51X && !CONFIG_SOC_COMPATIBLE_NRF54LX */
+#endif /* !CONFIG_SOC_SERIES_NRF51 && !CONFIG_SOC_COMPATIBLE_NRF54LX */
 
 		if (false) {
 
@@ -2147,10 +2147,10 @@ static void *radio_ccm_ext_rx_pkt_set(struct ccm *cnf, uint8_t phy, uint8_t pdu_
 		break;
 
 	case PHY_2M:
-#if !defined(CONFIG_SOC_SERIES_NRF51X) && !defined(CONFIG_SOC_COMPATIBLE_NRF54LX)
+#if !defined(CONFIG_SOC_SERIES_NRF51) && !defined(CONFIG_SOC_COMPATIBLE_NRF54LX)
 		mode |= (CCM_MODE_DATARATE_2Mbit << CCM_MODE_DATARATE_Pos) &
 			CCM_MODE_DATARATE_Msk;
-#endif /* !CONFIG_SOC_SERIES_NRF51X && !CONFIG_SOC_COMPATIBLE_NRF54LX */
+#endif /* !CONFIG_SOC_SERIES_NRF51 && !CONFIG_SOC_COMPATIBLE_NRF54LX */
 
 		hal_trigger_crypt_ppi_config();
 		hal_radio_nrf_ppi_channels_enable(BIT(HAL_TRIGGER_CRYPT_PPI));
@@ -2208,7 +2208,7 @@ static void *radio_ccm_ext_rx_pkt_set(struct ccm *cnf, uint8_t phy, uint8_t pdu_
 	* CONFIG_SOC_COMPATIBLE_NRF54LX
 	*/
 
-#if !defined(CONFIG_SOC_SERIES_NRF51X) && \
+#if !defined(CONFIG_SOC_SERIES_NRF51) && \
 	!defined(CONFIG_SOC_NRF52832) && \
 	!defined(CONFIG_SOC_COMPATIBLE_NRF54LX) && \
 	(!defined(CONFIG_BT_CTLR_DATA_LENGTH_MAX) || \
@@ -2363,7 +2363,7 @@ static void *radio_ccm_ext_tx_pkt_set(struct ccm *cnf, uint8_t pdu_type, void *p
 	mode |= (CCM_MODE_DATARATE_2Mbit << CCM_MODE_DATARATE_Pos) &
 		CCM_MODE_DATARATE_Msk;
 
-#elif defined(CONFIG_SOC_SERIES_NRF51X)
+#elif defined(CONFIG_SOC_SERIES_NRF51)
 	mode = (CCM_MODE_MODE_Encryption << CCM_MODE_MODE_Pos) &
 	       CCM_MODE_MODE_Msk;
 
@@ -2397,7 +2397,7 @@ static void *radio_ccm_ext_tx_pkt_set(struct ccm *cnf, uint8_t pdu_type, void *p
 	* CONFIG_SOC_COMPATIBLE_NRF54LX
 	*/
 
-#if !defined(CONFIG_SOC_SERIES_NRF51X) && \
+#if !defined(CONFIG_SOC_SERIES_NRF51) && \
 	!defined(CONFIG_SOC_NRF52832) && \
 	!defined(CONFIG_SOC_COMPATIBLE_NRF54LX) && \
 	(!defined(CONFIG_BT_CTLR_DATA_LENGTH_MAX) || \
@@ -2693,6 +2693,28 @@ void radio_ar_status_reset(void)
 	hal_radio_nrf_ppi_channels_disable(BIT(HAL_TRIGGER_AAR_PPI));
 }
 
+static void ar_end_wait(void)
+{
+	/* Blocking Address Resolution (AR) wait */
+
+	/* An arbitrary iteration which seems sufficient testing on target with one IRK to resolve.
+	 * We should ideally not be waiting anyway, and in theory be resolved before we are here.
+	 */
+	uint32_t countdown = 200U;
+
+	while ((NRF_AAR->EVENTS_END == 0U) && (countdown != 0U)) {
+		countdown--;
+
+		/* We do not CPU sleep on select target SoCs but spin wait.
+		 * For all other platforms, interrupt on END is enabled by the caller of this
+		 * function, we will be woken up when the EVENTS_END occurs.
+		 */
+		if (!IS_ENABLED(CONFIG_SOC_SERIES_NRF54L)) {
+			cpu_sleep();
+		}
+	}
+}
+
 uint32_t radio_ar_has_match(void)
 {
 	if (!radio_bc_has_match()) {
@@ -2701,9 +2723,7 @@ uint32_t radio_ar_has_match(void)
 
 	nrf_aar_int_enable(NRF_AAR, AAR_INTENSET_END_Msk);
 
-	while (NRF_AAR->EVENTS_END == 0U) {
-		cpu_sleep();
-	}
+	ar_end_wait();
 
 	nrf_aar_int_disable(NRF_AAR, AAR_INTENCLR_END_Msk);
 
@@ -2753,9 +2773,7 @@ uint8_t radio_ar_resolve(const uint8_t *addr)
 
 	nrf_aar_task_trigger(NRF_AAR, NRF_AAR_TASK_START);
 
-	while (NRF_AAR->EVENTS_END == 0) {
-		cpu_sleep();
-	}
+	ar_end_wait();
 
 	nrf_aar_int_disable(NRF_AAR, AAR_INTENCLR_END_Msk);
 

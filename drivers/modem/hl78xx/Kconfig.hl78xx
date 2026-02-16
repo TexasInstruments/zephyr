@@ -78,6 +78,375 @@ config MODEM_AT_SHELL_RESPONSE_MAX_SIZE
 
 endif # MODEM_HL78XX_AT_SHELL
 
+menuconfig MODEM_HL78XX_AUTO_BAUDRATE
+	bool "Auto Baud Rate Detection and Switching"
+	select UART_USE_RUNTIME_CONFIGURE if SOC_SERIES_NRF52
+	help
+	  Enable automatic baud rate detection and switching for the HL78xx modem.
+	  The driver will attempt to detect the modem's current baud rate and
+	  switch to the configured target baud rate using AT+IPR command.
+
+if MODEM_HL78XX_AUTO_BAUDRATE
+
+choice MODEM_HL78XX_TARGET_BAUDRATE
+	prompt "Target UART Baud Rate"
+	default MODEM_HL78XX_TARGET_BAUDRATE_115200
+	help
+	  Select the target baud rate for communication with the modem.
+	  The driver will configure the modem to use this baud rate after detection.
+
+config MODEM_HL78XX_TARGET_BAUDRATE_9600
+	bool "9600"
+	help
+	  Set modem baud rate to 9600 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_19200
+	bool "19200"
+	help
+	  Set modem baud rate to 19200 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_38400
+	bool "38400"
+	help
+	  Set modem baud rate to 38400 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_57600
+	bool "57600"
+	help
+	  Set modem baud rate to 57600 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_115200
+	bool "115200"
+	help
+	  Set modem baud rate to 115200 bps (default)
+
+config MODEM_HL78XX_TARGET_BAUDRATE_230400
+	bool "230400"
+	help
+	  Set modem baud rate to 230400 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_460800
+	bool "460800"
+	help
+	  Set modem baud rate to 460800 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_921600
+	bool "921600"
+	help
+	  Set modem baud rate to 921600 bps
+
+config MODEM_HL78XX_TARGET_BAUDRATE_3000000
+	bool "3000000"
+	depends on MODEM_HL78XX_12
+	help
+	  Set modem baud rate to 3000000 bps
+endchoice
+
+config MODEM_HL78XX_TARGET_BAUDRATE_VALUE
+	int
+	default 9600 if MODEM_HL78XX_TARGET_BAUDRATE_9600
+	default 19200 if MODEM_HL78XX_TARGET_BAUDRATE_19200
+	default 38400 if MODEM_HL78XX_TARGET_BAUDRATE_38400
+	default 57600 if MODEM_HL78XX_TARGET_BAUDRATE_57600
+	default 115200 if MODEM_HL78XX_TARGET_BAUDRATE_115200
+	default 230400 if MODEM_HL78XX_TARGET_BAUDRATE_230400
+	default 460800 if MODEM_HL78XX_TARGET_BAUDRATE_460800
+	default 921600 if MODEM_HL78XX_TARGET_BAUDRATE_921600
+	default 3000000 if MODEM_HL78XX_TARGET_BAUDRATE_3000000
+
+config MODEM_HL78XX_AUTOBAUD_DETECTION_BAUDRATES
+	string "Baud rates to try during auto-detection (comma-separated)"
+	default "115200,9600,57600,38400,19200"
+	help
+	  Comma-separated list of baud rates to try when auto-detecting
+	  the modem's current baud rate. The driver will try each rate
+	  in order until it successfully communicates with the modem.
+	  Common baud rates: 9600, 19200, 38400, 57600, 115200
+
+config MODEM_HL78XX_AUTOBAUD_TIMEOUT
+	int "Timeout for each baud rate detection attempt (seconds)"
+	default 4
+	range 1 120
+	help
+	  Maximum time to wait for a response from the modem when trying
+	  a specific baud rate during auto-detection.
+
+config MODEM_HL78XX_AUTOBAUD_RETRY_COUNT
+	int "Number of retries for baud rate detection"
+	default 3
+	range 1 10
+	help
+	  Number of times to retry baud rate detection before giving up.
+
+config MODEM_HL78XX_AUTOBAUD_CHANGE_PERSISTENT
+	bool "Save detected baud rate persistently"
+	default y
+	help
+	  Enable this option to save the configuration to the modem non-volatile memory,
+	  otherwise it will revert to previous setting on power cycle.
+	  Highly recommended to enable this option to detect unexpected modem reboots
+	  and quick recovery.
+
+	  Baudrate change will be permanent across power cycles.
+	  NOTE: Changing phone functionality (AT+CFUN) does reset baud rate to default.
+
+config MODEM_HL78XX_AUTOBAUD_START_WITH_TARGET_BAUDRATE
+	bool "Start auto baud rate detection with target baud rate"
+	default y
+	help
+	  Enable this option to start the auto baud rate detection process
+	  by first attempting communication at the configured target baud rate.
+	  This can speed up detection if the modem is already set to the target rate.
+
+config MODEM_HL78XX_AUTOBAUD_ONLY_IF_COMMS_FAIL
+	bool "Only perform auto baud rate detection on communication failure"
+	default y
+	help
+	  Enable this option to perform auto baud rate detection only
+	  if initial uart communication with the modem at the configured
+	  target baud rate fails.
+
+config MODEM_HL78XX_AUTOBAUD_AT_BOOT
+	bool "Perform auto baud rate detection at boot (skip KSUP wait)"
+	help
+	  When enabled, the driver will immediately perform auto baud rate detection
+	  as soon as the modem is powered up, without waiting for the KSUP URC
+	  (startup ready indication).
+
+endif # MODEM_HL78XX_AUTO_BAUDRATE
+
+config HL78XX_GNSS
+	bool "HL78xx GNSS driver"
+	select GNSS
+	select GNSS_NMEA0183
+	select GNSS_NMEA0183_MATCH
+	help
+	  Enable GNSS (Global Navigation Satellite System) support for HL78xx modems.
+	  This driver provides standalone GNSS functionality using AT+KGPS* commands
+	  and supports GPS, GLONASS, Galileo, and BeiDou satellite systems.
+	  NMEA sentences are received as URCs and processed by the GNSS subsystem.
+
+if HL78XX_GNSS
+
+config HL78XX_GNSS_SUPPORT_ASSISTED_MODE
+	bool "Support Assisted GNSS (A-GNSS) mode"
+	depends on MODEM_HL78XX_12
+	help
+	  Enable support for Assisted GNSS (A-GNSS) mode using AT+GNSSAD commands.
+	  A-GNSS can improve time-to-first-fix and accuracy by utilizing
+	  assistance data from the cellular network.
+
+choice HL78XX_GNSS_SOURCE
+	bool "GNSS Source Selection"
+	default HL78XX_GNSS_SOURCE_NMEA
+	help
+	  Choose the method by which GNSS data is retrieved from the HL78XX module
+
+config HL78XX_GNSS_SOURCE_NMEA
+	bool "Source NMEA (Manual Parsing!)"
+	help
+	  Enables output of raw NMEA frames on the same port where the +GNSSNMEA command was received.
+	  . Requires switching the module to data mode.
+	  . You must parse raw NMEA strings manually to extract location data.
+	  . Suitable for applications needing full GNSS sentence data (e.g., $GPGGA, $GPRMC, etc.).
+
+config HL78XX_GNSS_SOURCE_LOC
+	bool "Source Latest Known Position Fix"
+	help
+	  Retrieves the latest GNSS fix using the AT+GNSSLOC? command.
+	  . Operates entirely in command mode — no need to switch to data mode.
+	  . Returns parsed and structured location data directly
+	  . Ideal for applications that need quick access to location data without parsing raw NMEA strings
+
+endchoice
+
+if HL78XX_GNSS_SOURCE_NMEA
+
+config HL78XX_GNSS_ADVANCED_NMEA_CONFIG
+	bool "Advanced NMEA sentence configuration"
+	help
+	  Enable manual configuration of additional NMEA sentences beyond
+	  the required minimum (GGA, GST, RMC) and supplementary sentences.
+	  Most users do not need this.
+
+config HL78XX_GNSS_AUX_DATA_PARSER
+	bool "Supplementary NMEA0183 parsers"
+	select HL78XX_GNSS_ADVANCED_NMEA_CONFIG
+	help
+	  Enable parsing of supplementary NMEA0183 sentences that provide
+	  additional GNSS information beyond basic position and time:
+	  - GSA: GNSS DOP and Active Satellites (dilution of precision, fix type)
+	  - GST: GNSS Pseudorange Error Statistics (position error estimates)
+	  - PEPU: HL78XX proprietary EPE sentence (HL78xx-specific position error)
+	  These sentences are not required for basic navigation but provide
+	  enhanced accuracy and quality metrics.
+
+menu "NMEA Sentence Selection"
+
+config HL78XX_GNSS_NMEA_GGA
+	bool "GGA Sentence"
+	default y
+	help
+	  Enables GGA (Global Positioning System Fix Data).
+	  Required for GNSS URCs and +GNSSLOC? response.
+
+config HL78XX_GNSS_NMEA_GST
+	bool "GST Sentence"
+	default y
+	help
+	  Enables GST (GNSS Pseudorange Error Statistics).
+	  Required for GNSS URCs and +GNSSLOC? response.
+
+config HL78XX_GNSS_NMEA_RMC
+	bool "RMC Sentence"
+	default y
+	help
+	  Enables RMC (Recommended Minimum Specific GNSS Data).
+	  Required for GNSS URCs and +GNSSLOC? response.
+
+config HL78XX_GNSS_NMEA_GSV
+	bool "GSV Sentence"
+	default y if HL78XX_GNSS_AUX_DATA_PARSER
+	default y if GNSS_SATELLITES
+	help
+	  Enables GSV (GNSS Satellites in View).
+
+if HL78XX_GNSS_AUX_DATA_PARSER
+
+config HL78XX_GNSS_NMEA_GSA
+	bool "GSA Sentence"
+	default y if HL78XX_GNSS_AUX_DATA_PARSER
+	help
+	  Enables GSA (GNSS DOP and Active Satellites).
+
+config HL78XX_GNSS_NMEA_VTG
+	bool "VTG Sentence"
+	help
+	  Enables VTG (Course Over Ground and Ground Speed).
+
+config HL78XX_GNSS_NMEA_GNS
+	bool "GNS Sentence"
+	help
+	  Enables GNS (GNSS Fix Data).
+
+
+config HL78XX_GNSS_NMEA_GLL
+	bool "GLL Sentence"
+	help
+	  Enables GLL (Geographic Position – Latitude/Longitude).
+
+config HL78XX_GNSS_NMEA_ZDA
+	bool "ZDA Sentence"
+	help
+	  Enables ZDA (Time & Date).
+
+config HL78XX_GNSS_NMEA_PIDX
+	bool "PIDX Sentence"
+	help
+	  Enables PIDX (Proprietary Index).
+
+config HL78XX_GNSS_NMEA_GST_DUP
+	bool "GST (Duplicate Bit 10)"
+	help
+	  Enables GST again (Bit 10). Verify if this is distinct from Bit 6.
+
+config HL78XX_GNSS_NMEA_DTM
+	bool "DTM Sentence"
+	help
+	  Enables DTM (Datum Reference).
+
+config HL78XX_GNSS_NMEA_PEPU
+	bool "PEPU Sentence"
+	depends on MODEM_HL78XX_12
+	default y if HL78XX_GNSS_AUX_DATA_PARSER
+	help
+	  Enable proprietary PEPU (Position and Velocity Uncertainty) sentences.
+	  Provides position and velocity accuracy information specific to HL78xx.
+	  Bit 12 in NMEA mask (0x1000).
+
+endif # HL78XX_GNSS_AUX_DATA_PARSER
+
+endmenu
+
+endif # HL78XX_GNSS_SOURCE_NMEA
+
+choice HL78XX_GNSS_START_MODE
+	prompt "GNSS start mode"
+	default HL78XX_GNSS_START_MODE_AUTO
+	help
+	  Select the GNSS start mode for AT+GNSSSTART command.
+	  AUTO mode is recommended for normal operations.
+
+config HL78XX_GNSS_START_MODE_AUTO
+	bool "AUTO - Normal operations"
+	help
+	  All previous stored data is used. This is used for normal operations.
+
+config HL78XX_GNSS_START_MODE_WARM
+	bool "WARM - Test mode"
+	help
+	  For test purposes only. All previously stored data except Ephemeris is used.
+
+config HL78XX_GNSS_START_MODE_COLD
+	bool "COLD - Test mode"
+	help
+	  For test purposes only. No previous stored data except Almanac and Extended
+	  Ephemeris is used. Time and last location are unknown.
+
+config HL78XX_GNSS_START_MODE_FACTORY
+	bool "FACTORY - Test mode"
+	help
+	  For test purposes only. Uses no previously stored data. Uses factory default data.
+
+endchoice
+
+choice HL78XX_GNSS_CONSTELLATIONS
+	prompt "GNSS satellite constellations"
+	default HL78XX_GNSS_CONSTELLATIONS_GPS_GLONASS
+	help
+	  Select which satellite constellations to enable.
+	  HL78xx modems support GPS and GLONASS via AT+GNSSCONF=10,<value>.
+
+config HL78XX_GNSS_CONSTELLATIONS_GPS_ONLY
+	bool "GPS only"
+	help
+	  Enable GPS constellation only.
+
+config HL78XX_GNSS_CONSTELLATIONS_GPS_GLONASS
+	bool "GPS + GLONASS"
+	help
+	  Enable both GPS and GLONASS constellations for improved accuracy and availability.
+
+endchoice
+
+config HL78XX_GNSS_NMEA_OUTPUT_PORT
+	int "NMEA output port configuration"
+	depends on HL78XX_GNSS_SOURCE_NMEA
+	default 4
+	range 0 8
+	help
+	  Specifies the port which will be used to output NMEA frames:
+	  0 - NMEA frames are not output
+	  1 - NMEA frames are output on dedicated NMEA port over USB
+	  3 - NMEA frames are output on UART1
+	  4 - NMEA frames are output on the same port (URC mode) - RECOMMENDED
+	  5 - NMEA frames are output on CMUX DLC1
+	  6 - NMEA frames are output on CMUX DLC2
+	  7 - NMEA frames are output on CMUX DLC3
+	  8 - NMEA frames are output on CMUX DLC4
+
+config HL78XX_GNSS_SATELLITES_COUNT
+	int "Number of satellite tracking slots"
+	depends on HL78XX_GNSS_SOURCE_NMEA && HL78XX_GNSS_NMEA_GSV
+	default 24
+	range 12 32
+	help
+	  Maximum number of satellites that can be tracked simultaneously.
+	  This affects memory usage - each satellite slot requires approximately
+	  32 bytes of RAM. Default is 24 which is sufficient for most use cases.
+
+endif # HL78XX_GNSS
+
 choice MODEM_HL78XX_ADDRESS_FAMILY
 	prompt "IP Address family"
 	default MODEM_HL78XX_ADDRESS_FAMILY_IPV4V6
@@ -830,6 +1199,13 @@ config MODEM_HL78XX_SOCKETS_SOCKOPT_TLS
 	  This option enables TLS (Transport Layer Security) for sockets
 	  on the HL78xx modem.
 
+config MODEM_HL78XX_COMMAND_BUFFER_SIZE
+	int "The AT command buffer size in bytes."
+	default 1024
+	help
+	  This setting defines the size of the buffer used to store AT commands
+	  and responses exchanged with the HL78XX modem.
+
 config MODEM_HL78XX_UART_BUFFER_SIZES
 	int "The UART receive and transmit buffer sizes in bytes."
 	default 512
@@ -874,13 +1250,17 @@ config MODEM_HL78XX_DEV_RESET_PULSE_DURATION_MS
 
 config MODEM_HL78XX_DEV_STARTUP_TIME_MS
 	int "Wait before assuming the device is ready."
-	default 120
+	default 2000 if MODEM_HL78XX_AUTOBAUD_AT_BOOT
+	default 120 if !MODEM_HL78XX_AUTOBAUD_AT_BOOT
 	help
 	  The expected delay time (in milliseconds) the modem needs to fully power on
 	  and become operational.This delay before the driver opens the UART pipe
 	  and attaches the chat layer. The value must be long enough for the driver
 	  startup code to initialize, but short enough to ensure the pipe is ready
 	  before the modem sends its first URCs during boot.
+	  BUT,
+	  if auto baudrate detection at boot is enabled,
+	  a longer delay is recommended to allow the modem to complete its boot sequence.
 
 config MODEM_HL78XX_DEV_SHUTDOWN_TIME_MS
 	int "Wait before assuming the device is completely off."

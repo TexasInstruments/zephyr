@@ -422,8 +422,6 @@ int netc_eth_init_common(const struct device *dev)
 	EP_MsixSetEntryMask(&data->handle, NETC_TX_MSIX_ENTRY_IDX, false);
 	EP_MsixSetEntryMask(&data->handle, NETC_RX_MSIX_ENTRY_IDX, false);
 
-	k_mutex_init(&data->tx_mutex);
-
 	k_sem_init(&data->rx_sem, 0, 1);
 	k_thread_create(&data->rx_thread, data->rx_thread_stack,
 			K_KERNEL_STACK_SIZEOF(data->rx_thread_stack), netc_eth_rx_thread,
@@ -479,8 +477,6 @@ int netc_eth_tx(const struct device *dev, struct net_pkt *pkt)
 		iface_dst = pkt->iface;
 	}
 #endif
-
-	k_mutex_lock(&data->tx_mutex, K_FOREVER);
 
 #ifdef NETC_PTP_TIMESTAMPING_SUPPORT
 	pkt_is_gptp = net_ntohs(NET_ETH_HDR(pkt)->type) == NET_ETH_PTYPE_PTP;
@@ -562,8 +558,6 @@ int netc_eth_tx(const struct device *dev, struct net_pkt *pkt)
 
 	ret = 0;
 error:
-	k_mutex_unlock(&data->tx_mutex);
-
 	if (ret != 0) {
 		eth_stats_update_errors_tx(iface_dst);
 	}
@@ -575,7 +569,7 @@ enum ethernet_hw_caps netc_eth_get_capabilities(const struct device *dev)
 	uint32_t caps;
 
 	caps = (ETHERNET_LINK_10BASE | ETHERNET_LINK_100BASE | ETHERNET_LINK_1000BASE |
-		ETHERNET_HW_RX_CHKSUM_OFFLOAD | ETHERNET_HW_FILTERING
+		ETHERNET_HW_RX_CHKSUM_OFFLOAD
 #if defined(CONFIG_NET_VLAN)
 		| ETHERNET_HW_VLAN
 #endif

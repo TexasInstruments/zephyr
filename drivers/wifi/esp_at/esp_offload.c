@@ -151,13 +151,11 @@ void esp_connect_work(struct k_work *work)
 }
 
 static int esp_bind(struct net_context *context, const struct net_sockaddr *addr,
-		    socklen_t addrlen)
+		    net_socklen_t addrlen)
 {
 	struct esp_socket *sock;
-	struct esp_data *dev;
 
 	sock = (struct esp_socket *)context->offload_context;
-	dev = esp_socket_to_dev(sock);
 
 	if (esp_socket_ip_proto(sock) == NET_IPPROTO_TCP) {
 		return 0;
@@ -182,7 +180,7 @@ static int esp_bind(struct net_context *context, const struct net_sockaddr *addr
 
 static int esp_connect(struct net_context *context,
 		       const struct net_sockaddr *addr,
-		       socklen_t addrlen,
+		       net_socklen_t addrlen,
 		       net_context_connect_cb_t cb,
 		       int32_t timeout,
 		       void *user_data)
@@ -422,7 +420,7 @@ void esp_send_work(struct k_work *work)
 
 static int esp_sendto(struct net_pkt *pkt,
 		      const struct net_sockaddr *dst_addr,
-		      socklen_t addrlen,
+		      net_socklen_t addrlen,
 		      net_context_send_cb_t cb,
 		      int32_t timeout,
 		      void *user_data)
@@ -748,7 +746,7 @@ static int esp_put(struct net_context *context)
 	return 0;
 }
 
-static int esp_get(sa_family_t family,
+static int esp_get(net_sa_family_t family,
 		   enum net_sock_type type,
 		   enum net_ip_protocol ip_proto,
 		   struct net_context **context)

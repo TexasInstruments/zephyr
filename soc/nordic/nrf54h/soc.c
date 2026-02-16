@@ -6,6 +6,7 @@
 
 #include <zephyr/cache.h>
 #include <zephyr/devicetree.h>
+#include <zephyr/storage/flash_map.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -24,7 +25,7 @@
 #include <dmm.h>
 
 #if defined(CONFIG_SOC_NRF54H20_CPURAD_ENABLE)
-#include <nrf_ironside/cpuconf.h>
+#include <ironside/se/api.h>
 #endif
 
 LOG_MODULE_REGISTER(soc, CONFIG_SOC_LOG_LEVEL);
@@ -35,21 +36,18 @@ LOG_MODULE_REGISTER(soc, CONFIG_SOC_LOG_LEVEL);
 #define HSFLL_NODE DT_NODELABEL(cpurad_hsfll)
 #endif
 
-#define FIXED_PARTITION_ADDRESS(label)                                                             \
-	(DT_REG_ADDR(DT_NODELABEL(label)) +                                                        \
-	 DT_REG_ADDR(COND_CODE_1(DT_FIXED_SUBPARTITION_EXISTS(DT_NODELABEL(label)),                \
-			(DT_GPARENT(DT_PARENT(DT_NODELABEL(label)))),                              \
-			(DT_GPARENT(DT_NODELABEL(label))))))
-
 #ifdef CONFIG_USE_DT_CODE_PARTITION
 #define FLASH_LOAD_OFFSET DT_REG_ADDR(DT_CHOSEN(zephyr_code_partition))
 #elif defined(CONFIG_FLASH_LOAD_OFFSET)
 #define FLASH_LOAD_OFFSET CONFIG_FLASH_LOAD_OFFSET
 #endif
 
-#define PARTITION_IS_RUNNING_APP_PARTITION(label)                                                  \
-	(DT_REG_ADDR(DT_NODELABEL(label)) <= FLASH_LOAD_OFFSET &&                                  \
-	 DT_REG_ADDR(DT_NODELABEL(label)) + DT_REG_SIZE(DT_NODELABEL(label)) > FLASH_LOAD_OFFSET)
+#define FIXED_PARTITION_IS_RUNNING_APP_PARTITION(label)                                            \
+	DT_SAME_NODE(FIXED_PARTITION_NODE_MTD(DT_CHOSEN(zephyr_code_partition)),                   \
+		FIXED_PARTITION_MTD(label)) && (FIXED_PARTITION_ADDRESS(label) <=                  \
+				(CONFIG_FLASH_BASE_ADDRESS + FLASH_LOAD_OFFSET) &&                 \
+			FIXED_PARTITION_ADDRESS(label) + FIXED_PARTITION_SIZE(label) >             \
+				(CONFIG_FLASH_BASE_ADDRESS + FLASH_LOAD_OFFSET))
 
 sys_snode_t soc_node;
 
@@ -198,16 +196,13 @@ void soc_late_init_hook(void)
 	void *radiocore_address = NULL;
 
 #if DT_NODE_EXISTS(DT_NODELABEL(cpurad_slot1_partition))
-	if (PARTITION_IS_RUNNING_APP_PARTITION(cpuapp_slot1_partition)) {
-		radiocore_address = (void *)(FIXED_PARTITION_ADDRESS(cpurad_slot1_partition) +
-					     CONFIG_ROM_START_OFFSET);
+	if (FIXED_PARTITION_IS_RUNNING_APP_PARTITION(cpuapp_slot1_partition)) {
+		radiocore_address = (void *)(FIXED_PARTITION_ADDRESS(cpurad_slot1_partition));
 	} else {
-		radiocore_address = (void *)(FIXED_PARTITION_ADDRESS(cpurad_slot0_partition) +
-					     CONFIG_ROM_START_OFFSET);
+		radiocore_address = (void *)(FIXED_PARTITION_ADDRESS(cpurad_slot0_partition));
 	}
 #else
-	radiocore_address =
-		(void *)(FIXED_PARTITION_ADDRESS(cpurad_slot0_partition) + CONFIG_ROM_START_OFFSET);
+	radiocore_address = (void *)(FIXED_PARTITION_ADDRESS(cpurad_slot0_partition));
 #endif
 
 	if (IS_ENABLED(CONFIG_SOC_NRF54H20_CPURAD_ENABLE_CHECK_VTOR) &&
@@ -219,8 +214,8 @@ void soc_late_init_hook(void)
 
 	bool cpu_wait = IS_ENABLED(CONFIG_SOC_NRF54H20_CPURAD_ENABLE_DEBUG_WAIT);
 
-	err_cpuconf = ironside_cpuconf(NRF_PROCESSOR_RADIOCORE, radiocore_address, cpu_wait, msg,
-				       msg_size);
+	err_cpuconf = ironside_se_cpuconf(NRF_PROCESSOR_RADIOCORE, radiocore_address, cpu_wait, msg,
+					  msg_size);
 	__ASSERT(err_cpuconf == 0, "err_cpuconf was %d", err_cpuconf);
 #endif /* CONFIG_SOC_NRF54H20_CPURAD_ENABLE */
 }

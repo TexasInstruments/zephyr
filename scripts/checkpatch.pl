@@ -5300,7 +5300,7 @@ sub process {
 			#print "LINE<$lines[$ln-1]> len<" . length($lines[$ln-1]) . "\n";
 
 			$has_flow_statement = 1 if ($ctx =~ /\b(goto|return)\b/);
-			$has_arg_concat = 1 if (($ctx =~ /\#\#/ || $ctx =~ /UTIL_CAT/) && $ctx !~ /\#\#\s*(?:__VA_ARGS__|args)\b/);
+			$has_arg_concat = 1 if (($ctx =~ /\#\#/ || $ctx =~ /UTIL_CAT/ || $ctx =~ /CONCAT/) && $ctx !~ /\#\#\s*(?:__VA_ARGS__|args)\b/);
 
 			$dstat =~ s/^.\s*\#\s*define\s+$Ident(\([^\)]*\))?\s*//;
 			my $define_args = $1;
@@ -6190,6 +6190,13 @@ sub process {
 			    $fix) {
 				$fixed[$fixlinenr] =~ s/\bsizeof\s+((?:\*\s*|)$Lval|$Type(?:\s+$Lval|))/"sizeof(" . trim($1) . ")"/ex;
 			}
+		}
+
+# check for sizeof used on character literals
+		if ($line =~ /\bsizeof\s*\(\s*'(?:X+)'\s*\)/) {
+			WARN("SIZEOF_CHAR_LITERAL",
+			     "sizeof() used on a character literal; character literals have type int\n" .
+			     "Suggestion: use sizeof((char)'x') instead, e.g.sizeof((char)'/') \n" . $herecurr);
 		}
 
 # check for struct spinlock declarations

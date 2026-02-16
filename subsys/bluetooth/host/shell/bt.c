@@ -3226,14 +3226,14 @@ static int cmd_set_power_report_enable(const struct shell *sh, size_t argc, char
 {
 	if (argc < 4) {
 		int err = 0;
-		bool local_enable = 0;
-		bool remote_enable = 0;
+		bool local_enable = false;
+		bool remote_enable = false;
 
 		if (*argv[1] == '1') {
-			local_enable = 1;
+			local_enable = true;
 		}
 		if (*argv[2] == '1') {
-			remote_enable = 1;
+			remote_enable = true;
 		}
 		if (default_conn == NULL) {
 			shell_error(sh, "Conn handle error, at least one connection is required.");
@@ -5176,11 +5176,14 @@ int ead_update_ad(void)
 	while (idx < bt_shell_ead_data_size && ad_structs_idx < BT_SHELL_EAD_MAX_AD) {
 		ad = &ad_structs[ad_structs_idx];
 
-		/* the data_len from bt_data struct doesn't include the size of the type */
-		ad->data_len = bt_shell_ead_data[idx] - 1;
-
-		if (ad->data_len < 0) {
-			/* if the len is less than 0 that mean there is not even a type field */
+		/* bt_shell_ead_data[idx] points to the start of an encrypted advertising
+		 * tuple, so bt_shell_ead_data[idx] is the length field, bt_shell_ead_data[idx + 1]
+		 * is the type field and bt_shell_ead_data[idx + 2] is the start of the value
+		 */
+		if (bt_shell_ead_data[idx] > 0) {
+			ad->data_len = bt_shell_ead_data[idx] - 1;
+		} else {
+			/* Zero length means the AD field does not even contain a type */
 			bt_shell_error("Failed to update AD due to malformed AD.");
 			return -ENOEXEC;
 		}

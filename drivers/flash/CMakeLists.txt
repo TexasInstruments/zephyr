@@ -1,3 +1,5 @@
+# Copyright (c) 2025 Siemens Mobility GmbH
+#
 # SPDX-License-Identifier: Apache-2.0
 
 zephyr_library_sources(flash_util.c)
@@ -38,6 +40,7 @@ zephyr_library_sources_ifdef(CONFIG_FLASH_MCUX_FLEXSPI_NOR flash_mcux_flexspi_no
 zephyr_library_sources_ifdef(CONFIG_FLASH_MCUX_XSPI flash_mcux_xspi.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_MSPI_ATXP032 flash_mspi_atxp032.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_MSPI_EMUL_DEVICE flash_mspi_emul_device.c)
+zephyr_library_sources_ifdef(CONFIG_FLASH_MSPI_INFINEON_S25H flash_mspi_infineon_s25h.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_MSPI_IS25XX0XX flash_mspi_is25xX0xx.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_MSPI_NOR flash_mspi_nor.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_NPCX_FIU_NOR flash_npcx_fiu_nor.c)
@@ -47,6 +50,7 @@ zephyr_library_sources_ifdef(CONFIG_FLASH_RENESAS_RA_QSPI flash_renesas_ra_qspi.
 zephyr_library_sources_ifdef(CONFIG_FLASH_RENESAS_RZ_QSPI_SPIBSC flash_renesas_rz_qspi.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_RENESAS_RZ_QSPI_XSPI flash_renesas_rz_qspi.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_RPI_PICO flash_rpi_pico.c)
+zephyr_library_sources_ifdef(CONFIG_FLASH_S3AXX04 flash_s3axx04.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_SF32LB_MPI_QSPI_NOR flash_sf32lb_mpi_qspi_nor.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_STM32_OSPI flash_stm32_ospi.c)
 zephyr_library_sources_ifdef(CONFIG_FLASH_STM32_QSPI flash_stm32_qspi.c)
@@ -189,6 +193,15 @@ if(CONFIG_FLASH_NXP_S32_QSPI_NOR OR CONFIG_FLASH_NXP_S32_QSPI_HYPERFLASH)
   zephyr_library_sources(flash_nxp_s32_qspi.c)
   zephyr_library_include_directories(${ZEPHYR_BASE}/drivers/memc)
 endif()
+
+zephyr_library_sources_ifdef(
+  CONFIG_FLASH_NXP_S32_XSPI_HYPERRAM
+  flash_nxp_s32_xspi_hyperram.c
+)
+zephyr_library_include_directories_ifdef(
+  CONFIG_FLASH_NXP_S32_XSPI_HYPERRAM
+  ${ZEPHYR_BASE}/drivers/memc
+)
 
 zephyr_library_sources_ifdef(CONFIG_SOC_FLASH_MCUX_C40 flash_mcux_c40.c)
 

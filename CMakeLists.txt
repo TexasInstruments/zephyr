@@ -166,7 +166,7 @@ if(CONFIG_COMPILER_WARNINGS_AS_ERRORS)
   zephyr_link_libraries($<TARGET_PROPERTY:linker,warnings_as_errors>)
 endif()
 
-if(CONFIG_DEPRECATION_TEST)
+if(CONFIG_DEPRECATION_TEST OR NOT CONFIG_WARN_DEPRECATED)
   zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,no_deprecation_warning>>)
   zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,no_deprecation_warning>>)
   zephyr_compile_options($<$<COMPILE_LANGUAGE:ASM>:$<TARGET_PROPERTY:asm,no_deprecation_warning>>)
@@ -232,42 +232,6 @@ get_property(LINKER_OPTIMIZE_FOR_SPEED_FLAG TARGET linker PROPERTY optimization_
 get_property(LINKER_OPTIMIZE_FOR_SIZE_FLAG  TARGET linker PROPERTY optimization_size)
 get_property(LINKER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG TARGET linker PROPERTY optimization_size_aggressive)
 
-# Let the assembler inherit the optimization flags of the compiler if it is
-# not set explicitly.
-if(NOT ASM_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG)
-  set(ASM_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG ${COMPILER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_DEBUG_FLAG)
-  set(ASM_OPTIMIZE_FOR_DEBUG_FLAG ${COMPILER_OPTIMIZE_FOR_DEBUG_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_SPEED_FLAG)
-  set(ASM_OPTIMIZE_FOR_SPEED_FLAG ${COMPILER_OPTIMIZE_FOR_SPEED_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_SIZE_FLAG)
-  set(ASM_OPTIMIZE_FOR_SIZE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_FLAG})
-endif()
-if(NOT ASM_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG)
-  set(ASM_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG})
-endif()
-
-# Let the linker inherit the optimization flags of the compiler if it is
-# not set explicitly.
-if(NOT LINKER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG)
-  set(LINKER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG ${COMPILER_OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_DEBUG_FLAG)
-  set(LINKER_OPTIMIZE_FOR_DEBUG_FLAG ${COMPILER_OPTIMIZE_FOR_DEBUG_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_SPEED_FLAG)
-  set(LINKER_OPTIMIZE_FOR_SPEED_FLAG ${COMPILER_OPTIMIZE_FOR_SPEED_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_SIZE_FLAG)
-  set(LINKER_OPTIMIZE_FOR_SIZE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_FLAG})
-endif()
-if(NOT LINKER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG)
-  set(LINKER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG ${COMPILER_OPTIMIZE_FOR_SIZE_AGGRESSIVE_FLAG})
-endif()
-
 # From kconfig choice, pick the actual OPTIMIZATION_FLAG to use.
 # Kconfig choice ensures only one of these CONFIG_*_OPTIMIZATIONS is set.
 if(CONFIG_NO_OPTIMIZATIONS)
@@ -315,7 +279,9 @@ if(CONFIG_LTO)
     zephyr_compile_options($<TARGET_PROPERTY:compiler,optimization_lto_st>)
     add_link_options($<TARGET_PROPERTY:linker,lto_arguments_st>)
   else()
-    zephyr_compile_options($<TARGET_PROPERTY:compiler,optimization_lto>)
+    set(genex_tgt_lto "$<TARGET_PROPERTY:LTO>")
+    set(genex_lto "$<TARGET_PROPERTY:compiler,optimization_lto>")
+    zephyr_compile_options("$<$<OR:$<STREQUAL:${genex_tgt_lto},>,${genex_tgt_lto}>:${genex_lto}>")
     add_link_options($<TARGET_PROPERTY:linker,lto_arguments>)
   endif()
 endif()
@@ -473,8 +439,6 @@ zephyr_compile_options(
   $<$<COMPILE_LANGUAGE:ASM>:-D_ASMLANGUAGE>
 )
 
-find_package(Deprecated COMPONENTS toolchain_ld_base)
-
 if(DEFINED TOOLCHAIN_LD_FLAGS)
   zephyr_ld_options(${TOOLCHAIN_LD_FLAGS})
 endif()
@@ -505,8 +469,6 @@ toolchain_ld_force_undefined_symbols(
 )
 
 if(NOT CONFIG_NATIVE_BUILD)
-  find_package(Deprecated COMPONENTS toolchain_ld_baremetal)
-
   zephyr_link_libraries(PROPERTY baremetal)
 
   # Note that some architectures will skip this flag if set to error, even
@@ -531,10 +493,6 @@ if(NOT CONFIG_NATIVE_BUILD)
 endif()
 
 if(CONFIG_CPP)
-  if(NOT CONFIG_MINIMAL_LIBCPP AND NOT CONFIG_NATIVE_LIBRARY)
-    find_package(Deprecated COMPONENTS toolchain_ld_cpp)
-  endif()
-
   zephyr_link_libraries(PROPERTY cpp_base)
 endif()
 
@@ -599,6 +557,14 @@ if(CONFIG_INSTRUMENTATION)
     zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,func_instrumentation_exclude_file_list>>)
     zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,func_instrumentation_exclude_file_list>>)
   endif()
+endif()
+
+if(CONFIG_COMPILER_CODEGEN_VLIW_ENABLED)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,generate_vliw>>)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,generate_vliw>>)
+elseif(CONFIG_COMPILER_CODEGEN_VLIW_DISABLED)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:C>:$<TARGET_PROPERTY:compiler,no_generate_vliw>>)
+  zephyr_compile_options($<$<COMPILE_LANGUAGE:CXX>:$<TARGET_PROPERTY:compiler,no_generate_vliw>>)
 endif()
 
 # Allow the user to inject options when calling cmake, e.g.
@@ -826,12 +792,12 @@ set(struct_tags_json ${CMAKE_CURRENT_BINARY_DIR}/misc/generated/struct_tags.json
 # The syscalls subdirs txt file is constructed by python containing a list of folders to use for
 # dependency handling, including empty folders.
 # Windows:  The list is used to specify DIRECTORY list with CMAKE_CONFIGURE_DEPENDS attribute.
-# Other OS: The list will update whenever a file is added/removed/modified and ensure a re-build.
+# Other OS: The list file is updated whenever a directory is added or removed.
 set(syscalls_subdirs_txt ${CMAKE_CURRENT_BINARY_DIR}/misc/generated/syscalls_subdirs.txt)
 
-# As syscalls_subdirs_txt is updated whenever a file is modified, this file can not be used for
-# monitoring of added / removed folders. A trigger file is thus used for correct dependency
-# handling. The trigger file will update when a folder is added / removed.
+# As syscalls_subdirs_txt is updated only on directory add or remove, this file can not be used for
+# monitoring of syscall changes. A trigger file is thus used for correct dependency handling. The
+# trigger file will update when syscalls change.
 set(syscalls_subdirs_trigger ${CMAKE_CURRENT_BINARY_DIR}/misc/generated/syscalls_subdirs.trigger)
 
 if(NOT (${CMAKE_HOST_SYSTEM_NAME} STREQUAL Windows))
@@ -850,14 +816,13 @@ execute_process(
 )
 file(STRINGS ${syscalls_subdirs_txt} PARSE_SYSCALLS_PATHS_DEPENDS ENCODING UTF-8)
 
+# Each header file must be monitored as file modifications are not reflected on directory level.
+file(GLOB_RECURSE PARSE_SYSCALLS_HEADER_DEPENDS ${ZEPHYR_BASE}/include/*.h)
+
 if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL Windows)
   # On windows only adding/removing files or folders will be reflected in depends.
   # Hence adding a file requires CMake to re-run to add this file to the file list.
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${PARSE_SYSCALLS_PATHS_DEPENDS})
-
-  # Also On Windows each header file must be monitored as file modifications are not reflected
-  # on directory level.
-  file(GLOB_RECURSE PARSE_SYSCALLS_HEADER_DEPENDS ${ZEPHYR_BASE}/include/*.h)
 else()
   # The syscall parsing depends on the folders in order to detect add/removed/modified files.
   # When a folder is removed, CMake will try to find a target that creates that dependency.
@@ -888,10 +853,10 @@ else()
     file(WRITE ${syscalls_subdirs_txt} "")
   endif()
 
-  # On other OS'es, modifying a file is reflected on the folder timestamp and hence detected
+  # On other OS'es, using git checkout is reflected on the folder timestamp and hence detected
   # when using depend on directory level.
   # Thus CMake only needs to re-run when sub-directories are added / removed, which is indicated
-  # using a trigger file.
+  # by syscalls_subdirs_txt being updated.
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${syscalls_subdirs_txt})
 endif()
 
@@ -2144,17 +2109,29 @@ if(CONFIG_BUILD_OUTPUT_INFO_HEADER)
     )
 endif()
 
-if(CONFIG_LLEXT AND CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID)
-  #slidgen must be the first post-build command to be executed
-  #on the Zephyr ELF to ensure that all other commands, such as
-  #binary file generation, are operating on a preparated ELF.
-  list(PREPEND
+if(CONFIG_LLEXT)
+  # Add discarded groups inspector to post-build commands
+  list(APPEND
     post_build_commands
     COMMAND ${PYTHON_EXECUTABLE}
-    ${ZEPHYR_BASE}/scripts/build/llext_prepare_exptab.py
+    ${ZEPHYR_BASE}/scripts/build/llext_inspect_discarded_groups.py
     --elf-file ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME}
-    --slid-listing ${PROJECT_BINARY_DIR}/slid_listing.txt
+    --dotconfig-file ${DOTCONFIG}
+    --output-report ${PROJECT_BINARY_DIR}/llext_discarded_groups.txt
   )
+
+  if(CONFIG_LLEXT_EXPORT_BUILTINS_BY_SLID)
+    #slidgen must be the first post-build command to be executed
+    #on the Zephyr ELF to ensure that all other commands, such as
+    #binary file generation, are operating on a preparated ELF.
+    list(PREPEND
+      post_build_commands
+      COMMAND ${PYTHON_EXECUTABLE}
+      ${ZEPHYR_BASE}/scripts/build/llext_prepare_exptab.py
+      --elf-file ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME}
+      --slid-listing ${PROJECT_BINARY_DIR}/slid_listing.txt
+    )
+  endif()
 endif()
 
 if(NOT CMAKE_C_COMPILER_ID STREQUAL "ARMClang")
@@ -2294,7 +2271,7 @@ endif()
 add_custom_command(
   TARGET ${logical_target_for_zephyr_elf}
   POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E echo "Generating files from ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME} for board: ${BOARD}"
+  COMMAND ${CMAKE_COMMAND} -E echo "Generating files from ${PROJECT_BINARY_DIR}/${KERNEL_ELF_NAME} for board: ${BOARD}/${BOARD_QUALIFIERS}"
   ${post_build_commands}
   BYPRODUCTS
   ${post_build_byproducts}

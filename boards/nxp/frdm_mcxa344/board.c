@@ -109,6 +109,11 @@ void board_early_init_hook(void)
 	CLOCK_AttachClk(kFRO_HF_to_CTIMER2);
 #endif
 
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(flexcan0))
+	CLOCK_SetClockDiv(kCLOCK_DivFLEXCAN0, 3U);
+	CLOCK_AttachClk(kFRO_HF_DIV_to_FLEXCAN0);
+#endif
+
 #if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(gpio0))
 	RESET_ReleasePeripheralReset(kGPIO0_RST_SHIFT_RSTn);
 	CLOCK_EnableClock(kCLOCK_GateGPIO0);
@@ -132,6 +137,38 @@ void board_early_init_hook(void)
 #if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(gpio4))
 	RESET_ReleasePeripheralReset(kGPIO4_RST_SHIFT_RSTn);
 	CLOCK_EnableClock(kCLOCK_GateGPIO4);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpadc0))
+	CLOCK_SetClockDiv(kCLOCK_DivADC, 3u);
+	CLOCK_AttachClk(kFRO_HF_to_ADC);
+	CLOCK_EnableClock(kCLOCK_GateADC0);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpadc1))
+	CLOCK_SetClockDiv(kCLOCK_DivADC, 3u);
+	CLOCK_AttachClk(kFRO_HF_to_ADC);
+	CLOCK_EnableClock(kCLOCK_GateADC1);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpi2c0))
+	CLOCK_SetClockDiv(kCLOCK_DivLPI2C0, 1u);
+	CLOCK_AttachClk(kFRO_LF_DIV_to_LPI2C0);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpi2c1))
+	CLOCK_SetClockDiv(kCLOCK_DivLPI2C1, 1u);
+	CLOCK_AttachClk(kFRO_LF_DIV_to_LPI2C1);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpspi0))
+	CLOCK_SetClockDiv(kCLOCK_DivLPSPI0, 1u);
+	CLOCK_AttachClk(kFRO_LF_DIV_to_LPSPI0);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lpspi1))
+	CLOCK_SetClockDiv(kCLOCK_DivLPSPI1, 1u);
+	CLOCK_AttachClk(kFRO_LF_DIV_to_LPSPI1);
 #endif
 
 #if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(lptmr0))
@@ -175,6 +212,10 @@ void board_early_init_hook(void)
 	CLOCK_SetClockDiv(kCLOCK_DivLPUART3, 1u);
 	CLOCK_AttachClk(kFRO_LF_DIV_to_LPUART3);
 	RESET_ReleasePeripheralReset(kLPUART3_RST_SHIFT_RSTn);
+#endif
+
+#if DT_NODE_HAS_STATUS_OKAY(DT_NODELABEL(wwdt0))
+	CLOCK_SetClockDiv(kCLOCK_DivWWDT0, 1u);
 #endif
 
 	/* Set SystemCoreClock variable. */

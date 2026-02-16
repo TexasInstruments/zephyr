@@ -4,23 +4,24 @@ Overview
 ********
 
 The STM32H7S78-DK Discovery kit is designed as a complete demonstration and
-development platform for STMicroelectronics Arm |reg| Cortex |reg|-M7 core-based
+development platform for STMicroelectronics Arm® Cortex®-M7 core-based
 STM32H7S7L8H6H microcontroller. Here are some highlights of the STM32H7S78-DK Discovery board:
 
 
-- STM32H7S7L8H6H microcontroller featuring 64Kbytes of Flash memory and 620 Kbytes of SRAM in 225-pin TFBGA package
-- USB Type-C |reg| Host and device with USB power-delivery controller
+- STM32H7S7L8H6H microcontroller featuring 64 Kbytes of Flash memory and 620 Kbytes of SRAM in 225-pin TFBGA package
+- USB Type-C® Host and device with USB power-delivery controller
 - SAI Audio DAC stereo with one audio jacks for input/output,
 - ST MEMS digital microphone with PDM interface
-- Octo-SPI interface connected to 512Mbit Octo-SPI NORFlash memory device (MX66UW1G45GXD100 from MACRONIX)
+- Octo-SPI interface connected to 1Gbit Octo-SPI NORFlash memory device (MX66UW1G45GXDI00 from Macronix)
+- Hexadeca-SPI interface connected to 256Mbit PSRAM memory device (APS256XXN-OBRx from AP Memory)
 - 10/100-Mbit Ethernet,
 
 - Board connectors
 
-  - STMod+ expansion connector with fan-out expansion board for Wi‑Fi |reg|, Grove and mikroBUS |trade| compatible connectors
-  - Pmod |trade| expansion connector
+  - STMod+ expansion connector with fan-out expansion board for Wi‑Fi®, Grove and mikroBUS™ compatible connectors
+  - Pmod™ expansion connector
   - Audio MEMS daughterboard expansion connector
-  - ARDUINO |reg| Uno V3 expansion connector
+  - ARDUINO® Uno V3 expansion connector
 
 - Flexible power-supply options
 
@@ -43,13 +44,13 @@ Hardware
 ********
 
 The STM32H7S7xx devices are a high-performance microcontrollers family (STM32H7
-Series) based on the high-performance Arm |reg| Cortex |reg|-M7 32-bit RISC core.
-They operate at a frequency of up to 500 MHz.
+Series) based on the high-performance Arm® Cortex®-M7 32-bit RISC core.
+They operate at a frequency of up to 600 MHz.
 
-- Core: ARM |reg| 32-bit Cortex |reg| -M7 CPU with FPU.
+- Core: ARM® 32-bit Cortex®-M7 CPU with FPU.
 - Performance benchmark:
 
-  - 1284 DMPIS/MHz (Dhrystone 2.1)
+  - 3196 CoreMark® (5.33 CoreMark®/MHz)
 
 - Security
 
@@ -71,7 +72,7 @@ They operate at a frequency of up to 500 MHz.
   - 24 MHz crystal oscillator (HSE)
   - 32768 Hz crystal oscillator for RTC (LSE)
   - Internal 64 MHz (HSI) trimmable by software
-  - Internal low-power 32 kHz RC (LSI)( |plusminus| 5%)
+  - Internal low-power 32 kHz RC (LSI)(±5%)
   - Internal 4 MHz oscillator (CSI), trimmable by software
   - Internal 48 MHz (HSI48) with recovery system
   - 3 PLLs for system clock, USB, audio, ADC
@@ -83,19 +84,18 @@ They operate at a frequency of up to 500 MHz.
 
 - RTC with HW calendar, alarms and calibration
 - Up to 152 fast I/Os, most 5 V-tolerant, up to 10 I/Os with independent supply down to 1.08 V
-- Up to 16 timers and 2 watchdogs
+- Up to 23 timers, including 2 watchdogs
 
-  - 16x 16-bit
+  - 16x 16-bit (including 5x low-power 16-bit timers available in Stop mode, one graphic timer)
   - 4x 32-bit timers with up to 4 IC/OC/PWM or pulse counter and quadrature (incremental) encoder input
-  - 5x 16-bit low-power 16-bit timers (available in Stop mode)
   - 2x watchdogs
   - 1x SysTick timer
 
 - Memories
 
-  - Up to 64KB Flash, 2 banks read-while-write
+  - Up to 64 Kbytes Flash, 2 banks read-while-write
   - 1 Kbyte OTP (one-time programmable)
-  - 640 KB of SRAM including 64 KB with hardware parity check and 320 Kbytes with flexible ECC
+  - 620 Kbytes of SRAM (548 Kbytes usable with optional ECC enabled)
   - 4 Kbytes of backup SRAM available in the lowest power modes
   - Flexible external memory controller with up to 16-bit data bus: SRAM, PSRAM, FRAM, SDRAM/LPSDR SDRAM, NOR/NAND memories
   - 2x OCTOSPI memory interface with on-the-fly decryption and support for serial PSRAM/NAND/NOR, Hyper RAM/Flash frame formats
@@ -112,7 +112,7 @@ They operate at a frequency of up to 500 MHz.
   - 1x USB Type-C / USB power-delivery controller
   - 1x USB OTG full-speed with PHY
   - 1x USB OTG high-speed with PHY
-  - 3x I2C FM+ interfaces (SMBus/PMBus)
+  - 3x I2C FM+ interfaces (SMBus/PMBus™)
   - 1x I3C interface
   - 7x U(S)ARTS (ISO7816 interface, LIN, IrDA, modem control)
   - 2x LP UART
@@ -131,7 +131,7 @@ They operate at a frequency of up to 500 MHz.
 - CORDIC for trigonometric functions acceleration
 - FMAC (filter mathematical accelerator)
 - CRC calculation unit
-- Development support: serial wire debug (SWD), JTAG, Embedded Trace Macrocell |trade|
+- Development support: serial wire debug (SWD), JTAG, Embedded Trace Macrocell™
 
 
 More information about STM32H7S7 can be found here:
@@ -181,13 +181,14 @@ Default Zephyr Peripheral Mapping:
 - XSPI1 NCS/DQS0/DQS1/CLK/IO: PO0/PO2/PO3/PO4/PP0..15
 - I2C1 SCL/SDA: PB6/PB9
 - FDCAN1 RX/TX : PB8/PB9
+- ETH: PA2/PA7/PB0/PB1/PC1/PC4/PC5/PD7/PG11
 
 System Clock
 ------------
 
 STM32H7S78-DK System Clock could be driven by internal or external oscillator,
 as well as main PLL clock. By default System clock is driven by PLL clock at
-500MHz, driven by 24MHz external oscillator (HSE).
+250MHz, driven by 24MHz external oscillator (HSE).
 
 Serial Port
 -----------
@@ -207,6 +208,12 @@ FDCAN
 STM32H7S78-DK Discovery board has 2 FDCAN bus interfaces.
 FDCAN1 is configured but not enabled by default. To enable it, make sure
 that ``i2c1`` is disabled, since they share the PB9 pin.
+
+Ethernet
+--------
+
+In order to use Ethernet on STM32H7S78-DK, you need to set the ``JP6`` jumper
+to PC1 position on the back side of the board.
 
 Programming and Debugging
 *************************
@@ -262,8 +269,8 @@ You can debug an application in the usual way.  Here is an example for the
 Application in External Flash
 =============================
 
-Because of the limited amount of SoC Flash (64KB), you may want to store the application
-in external QSPI Flash instead, and run it from there. In that case, the MCUboot bootloader
+Because of the limited amount of SoC Flash (64 Kbytes), you may want to store the application
+in external OSPI Flash instead, and run it from there. In that case, the MCUboot bootloader
 is needed to chainload the application. A dedicated board variant, ``ext_flash_app``, was created
 for this usecase.
 

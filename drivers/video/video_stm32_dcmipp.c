@@ -30,8 +30,10 @@
 #define HAL_DCMIPP_PARALLEL_SetConfig HAL_DCMIPP_SetParallelConfig
 #endif
 
-#if DT_HAS_COMPAT_STATUS_OKAY(st_stm32n6_dcmipp)
+#if defined(DCMIPP_SERIAL_MODE)
 #define STM32_DCMIPP_HAS_CSI
+#endif
+#if defined(DCMIPP_PIPE1) && defined(DCMIPP_PIPE2)
 #define STM32_DCMIPP_HAS_PIXEL_PIPES
 #endif
 
@@ -354,6 +356,10 @@ static int stm32_dcmipp_conf_parallel(const struct device *dev,
 	parallel_cfg.ExtendedDataMode = DCMIPP_INTERFACE_8BITS;
 	parallel_cfg.SynchroMode      = DCMIPP_SYNCHRO_HARDWARE;
 
+	/* There may be the case when HAL_DCMIPP_PARALLEL_SetConfig called second time
+	 * so reset state so it doesn't fail
+	 */
+	dcmipp->hdcmipp.State = HAL_DCMIPP_STATE_INIT;
 	hal_ret = HAL_DCMIPP_PARALLEL_SetConfig(&dcmipp->hdcmipp, &parallel_cfg);
 	if (hal_ret != HAL_OK) {
 		LOG_ERR("Failed to configure DCMIPP Parallel interface");
@@ -1166,6 +1172,17 @@ static int stm32_dcmipp_stream_enable(const struct device *dev)
 		if (ret < 0) {
 			goto out;
 		}
+
+		/* Limit the amount of hardware handshake interrupts received by slave IP */
+		if (pipe->id == DCMIPP_PIPE1) {
+			stm32_reg_modify_bits(&dcmipp->hdcmipp.Instance->P1PPCR,
+					      DCMIPP_P1PPCR_LINEMULT_Msk,
+					      DCMIPP_MULTILINE_128_LINES);
+		} else {
+			stm32_reg_modify_bits(&dcmipp->hdcmipp.Instance->P2PPCR,
+					      DCMIPP_P1PPCR_LINEMULT_Msk,
+					      DCMIPP_MULTILINE_128_LINES);
+		}
 	}
 #endif
 
@@ -1227,6 +1244,7 @@ static int stm32_dcmipp_stream_disable(const struct device *dev)
 	struct stm32_dcmipp_pipe_data *pipe = dev->data;
 	struct stm32_dcmipp_data *dcmipp = pipe->dcmipp;
 	const struct stm32_dcmipp_config *config = dev->config;
+	struct video_buffer *vbuf;
 	int ret;
 
 	k_mutex_lock(&pipe->lock, K_FOREVER);
@@ -1285,6 +1303,12 @@ static int stm32_dcmipp_stream_disable(const struct device *dev)
 	}
 	if (pipe->active != NULL) {
 		k_fifo_put(&pipe->fifo_in, pipe->active);
+	}
+
+	/* Forward all buffers in fifo_in to fifo_out */
+	while ((vbuf = k_fifo_get(&pipe->fifo_in, K_NO_WAIT)) != NULL) {
+		vbuf->bytesused = 0;
+		k_fifo_put(&pipe->fifo_out, vbuf);
 	}
 
 	pipe->state = STM32_DCMIPP_STOPPED;
@@ -1694,10 +1718,6 @@ static int stm32_dcmipp_init(const struct device *dev)
 
 	int err;
 
-#if defined(CONFIG_SOC_SERIES_STM32N6X)
-	RIMC_MasterConfig_t rimc = {0};
-#endif
-
 	dcmipp->enabled_pipe = 0;
 
 #if defined(STM32_DCMIPP_HAS_PIXEL_PIPES)
@@ -1735,14 +1755,6 @@ static int stm32_dcmipp_init(const struct device *dev)
 
 	/* Run IRQ init */
 	cfg->irq_config(dev);
-
-#if defined(CONFIG_SOC_SERIES_STM32N6X)
-	rimc.MasterCID = RIF_CID_1;
-	rimc.SecPriv = RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_PRIV;
-	HAL_RIF_RIMC_ConfigMasterAttributes(RIF_MASTER_INDEX_DCMIPP, &rimc);
-	HAL_RIF_RISC_SetSlaveSecureAttributes(RIF_RISC_PERIPH_INDEX_DCMIPP,
-					      RIF_ATTRIBUTE_SEC | RIF_ATTRIBUTE_PRIV);
-#endif
 
 	/* Initialize DCMI peripheral */
 	err = HAL_DCMIPP_Init(&dcmipp->hdcmipp);

@@ -8,6 +8,8 @@ arch: arm
 toolchain:
   - zephyr
 supported:
+  - adc
   - uart
   - gpio
+  - pwm
 vendor: renesas

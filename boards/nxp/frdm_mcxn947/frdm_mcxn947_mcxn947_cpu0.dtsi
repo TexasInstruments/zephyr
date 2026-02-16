@@ -10,7 +10,7 @@
  */
 /dts-v1/;
 
-#include <nxp/nxp_mcxn94x.dtsi>
+#include <nxp/mcx/nxp_mcxn94x.dtsi>
 #include "frdm_mcxn947.dtsi"
 
 / {
@@ -250,10 +250,6 @@ zephyr_udc0: &usb1 {
 	tx-d-cal = <4>;
 	tx-cal-45-dp-ohms = <7>;
 	tx-cal-45-dm-ohms = <7>;
-};
-
-&lpcmp0 {
-	status = "okay";
 };
 
 &opamp0 {

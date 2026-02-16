@@ -17,7 +17,7 @@ config COVERAGE
 	  This option will build your application with the -coverage option
 	  which will generate data that can be used to create coverage reports.
 	  For more information see
-	  https://docs.zephyrproject.org/latest/guides/coverage.html
+	  https://docs.zephyrproject.org/latest/develop/test/coverage.html
 
 choice
 	prompt "Coverage mode"
@@ -54,7 +54,7 @@ endchoice
 config COVERAGE_GCOV_HEAP_SIZE
 	int "Size of heap allocated for gcov coverage data dump"
 	depends on COVERAGE_GCOV
-	default 32768 if X86 || SOC_SERIES_MPS2
+	default 65536 if X86 || SOC_SERIES_MPS2
 	default 16384
 	help
 	  This option configures the heap size allocated for gcov coverage

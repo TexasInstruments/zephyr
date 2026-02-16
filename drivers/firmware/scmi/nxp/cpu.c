@@ -8,7 +8,8 @@
 #include <zephyr/drivers/firmware/scmi/nxp/cpu.h>
 #include <zephyr/kernel.h>
 
-DT_SCMI_PROTOCOL_DEFINE_NODEV(DT_INST(0, nxp_scmi_cpu), NULL);
+DT_SCMI_PROTOCOL_DEFINE_NODEV(DT_INST(0, nxp_scmi_cpu), NULL,
+		SCMI_NXP_CPU_PROTOCOL_SUPPORTED_VERSION);
 
 struct scmi_nxp_cpu_info_get_reply {
 	int32_t status;
@@ -22,7 +23,7 @@ int scmi_nxp_cpu_sleep_mode_set(struct scmi_nxp_cpu_sleep_mode_config *cfg)
 	int status, ret;
 	bool use_polling;
 
-	/* sanity checks */
+	/* input validation */
 	if (!proto || !cfg) {
 		return -EINVAL;
 	}
@@ -60,7 +61,7 @@ int scmi_nxp_cpu_pd_lpm_set(struct scmi_nxp_cpu_pd_lpm_config *cfg)
 	int status, ret;
 	bool use_polling;
 
-	/* sanity checks */
+	/* input validation */
 	if (!proto || !cfg) {
 		return -EINVAL;
 	}
@@ -94,7 +95,7 @@ int scmi_nxp_cpu_set_irq_mask(struct scmi_nxp_cpu_irq_mask_config *cfg)
 	struct scmi_message msg, reply;
 	int status, ret;
 
-	/* sanity checks */
+	/* input validation */
 	if (!proto || !cfg) {
 		return -EINVAL;
 	}
@@ -126,7 +127,7 @@ int scmi_nxp_cpu_reset_vector(struct scmi_nxp_cpu_vector_config *cfg)
 	struct scmi_message msg, reply;
 	int status, ret;
 
-	/* sanity checks */
+	/* input validation */
 	if (!proto || !cfg) {
 		return -EINVAL;
 	}
@@ -159,7 +160,7 @@ int scmi_nxp_cpu_info_get(uint32_t cpu_id, struct scmi_nxp_cpu_info *cfg)
 	struct scmi_nxp_cpu_info_get_reply reply_buffer;
 	int ret;
 
-	/* sanity checks */
+	/* input validation */
 	if (!proto || !cfg) {
 		return -EINVAL;
 	}

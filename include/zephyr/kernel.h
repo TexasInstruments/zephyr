@@ -322,7 +322,7 @@ void k_thread_foreach_unlocked_filter_by_cpu(unsigned int cpu,
  * restore the contents of these registers when scheduling the thread.
  * No effect if @kconfig{CONFIG_DSP_SHARING} is not enabled.
  */
-#define K_DSP_IDX 6
+#define K_DSP_IDX 13
 #define K_DSP_REGS (BIT(K_DSP_IDX))
 
 /**
@@ -333,7 +333,7 @@ void k_thread_foreach_unlocked_filter_by_cpu(unsigned int cpu,
  * memory and DSP feature. Often used with @kconfig{CONFIG_ARC_AGU_SHARING}.
  * No effect if @kconfig{CONFIG_ARC_AGU_SHARING} is not enabled.
  */
-#define K_AGU_IDX 7
+#define K_AGU_IDX 14
 #define K_AGU_REGS (BIT(K_AGU_IDX))
 
 /**
@@ -345,7 +345,7 @@ void k_thread_foreach_unlocked_filter_by_cpu(unsigned int cpu,
  * save and restore the contents of these registers when scheduling
  * the thread. No effect if @kconfig{CONFIG_X86_SSE} is not enabled.
  */
-#define K_SSE_REGS (BIT(7))
+#define K_SSE_REGS (BIT(15))
 
 /* end - thread options */
 
@@ -1665,6 +1665,22 @@ const char *k_thread_state_str(k_tid_t thread_id, char *buf, size_t buf_size);
  */
 #define K_FOREVER Z_FOREVER
 
+/**
+ * @brief Add two k_timeout_t values together
+ *
+ * This macro adds two k_timeout_t values together. If only one value is an
+ * absolute timeout, the result will be an absolute timeout. If both are
+ * relative timeouts, the result will be a relative timeout. If the calculation
+ * overflows, underflows or if both values are absolute timeouts, K_FOREVER
+ * is returned.
+ *
+ * @param timeout1 First k_timeout_t value
+ * @param timeout2 Second k_timeout_t value
+ *
+ * @return Sum of the two timeout values, or K_FOREVER if incalculable
+ */
+#define K_TIMEOUT_SUM(timeout1, timeout2)  K_TICKS(z_timeout_sum(timeout1, timeout2))
+
 #ifdef CONFIG_TIMEOUT_64BIT
 
 /**
@@ -1748,7 +1764,6 @@ const char *k_thread_state_str(k_tid_t thread_id, char *buf, size_t buf_size);
  * @return Timeout delay value
  */
 #define K_TIMEOUT_ABS_CYC(t) K_TIMEOUT_ABS_TICKS(k_cyc_to_ticks_ceil64(t))
-
 #endif
 
 /**
@@ -1800,6 +1815,23 @@ struct k_timer {
 	 * INTERNAL_HIDDEN @endcond
 	 */
 };
+
+#ifdef CONFIG_TIMER_OBSERVER
+struct k_timer_observer {
+	/* Invoked upon completion of k_timer initialization */
+	void (*on_init)(struct k_timer *timer);
+
+	/* Invoked after the timer transitions to the running state  */
+	void (*on_start)(struct k_timer *timer, k_timeout_t duration,
+			 k_timeout_t period);
+
+	/* Invoked when the active timer is explicitly stopped */
+	void (*on_stop)(struct k_timer *timer);
+
+	/* Executes in ISR context, keep minimal and non-blocking */
+	void (*on_expiry)(struct k_timer *timer);
+};
+#endif /* CONFIG_TIMER_OBSERVER */
 
 /**
  * @cond INTERNAL_HIDDEN
@@ -1871,6 +1903,42 @@ typedef void (*k_timer_stop_t)(struct k_timer *timer);
 #define K_TIMER_DEFINE(name, expiry_fn, stop_fn) \
 	STRUCT_SECTION_ITERABLE(k_timer, name) = \
 		Z_TIMER_INITIALIZER(name, expiry_fn, stop_fn)
+
+
+#ifdef CONFIG_TIMER_OBSERVER
+
+/**
+ * @cond INTERNAL_HIDDEN
+ */
+#define Z_TIMER_OBSERVER_INITIALIZER(name, init, start, stop, expiry) \
+	{ \
+	.on_init = init, \
+	.on_start = start, \
+	.on_stop = stop, \
+	.on_expiry = expiry \
+	}
+/**
+ * INTERNAL_HIDDEN @endcond
+ */
+
+/**
+ * @brief Statically define and initialize a timer observer.
+ *
+ * Iterable-section based observer interface for k_timer lifecycle
+ * events (init/start/stop/expiry). External modules can register
+ * additional functionality without modifying kernel internals.
+ *
+ * @param name Name of the k_timer_observer variable.
+ * @param init Pointer to initialization callback (or NULL).
+ * @param start Pointer to start callback (or NULL).
+ * @param stop Pointer to stop callback (or NULL).
+ * @param expiry Pointer to expiry callback (or NULL).
+ */
+#define K_TIMER_OBSERVER_DEFINE(name, init, start, stop, expiry) \
+	static const STRUCT_SECTION_ITERABLE(k_timer_observer, name) = \
+		Z_TIMER_OBSERVER_INITIALIZER(name, init, start, stop, expiry)
+
+#endif /* CONFIG_TIMER_OBSERVER */
 
 /**
  * @brief Initialize a timer.
@@ -2123,7 +2191,7 @@ static inline uint32_t k_uptime_seconds(void)
 }
 
 /**
- * @brief Get elapsed time.
+ * @brief Get elapsed time, and update the referenced time.
  *
  * This routine computes the elapsed time between the current system uptime
  * and an earlier reference time, in milliseconds.

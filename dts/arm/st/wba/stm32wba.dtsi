@@ -8,7 +8,6 @@
 #include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
 #include <zephyr/dt-bindings/clock/stm32wba_clock.h>
 #include <zephyr/dt-bindings/reset/stm32wba_reset.h>
-#include <zephyr/dt-bindings/adc/stm32u5_adc.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/i2c/i2c.h>
 #include <zephyr/dt-bindings/pwm/pwm.h>
@@ -501,10 +500,7 @@
 			clock-names = "adcx", "adc_ker";
 			interrupts = <65 0>;
 			#io-channel-cells = <1>;
-			resolutions = <STM32_ADC_RES(12, 0x00)
-				       STM32_ADC_RES(10, 0x01)
-				       STM32_ADC_RES(8, 0x02)
-				       STM32_ADC_RES(6, 0x03)>;
+			st,adc-resolutions = <12 10 8 6>;
 			sampling-times = <2 4 8 13 20 40 80 815>;
 			num-sampling-time-common-channels = <2>;
 			st,adc-clock-source = "ASYNC";
@@ -520,6 +516,7 @@
 			#size-cells = <0>;
 			reg = <0x46004400 0x400>;
 			clocks = <&rcc STM32_CLOCK(APB7, 11)>;
+			resets = <&rctl STM32_RESET(APB7, 11)>;
 			interrupts = <49 1>;
 			interrupt-names = "wakeup";
 			status = "disabled";
@@ -531,6 +528,7 @@
 			#size-cells = <0>;
 			reg = <0x40009400 0x400>;
 			clocks = <&rcc STM32_CLOCK(APB1_2, 5)>;
+			resets = <&rctl STM32_RESET(APB1H, 5)>;
 			interrupts = <50 1>;
 			interrupt-names = "wakeup";
 			status = "disabled";
@@ -542,7 +540,7 @@
 			interrupts = <59 0>;
 			clocks = <&rcc STM32_CLOCK(AHB2, 18)>,
 				 <&rcc STM32_SRC_HSI16 RNG_SEL(2)>;
-			nist-config = <0xf00d>;
+			nist-config = <0xf00d00>;
 			health-test-config = <0xaac7>;
 			status = "disabled";
 		};

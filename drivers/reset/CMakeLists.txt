@@ -6,6 +6,7 @@ zephyr_library()
 
 # zephyr-keep-sorted-start
 zephyr_library_sources_ifdef(CONFIG_RESET_AST10X0 reset_ast10x0.c)
+zephyr_library_sources_ifdef(CONFIG_RESET_FOCALTECH_FT9001 reset_ft9001.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_GD32 reset_gd32.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_INTEL_SOCFPGA reset_intel_socfpga.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_MCHP_MSS reset_mchp_mss.c)
@@ -17,6 +18,7 @@ zephyr_library_sources_ifdef(CONFIG_RESET_NXP_MRCC reset_nxp_mrcc.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_NXP_RSTCTL reset_nxp_rstctl.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_NXP_SYSCON reset_lpc_syscon.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_RPI_PICO reset_rpi_pico.c)
+zephyr_library_sources_ifdef(CONFIG_RESET_RTS5817 reset_rts5817.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_SF32LB reset_sf32lb.c)
 zephyr_library_sources_ifdef(CONFIG_RESET_STM32 reset_stm32.c)
 # zephyr-keep-sorted-stop

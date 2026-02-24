@@ -7,6 +7,7 @@
 #include <ti/am26x/am261x_r5f0_1.dtsi>
 #include <zephyr/dt-bindings/pinctrl/ti-am26x-pinctrl.h>
 #include <zephyr/dt-bindings/dma/ti_edma.h>
+#include "am261x_lp_am2612_common.dtsi"
 
 / {
 	model = "TI AM261X LP Development Board R5F0_1";
@@ -16,6 +17,8 @@
 		zephyr,sram = &sram1;
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0;
+		zephyr,flash = &ospi_flash;
+		zephyr,code-partition = &ospi_flash;
 	};
 
 	aliases {
@@ -42,6 +45,12 @@
 			gpios = <&gpio1_bank_6_7 28 1>;
 			label = "User Button";
 		};
+	};
+
+	ospi_flash: memory@60400000 {
+		compatible = "zephyr,memory-region";
+		reg = <0x60400000 DT_SIZE_M(64)>;
+		zephyr,memory-region = "OSPI_FLASH";
 	};
 };
 

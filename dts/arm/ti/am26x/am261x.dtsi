@@ -60,9 +60,10 @@
 			reg = <0x72000000 0x3E80>; /* Match the TI SDK RTOS_NORTOS_IPC_SHM_MEM */
 		};
 
-		sram0: memory@70000000 {
+		sram0: memory@70040000 {
 			compatible = "zephyr,memory-region", "mmio-sram";
-			reg = <0x70000000 DT_SIZE_K(2*(512))>;
+			/* 256KB of 512KB RAM0 + 512KB of RAM1 */
+			reg = <0x70040000 DT_SIZE_K(256 + 512)>;
 			zephyr,memory-region = "SRAM01";
 		};
 		
@@ -351,6 +352,13 @@
 		shared_memory: memory@72000000 {
 			reg = <0x72000000 DT_SIZE_K(16)>;
 			compatible = "zephyr,ipc-shm";
+		};
+
+		ospi_bootloader_ram: memory@70002000 {
+			reg = <0x70002000 DT_SIZE_K(8)>;
+			compatible = "zephyr,memory-region";
+			zephyr,memory-region = "OSPI_SBL_Reserved_Memory";
+			status = "okay";
 		};
 	};
 };

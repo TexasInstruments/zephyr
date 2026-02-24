@@ -141,6 +141,10 @@ SECTIONS
 
 #endif /* CONFIG_CODE_DATA_RELOCATION */
 
+#ifdef CONFIG_EARLY_BOOT_IN_RAM
+#include <zephyr/arch/arm/cortex_a_r/scripts/early_boot_sections.ld>
+#endif
+
     SECTION_PROLOGUE(_TEXT_SECTION_NAME,,)
     {
         . = ALIGN(_region_min_align);

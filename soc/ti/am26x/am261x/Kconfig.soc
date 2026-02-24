@@ -38,3 +38,10 @@ config CORES_IN_LOCKSTEP_MODE
 	help
 		Set this symbol to y using overlay file if the R5F cores
 		are operating in lockstep mode
+
+config EARLY_BOOT_IN_RAM
+	bool
+	default y
+	help
+		Activate a linker script that forcibly relocates APIs needed for early boot to RAM.
+		This feature is required for AM261x as the flash is not accessible at reset.

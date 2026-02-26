@@ -76,9 +76,17 @@ static inline uint32_t dma_cc35xx_get_channel_status_reg(uint32_t channel)
 
 static inline uint32_t dma_cc35xx_pending_length(uint32_t channel)
 {
+	volatile int timeout = 5000;
+
+	/* Wait for the correct value of pending length after aborted transaction */
+	while (timeout--) {
+
+	};
+
 	return (dma_cc35xx_get_channel_status_reg(channel) &
 		HOST_DMA_CH0TSTA_REMAINB_M) >> HOST_DMA_CH0TSTA_REMAINB_S;
 }
+
 
 static void dma_cc35xx_disable_channel(uint32_t channel)
 {
@@ -103,7 +111,6 @@ static void dma_cc35xx_init_channel(uint32_t channel)
 	addr = HOST_DMA_TGT_BASE + HOST_DMA_O_CH0TCTL2 + (channel * DMA_CH_OFFSET);
 	sys_write32(DMA_CMD_INIT, addr);
 }
-
 
 static int dma_cc35xx_config(const struct device *dev, uint32_t channel,
 	struct dma_config *config)
@@ -242,7 +249,6 @@ static int dma_cc35xx_get_status(const struct device *dev, uint32_t channel,
 	if ((channel >= num_dma_channels) || !stat) {
 		return -EINVAL;
 	}
-
 	channel_config = dma_cc35xx_get_channel_config_reg(channel);
 
 	if (channel_config & DMA_CONFIG_FORCE_REQ) {
@@ -278,6 +284,16 @@ static void dma_cc35xx_isr(const struct device *dev)
 	}
 }
 
+
+static void dma_CC35XX_channels_init(struct dma_cc35xx_data *data)
+{
+	int i;
+
+	for (i = 0; i < data->ctx.dma_channels; i++) {
+		DMAInitChannel(i, DMA_NUM_PERIPHS);
+	}
+}
+
 static int dma_cc35xx_init(const struct device *dev)
 {
 	struct dma_cc35xx_data *data = dev->data;
@@ -287,7 +303,7 @@ static int dma_cc35xx_init(const struct device *dev)
 	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority),
 		    dma_cc35xx_isr, DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
-
+	dma_CC35XX_channels_init(data);
 	dma_cc35xx_int_disable(DMA_INT_ALL);
 	dma_cc35xx_int_clear(DMA_INT_ALL);
 	return 0;

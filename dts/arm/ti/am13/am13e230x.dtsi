@@ -33,6 +33,38 @@
 			compatible = "ti,msp-pinctrl";
 			reg = <0x400cc000 DT_SIZE_K(16)>;
 		};
+
+		gpio0: gpio@400f0000 {
+			compatible = "ti,msp-gpio";
+			reg = <0x400f0000 DT_SIZE_K(8)>;
+			interrupts = <4 0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		gpio1: gpio@400f2000 {
+			compatible = "ti,msp-gpio";
+			reg = <0x400f2000 DT_SIZE_K(8)>;
+			interrupts = <5 0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		gpio2: gpio@400f4000 {
+			compatible = "ti,msp-gpio";
+			reg = <0x400f4000 DT_SIZE_K(8)>;
+			interrupts = <6 0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
+
+		gpio3: gpio@400f6000 {
+			compatible = "ti,msp-gpio";
+			reg = <0x400f6000 DT_SIZE_K(8)>;
+			interrupts = <7 0>;
+			#gpio-cells = <2>;
+			gpio-controller;
+		};
 	};
 };
 

@@ -1,0 +1,10 @@
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+config INCLUDE_REMOTE_DIR
+	bool "Include remote project generated include directory"
+	help
+	  Include the remote project generated include directory in the
+	  current project include directories.

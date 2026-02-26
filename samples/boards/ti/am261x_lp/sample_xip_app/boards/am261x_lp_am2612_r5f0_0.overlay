@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	chosen {
+		zephyr,console = &uart3;
+		zephyr,shell-uart = &uart3;
+	};
+};
+
+&pinctrl {
+		uart3_rx: uart3_rx_default {
+			pinmux = <TI_AM26X_PINMUX(PIN_GPIO(119),
+				  (PIN_MODE(2) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW))>;
+	};
+
+	uart3_tx: uart3_tx_default {
+			pinmux = <TI_AM26X_PINMUX(PIN_GPIO(120),
+				  (PIN_MODE(2) | PIN_PULL_DISABLE | PIN_SLEW_RATE_LOW))>;
+	};
+
+};
+
+&uart3 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart3_tx &uart3_rx>;
+	pinctrl-names = "default";
+};

@@ -4,3 +4,10 @@ board:
   vendor: ti
   socs:
     - name: am13e230x
+  revision:
+    format: custom
+    default: "e1"
+    exact: false
+    revisions:
+      - name: "e1"
+      - name: "e2"

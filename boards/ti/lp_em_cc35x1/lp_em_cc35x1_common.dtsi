@@ -236,12 +236,18 @@
 	status = "okay";
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-names = "default";
+	dmas = <&dma 0 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_0)>,
+			<&dma 1 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_0)>;
+	dma-names = "rx", "tx";
 };
 
 &uart1 {
 	status = "okay";
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
+	dmas = <&dma 2 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_1)>,
+			<&dma 3 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_1)>;
+	dma-names = "rx", "tx";
 };
 
 &timer1 {

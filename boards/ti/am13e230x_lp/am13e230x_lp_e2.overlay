@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/msp-pinctrl.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	aliases {
+		led0 = &led0;
+		led1 = &led1;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led0: led_0 {
+			gpios = <&gpio0 5 GPIO_ACTIVE_LOW>;
+			label = "LED4";
+		};
+
+		led1: led_1 {
+			gpios = <&gpio1 0 GPIO_ACTIVE_LOW>;
+			label = "LED5";
+		};
+	};
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};

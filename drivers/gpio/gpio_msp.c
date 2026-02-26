@@ -16,7 +16,11 @@
 LOG_MODULE_REGISTER(gpio_msp, CONFIG_GPIO_LOG_LEVEL);
 
 /* Driverlib includes */
+#ifdef CONFIG_SOC_SERIES_AM13E
+#include <dl_gpio.h>
+#else
 #include <ti/driverlib/dl_gpio.h>
+#endif
 
 struct gpio_msp_config {
 	/* gpio_msp_config needs to be first (doesn't actually get used) */
@@ -43,7 +47,12 @@ struct gpio_msp_data {
 #define MSP_PINCM_LUT_TYPE_UINT32 1
 
 /* GPIO defines */
+#if defined(CONFIG_SOC_SERIES_AM13E)
+#define GPIOA_NODE DT_NODELABEL(gpio0)
+#else
 #define GPIOA_NODE DT_NODELABEL(gpioa)
+#endif
+
 #if DT_NODE_HAS_STATUS(GPIOA_NODE, okay)
 #if defined(CONFIG_SOC_SERIES_MSPM0G)
 #define NUM_GPIOA_PIN 32
@@ -77,12 +86,28 @@ static uint32_t gpioa_pincm_lut[NUM_GPIOA_PIN] = {
 	IOMUX_PINCM46, IOMUX_PINCM47, IOMUX_PINCM53, IOMUX_PINCM54, IOMUX_PINCM55, IOMUX_PINCM59,
 	IOMUX_PINCM60,
 };
+#elif defined(CONFIG_SOC_SERIES_AM13E)
+#define NUM_GPIOA_PIN 32
+#define gpioa_pins    NUM_GPIOA_PIN
+static uint32_t gpioa_pincm_lut[NUM_GPIOA_PIN] = {
+	IOMUX_PINCM_PA0,  IOMUX_PINCM_PA1,  IOMUX_PINCM_PA2,  IOMUX_PINCM_PA3,  IOMUX_PINCM_PA4,
+	IOMUX_PINCM_PA5,  IOMUX_PINCM_PA6,  IOMUX_PINCM_PA7,  IOMUX_PINCM_PA8,  IOMUX_PINCM_PA9,
+	IOMUX_PINCM_PA10, IOMUX_PINCM_PA11, IOMUX_PINCM_PA12, IOMUX_PINCM_PA13, IOMUX_PINCM_PA14,
+	IOMUX_PINCM_PA15, IOMUX_PINCM_PA16, IOMUX_PINCM_PA17, IOMUX_PINCM_PA18, IOMUX_PINCM_PA19,
+	IOMUX_PINCM_PA20, IOMUX_PINCM_PA21, IOMUX_PINCM_PA22, IOMUX_PINCM_PA23, IOMUX_PINCM_PA24,
+	IOMUX_PINCM_PA25, IOMUX_PINCM_PA26, IOMUX_PINCM_PA27, IOMUX_PINCM_PA28, IOMUX_PINCM_PA29,
+	IOMUX_PINCM_PA30, IOMUX_PINCM_PA31};
 #else
 #error "Series lookup table not supported"
 #endif /* if CONFIG_SOC_SERIES_MSPM0G */
 #endif /* DT_NODE_HAS_STATUS(DT_NODELABEL(gpioa), okay) */
 
+#if defined(CONFIG_SOC_SERIES_AM13E)
+#define GPIOB_NODE DT_NODELABEL(gpio1)
+#else
 #define GPIOB_NODE DT_NODELABEL(gpiob)
+#endif
+
 #if DT_NODE_HAS_STATUS(GPIOB_NODE, okay)
 #if defined(CONFIG_SOC_SERIES_MSPM0G)
 #define NUM_GPIOB_PIN 28
@@ -114,11 +139,27 @@ static uint32_t gpiob_pincm_lut[NUM_GPIOB_PIN] = {
 	IOMUX_PINCM44, IOMUX_PINCM45, IOMUX_PINCM48, IOMUX_PINCM49, IOMUX_PINCM50, IOMUX_PINCM51,
 	IOMUX_PINCM52, IOMUX_PINCM56, IOMUX_PINCM57, IOMUX_PINCM58,
 };
+#elif defined(CONFIG_SOC_SERIES_AM13E)
+#define NUM_GPIOB_PIN 32
+#define gpiob_pins    NUM_GPIOB_PIN
+static uint32_t gpiob_pincm_lut[NUM_GPIOB_PIN] = {
+	IOMUX_PINCM_PB0,  IOMUX_PINCM_PB1,  IOMUX_PINCM_PB2,  IOMUX_PINCM_PB3,  IOMUX_PINCM_PB4,
+	IOMUX_PINCM_PB5,  IOMUX_PINCM_PB6,  IOMUX_PINCM_PB7,  IOMUX_PINCM_PB8,  IOMUX_PINCM_PB9,
+	IOMUX_PINCM_PB10, IOMUX_PINCM_PB11, IOMUX_PINCM_PB12, IOMUX_PINCM_PB13, IOMUX_PINCM_PB14,
+	IOMUX_PINCM_PB15, IOMUX_PINCM_PB16, IOMUX_PINCM_PB17, IOMUX_PINCM_PB18, IOMUX_PINCM_PB19,
+	IOMUX_PINCM_PB20, IOMUX_PINCM_PB21, IOMUX_PINCM_PB22, IOMUX_PINCM_PB23, IOMUX_PINCM_PB24,
+	IOMUX_PINCM_PB25, IOMUX_PINCM_PB26, IOMUX_PINCM_PB27, IOMUX_PINCM_PB28, IOMUX_PINCM_PB29,
+	IOMUX_PINCM_PB30, IOMUX_PINCM_PB31};
 #endif /* CONFIG_SOC_SERIES_MSPM0G */
 #endif /* DT_NODE_HAS_STATUS(DT_NODELABEL(gpiob), okay) */
 
+#if defined(CONFIG_SOC_SERIES_AM13E)
+#define GPIOC_NODE DT_NODELABEL(gpio2)
+#else
 #define GPIOC_NODE DT_NODELABEL(gpioc)
-#if DT_NODE_HAS_STATUS(DT_NODELABEL(gpioc), okay)
+#endif
+
+#if DT_NODE_HAS_STATUS(GPIOC_NODE, okay)
 #if defined(CONFIG_SOC_SERIES_MSPM0L)
 #define NUM_GPIOC_PIN 10
 #define gpioc_pins    NUM_GPIOC_PIN
@@ -136,8 +177,33 @@ static uint32_t gpioc_pincm_lut[NUM_GPIOC_PIN] = {
 	IOMUX_PINCM83, IOMUX_PINCM84, IOMUX_PINCM85, IOMUX_PINCM86, IOMUX_PINCM87, IOMUX_PINCM88,
 	IOMUX_PINCM89, IOMUX_PINCM90, IOMUX_PINCM91, IOMUX_PINCM92, IOMUX_PINCM93, IOMUX_PINCM94,
 };
+#elif defined(CONFIG_SOC_SERIES_AM13E)
+#define NUM_GPIOC_PIN 32
+#define gpioc_pins    NUM_GPIOC_PIN
+static uint32_t gpioc_pincm_lut[NUM_GPIOC_PIN] = {
+	IOMUX_PINCM_PC0,     IOMUX_PINCM_PC1,     IOMUX_PINCM_PC2,  IOMUX_PINCM_PC3,
+	IOMUX_PINCM_PC4,     IOMUX_PINCM_PC5,     IOMUX_PINCM_PC6,  IOMUX_PINCM_PC7,
+	IOMUX_PINCM_PC8,     IOMUX_PINCM_PC9,     IOMUX_PINCM_PC10, IOMUX_PINCM_PC11,
+	IOMUX_PINCM_PC12,    IOMUX_PINCM_PC13,    IOMUX_PINCM_PC14, IOMUX_PINCM_PC15,
+	IOMUX_PINCM_PC16_X1, IOMUX_PINCM_PC17_X2, IOMUX_PINCM_PC18, IOMUX_PINCM_PC19,
+	IOMUX_PINCM_PC20,    IOMUX_PINCM_PC21,    IOMUX_PINCM_PC22, IOMUX_PINCM_PC23,
+	IOMUX_PINCM_PC24,    IOMUX_PINCM_PC25,    IOMUX_PINCM_PC26, IOMUX_PINCM_PC27,
+	IOMUX_PINCM_PC28,    IOMUX_PINCM_PC29,    IOMUX_PINCM_PC30, IOMUX_PINCM_PC31};
 #endif /* CONFIG_SOC_SERIES - GPIOC pin configuration */
 #endif /* DT_NODE_HAS_STATUS(DT_NODELABEL(gpioc), okay) */
+
+#if defined(CONFIG_SOC_SERIES_AM13E)
+#define GPIOD_NODE DT_NODELABEL(gpio3)
+#endif
+
+#if DT_NODE_HAS_STATUS(GPIOD_NODE, okay)
+#define NUM_GPIOD_PIN 11
+#define gpiod_pins    NUM_GPIOD_PIN
+static uint32_t gpiod_pincm_lut[NUM_GPIOD_PIN] = {IOMUX_PINCM_PD0, IOMUX_PINCM_PD1, IOMUX_PINCM_PD2,
+						  IOMUX_PINCM_PD3, IOMUX_PINCM_PD4, IOMUX_PINCM_PD5,
+						  IOMUX_PINCM_PD6, IOMUX_PINCM_PD7, IOMUX_PINCM_PD8,
+						  IOMUX_PINCM_PD9, IOMUX_PINCM_PD11};
+#endif /* DT_NODE_HAS_STATUS(GPIOD_NODE, okay) */
 
 /* Helper function to get the correct PINCM value based on the LUT type */
 static inline uint32_t gpio_msp_get_pincm(const struct gpio_msp_config *config, gpio_pin_t pin)
@@ -179,7 +245,11 @@ static int gpio_msp_port_set_bits_raw(const struct device *port, uint32_t mask)
 {
 	const struct gpio_msp_config *config = port->config;
 
+#if defined(CONFIG_SOC_SERIES_AM13E)
+	DL_GPIO_writePins(config->base, mask);
+#else
 	DL_GPIO_setPins(config->base, mask);
+#endif
 
 	return 0;
 }
@@ -271,12 +341,16 @@ static int gpio_msp_pin_interrupt_configure(const struct device *port, gpio_pin_
 			polarity |= BIT(0);
 		}
 
+#ifdef CONFIG_SOC_SERIES_AM13E
+		DL_GPIO_setPinsPolarity(config->base, polarity << (2 * pin), 0x3ULL << (2 * pin));
+#else
 		if (pin < MSP_PINS_LOW_GROUP) {
 			DL_GPIO_setLowerPinsPolarity(config->base, polarity << (2 * pin));
 		} else {
 			DL_GPIO_setUpperPinsPolarity(config->base,
 						     polarity << (2 * (pin - MSP_PINS_LOW_GROUP)));
 		}
+#endif
 
 		DL_GPIO_clearInterruptStatus(config->base, BIT(pin));
 		DL_GPIO_enableInterrupt(config->base, BIT(pin));
@@ -357,17 +431,19 @@ static int gpio_msp_init(const struct device *dev)
 #if defined(CONFIG_SOC_SERIES_MSPM0G) || defined(CONFIG_SOC_SERIES_MSPM0L)
 	/* For M0 devices, all GPIO ports share the same irq number */
 	static bool init_irq = true;
+
 	if (init_irq) {
 		init_irq = false;
 		IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), gpio_msp_isr,
 			    DEVICE_DT_INST_GET(0), 0);
 		irq_enable(DT_INST_IRQN(0));
 	}
-#elif defined(CONFIG_SOC_SERIES_MSPM33C)
+#elif defined(CONFIG_SOC_SERIES_MSPM33C) || defined(CONFIG_SOC_SERIES_AM13E)
 	/* For M33 devices, each GPIO port has its own IRQ line */
 	static bool init_irq_a = true;
 	static bool init_irq_b = true;
 	static bool init_irq_c = true;
+	static bool init_irq_d = true;
 
 	if (dev == DEVICE_DT_GET(GPIOA_NODE) && init_irq_a) {
 		init_irq_a = false;
@@ -384,7 +460,7 @@ static int gpio_msp_init(const struct device *dev)
 			    DEVICE_DT_GET(GPIOB_NODE), 0);
 		irq_enable(DT_IRQ_BY_IDX(GPIOB_NODE, 0, irq));
 	}
-#endif /* DT_NODE_HAS_STATUS(GPIOB_NODE, okay) - GPIO B IRQ configuration for MSPM33C */
+#endif /* DT_NODE_HAS_STATUS(GPIOB_NODE, okay) - GPIO B IRQ configuration for MSPM33C/AM13E */
 #if DT_NODE_HAS_STATUS(GPIOC_NODE, okay)
 	else if (dev == DEVICE_DT_GET(GPIOC_NODE) && init_irq_c) {
 		init_irq_c = false;
@@ -393,8 +469,17 @@ static int gpio_msp_init(const struct device *dev)
 			    DEVICE_DT_GET(GPIOC_NODE), 0);
 		irq_enable(DT_IRQ_BY_IDX(GPIOC_NODE, 0, irq));
 	}
-#endif /* DT_NODE_HAS_STATUS(GPIOC_NODE, okay) - GPIO C IRQ configuration for MSPM33C */
-#endif /* CONFIG_SOC_SERIES_MSPM33C - IRQ configuration for different SoC series */
+#endif /* DT_NODE_HAS_STATUS(GPIOC_NODE, okay) - GPIO C IRQ configuration for MSPM33C/AM13E */
+#if DT_NODE_HAS_STATUS(GPIOD_NODE, okay)
+	else if (dev == DEVICE_DT_GET(GPIOD_NODE) && init_irq_d) {
+		init_irq_d = false;
+		IRQ_CONNECT(DT_IRQ_BY_IDX(GPIOD_NODE, 0, irq),
+			    DT_IRQ_BY_IDX(GPIOD_NODE, 0, priority), gpio_msp_isr,
+			    DEVICE_DT_GET(GPIOD_NODE), 0);
+		irq_enable(DT_IRQ_BY_IDX(GPIOD_NODE, 0, irq));
+	}
+#endif /* DT_NODE_HAS_STATUS(GPIOD_NODE, okay) - GPIO D IRQ configuration for MSPM33C/AM13E */
+#endif /* CONFIG_SOC_SERIES_MSPM33C/AM13E - IRQ configuration for different SoC series */
 
 	return 0;
 }
@@ -457,10 +542,12 @@ static const struct gpio_driver_api gpio_msp_driver_api = {
 			},                                                                         \
 		.base = (GPIO_Regs *)__base_addr,                                                  \
 		.pincm_lut = gpio##__suffix##_pincm_lut,                                           \
-		.pincm_lut_type = IS_ENABLED(CONFIG_SOC_SERIES_MSPM33C)                            \
+		.pincm_lut_type = (IS_ENABLED(CONFIG_SOC_SERIES_MSPM33C) ||                        \
+				   IS_ENABLED(CONFIG_SOC_SERIES_AM13E))                            \
 					  ? MSP_PINCM_LUT_TYPE_UINT32                              \
 					  : MSP_PINCM_LUT_TYPE_UINT8,                              \
 	};                                                                                         \
+                                                                                                   \
 	static struct gpio_msp_data gpio_msp_data_##__suffix;                                      \
 	DEVICE_DT_DEFINE(n, gpio_msp_init, NULL, &gpio_msp_data_##__suffix,                        \
 			 &gpio_msp_cfg_##__suffix, PRE_KERNEL_1, CONFIG_GPIO_INIT_PRIORITY,        \
@@ -470,14 +557,18 @@ static const struct gpio_driver_api gpio_msp_driver_api = {
 	GPIO_DEVICE_INIT(DT_NODELABEL(gpio##__suffix), __suffix,                                   \
 			 DT_REG_ADDR(DT_NODELABEL(gpio##__suffix)))
 
-#if DT_NODE_HAS_STATUS(DT_NODELABEL(gpioa), okay)
-GPIO_DEVICE_INIT_MSP(a);
-#endif /* DT_NODE_HAS_STATUS(DT_NODELABEL(gpioa), okay) */
+#if DT_NODE_HAS_STATUS(GPIOA_NODE, okay)
+GPIO_DEVICE_INIT(GPIOA_NODE, a, DT_REG_ADDR(GPIOA_NODE));
+#endif
 
-#if DT_NODE_HAS_STATUS(DT_NODELABEL(gpiob), okay)
-GPIO_DEVICE_INIT_MSP(b);
-#endif /* DT_NODE_HAS_STATUS(DT_NODELABEL(gpiob), okay) */
+#if DT_NODE_HAS_STATUS(GPIOB_NODE, okay)
+GPIO_DEVICE_INIT(GPIOB_NODE, b, DT_REG_ADDR(GPIOB_NODE));
+#endif
 
-#if DT_NODE_HAS_STATUS(DT_NODELABEL(gpioc), okay)
-GPIO_DEVICE_INIT_MSP(c);
-#endif /* DT_NODE_HAS_STATUS(DT_NODELABEL(gpioc), okay) */
+#if DT_NODE_HAS_STATUS(GPIOC_NODE, okay)
+GPIO_DEVICE_INIT(GPIOC_NODE, c, DT_REG_ADDR(GPIOC_NODE));
+#endif
+
+#if DT_NODE_HAS_STATUS(GPIOD_NODE, okay)
+GPIO_DEVICE_INIT(GPIOD_NODE, d, DT_REG_ADDR(GPIOD_NODE));
+#endif

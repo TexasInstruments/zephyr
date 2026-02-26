@@ -13,6 +13,10 @@
 		led1 = &led1;
 	};
 
+	chosen {
+		zephyr,console = &unicomm0_uart;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 
@@ -30,4 +34,25 @@
 
 &gpio0 {
 	status = "okay";
+};
+
+&pinctrl {
+	status = "okay";
+
+	pb4_uc0_tx_sda_pico: pb4_uc0_tx_sda_pico {
+		pinmux = <TI_AM13E_PINMUX(1, 4, 8)>;
+	};
+
+	pb5_uc0_rx_scl_sclk: pb5_uc0_rx_scl_sclk {
+		pinmux = <TI_AM13E_PINMUX(1, 5, 8)>;
+		input-enable;
+	};
+};
+
+&unicomm0_uart {
+	status = "okay";
+	current-speed = <115200>;
+
+	pinctrl-0 = <&pb4_uc0_tx_sda_pico &pb5_uc0_rx_scl_sclk>;
+	pinctrl-names = "default";
 };

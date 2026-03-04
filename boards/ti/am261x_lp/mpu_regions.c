@@ -24,6 +24,12 @@
 #define REGION_NON_CACHED_DATA_ATTR                                                                \
 	{(NORMAL_OUTER_INNER_NON_CACHEABLE_SHAREABLE | MPU_RASR_XN_Msk | P_RW_U_RW_Msk)}
 
+/*
+ * Flash memory attribute: cacheable, bufferable, non-shareable, executable, TEX=1, READ-ONLY memory
+ */
+#define REGION_FLASH_CODE_DATA_ATTR                                                                \
+	{(NORMAL_OUTER_INNER_WRITE_BACK_WRITE_READ_ALLOCATE_NON_SHAREABLE | P_RO_U_RO_Msk)}
+
 const struct arm_mpu_region mpu_regions[] = {
 	/* Region 0: Base system region - 2GB */
 	MPU_REGION_ENTRY("SYSTEM",          /* name */
@@ -85,6 +91,12 @@ const struct arm_mpu_region mpu_regions[] = {
 			 0x72000000,                 /* base address */
 			 REGION_16K,                 /* size */
 			 REGION_NON_CACHED_DATA_ATTR /* attributes */
+			 ),
+
+	MPU_REGION_ENTRY("FLASH",                    /* name */
+			 0x60000000,                 /* base address */
+			 REGION_256M,                /* size */
+			 REGION_FLASH_CODE_DATA_ATTR /* attributes */
 			 )};
 
 /* MPU Configuration */

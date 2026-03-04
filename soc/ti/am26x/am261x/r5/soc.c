@@ -13,6 +13,12 @@
 #include <common/ctrl_partitions.h>
 #include <common/clocks_configs.h>
 #include <common/xbar_configs.h>
+#define SOC_EARLY_BOOT_ATTR __attribute__((section(".soc_early_boot")))
+
+#ifdef CONFIG_ARM_MPU
+extern void z_arm_mpu_init(void);
+extern void z_arm_configure_static_mpu_regions(void);
+#endif /* CONFIG_ARM_MPU */
 
 unsigned int z_soc_irq_get_active(void)
 {
@@ -49,6 +55,7 @@ int z_soc_irq_is_enabled(unsigned int irq)
 	return z_vim_irq_is_enabled(irq);
 }
 
+SOC_EARLY_BOOT_ATTR
 void cache_init(void)
 {
 #ifdef CONFIG_ICACHE
@@ -63,9 +70,18 @@ void cache_init(void)
 #endif /* CONFIG_DCACHE */
 }
 
+SOC_EARLY_BOOT_ATTR
+void soc_prep_hook(void)
+{
+#ifdef CONFIG_ARM_MPU
+	z_arm_mpu_init();
+	z_arm_configure_static_mpu_regions();
+#endif /* CONFIG_ARM_MPU */
+	cache_init();
+}
+
 void soc_early_init_hook(void)
 {
-	cache_init();
 	am26x_unlock_all_ctrl_partitions();
 	configure_soc_clocks();
 #ifdef CONFIG_DMA

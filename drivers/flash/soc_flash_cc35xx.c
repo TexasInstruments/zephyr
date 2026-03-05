@@ -12,10 +12,10 @@
 #include <zephyr/kernel.h>
 
 #include <ti/drivers/xmem/flash/FlashWFF3.h>
+#include <ti/drivers/xmem/XMEMWFF3.h>
 #include <driverlib/cpu.h>
 
 #define DT_DRV_COMPAT        ti_cc35xx_nv_flash
-#define CC35XX_ERASE_OPCODE  0x20
 #define CC35XX_ERASE_TIMEOUT 200
 
 struct flash_cc35xx_config {
@@ -51,6 +51,57 @@ static bool flash_cc35xx_is_range_valid(const struct device *dev, off_t offset, 
 	return ((size_t)offset < config->size) && (size < config->size - offset);
 }
 
+extern XMEMWFF3_HWAttrs XMEMWFF3_hwAttrs;
+static const FlashType flash_cc35xx_is25wj032f = {
+	/* Operations */
+	.writeStigCfg.preStigCfg = 1,
+	.writeStigCfg.postStigCfg = 0,
+	.readStigCfg.preStigCfg = 0,
+	.readStigCfg.postStigCfg = 0,
+	.eraseStigCfg.preStigCfg = 1,
+	.eraseStigCfg.postStigCfg = 0,
+	.eraseStigCfg.StigCfg = 1,
+
+	/* Enter STIG mode */
+	.enterStigCfg[0].address = OSPI_REGS_BASE + OSPI_O_CONFIG,
+	.enterStigCfg[0].data = 0x82080089,
+	.enterStigCfg[1].address = OSPI_REGS_BASE + OSPI_O_DEV_INSTR_RD_CONFIG,
+	.enterStigCfg[1].data = 0x0402220b,
+	.enterStigCfg[2].address = OSPI_REGS_BASE + OSPI_O_DEV_INSTR_WR_CONFIG,
+	.enterStigCfg[2].data = 0x00022002,
+
+	/* EXIT STIG mode */
+	.exitStigCfg[0].address = OSPI_REGS_BASE + OSPI_O_CONFIG,
+	.exitStigCfg[0].data = 0x82080089,
+	.exitStigCfg[1].address = OSPI_REGS_BASE + OSPI_O_DEV_INSTR_RD_CONFIG,
+	.exitStigCfg[1].data = 0x0402220b,
+	.exitStigCfg[2].address = OSPI_REGS_BASE + OSPI_O_DEV_INSTR_WR_CONFIG,
+	.exitStigCfg[2].data = 0x00022002,
+
+	/* Pre STIG configuration */
+	.writeStigCfg.preStigOperation[0].address = OSPI_REGS_BASE + OSPI_O_FLASH_CMD_CTRL,
+	.writeStigCfg.preStigOperation[0].data = 0x06000001,
+	.eraseStigCfg.preStigOperation[0].address = OSPI_REGS_BASE + OSPI_O_FLASH_CMD_CTRL,
+	.eraseStigCfg.preStigOperation[0].data = 0x06000001,
+
+	/* Execute STIG operation */
+	.readStigCfg.stigOperation[0].address = OSPI_REGS_BASE + OSPI_O_FLASH_CMD_CTRL,
+	.readStigCfg.stigOperation[0].data = 0x0bba0200,
+	.writeStigCfg.stigOperation[0].address = OSPI_REGS_BASE + OSPI_O_FLASH_CMD_CTRL,
+	.writeStigCfg.stigOperation[0].data = 0x020ab000,
+	.eraseStigCfg.stigOperation[0].address = OSPI_REGS_BASE + OSPI_O_FLASH_CMD_CTRL,
+	.eraseStigCfg.stigOperation[0].data = 0x200a0000,
+
+	/* Polling operation */
+	.pollingCfg.command = 0x05900000,
+	.pollingCfg.timeOut = CC35XX_ERASE_TIMEOUT,
+	.pollingCfg.NumOfIteration = 4,
+
+	/* General */
+	.sectorSize = 0x1000,
+	.verifyBufSize = 256,
+};
+
 static int flash_cc35xx_init(const struct device *dev)
 {
 	ARG_UNUSED(dev);
@@ -59,6 +110,8 @@ static int flash_cc35xx_init(const struct device *dev)
 		k_mutex_init(&flash_cc35xx_mutex);
 		flash_cc35xx_initialized = 1;
 	}
+
+	XMEMWFF3_hwAttrs.flashType = flash_cc35xx_is25wj032f;
 
 	return 0;
 }
@@ -86,15 +139,6 @@ __ramfunc static int flash_cc35xx_erase(const struct device *dev, off_t offset, 
 		for (int tries = 3; tries; tries--) {
 			key = irq_lock();
 			ret = FlashSectorErase(addr, 0);
-			/* BUG: FlashSectorErase() is supposed to wait for flash busy flag to
-			 * go off after erasing sector. But it appears there is a bug somewhere
-			 * with the logic, and if we unlock interrupts right after we exit that
-			 * function, chip - most often than not - will go into lockup state
-			 * due to XIP operation on busy flash. Adding busy-loop that is long
-			 * enough works around that problem. Value has been chosen arbitrarily
-			 * based on tests
-			 */
-			CPUDelay(2097152l);
 			irq_unlock(key);
 			if (ret == 0) {
 				break;

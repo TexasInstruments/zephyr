@@ -12,4 +12,10 @@ config NUM_IRQS
 config SYS_CLOCK_HW_CYCLES_PER_SEC
 	default 200000000
 
+config ARM_MPU
+	default y
+
+config CPU_HAS_CUSTOM_FIXED_SOC_MPU_REGIONS
+	default y
+
 endif # SOC_SERIES_AM13E

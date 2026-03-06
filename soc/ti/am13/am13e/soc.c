@@ -5,6 +5,7 @@
  */
 
 #include <dl_sysctl.h>
+#include <dl_fri.h>
 
 static const DL_SYSCTL_SYSPLLConfig gSYSPLLConfig = {
 	.sysPLLRef = DL_SYSCTL_SYSPLL_REF_HFCLK,
@@ -22,7 +23,7 @@ void SysPLL_Init(void)
 	DL_SYSCTL_setHFCLKSourceXTAL(255, true);
 	DL_SYSCTL_configSYSPLL((DL_SYSCTL_SYSPLLConfig *)&gSYSPLLConfig);
 
-	// Before switching to PLL output, step down to a lower frequency and gradually increase
+	/* Before switching to PLL output, step down to a lower frequency and gradually increase */
 	DL_SYSCTL_enablePLLDivider(DL_SYSCTL_PLL_DIVIDER_DIV4);
 	DL_SYSCTL_switchMCLKfromSYSOSCtoHSCLK(DL_SYSCTL_HSCLK_SOURCE_SYSPLL);
 	DL_SYSCTL_enablePLLDivider(DL_SYSCTL_PLL_DIVIDER_DIV2);
@@ -40,7 +41,22 @@ void SysPLL_Init(void)
 	DL_SYSCTL_setCANCLKSource(DL_SYSCTL_CANCLK_SOURCE_SYSPLL_DIV2);
 }
 
+void FLASH_init(void)
+{
+	/* Disable cache before changing wait states */
+	DL_FRI_disableDLB();
+	DL_FRI_disableCache();
+
+	/* Set the flash wait states */
+	DL_FRI_setReadWaitStates(0x3);
+
+	/* Enable cache to improve performance of code executed from flash */
+	DL_FRI_enableDLB();
+	DL_FRI_enableCache();
+}
+
 void soc_early_init_hook(void)
 {
+	FLASH_init();
 	SysPLL_Init();
 }

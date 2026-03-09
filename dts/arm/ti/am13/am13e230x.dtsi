@@ -28,6 +28,11 @@
 			reg = <0x20018000 DT_SIZE_K(32)>;
 			zephyr,memory-region = "SRAM3SAHB";
 		};
+
+		pinctrl: pin-controller@400cc000 {
+			compatible = "ti,msp-pinctrl";
+			reg = <0x400cc000 DT_SIZE_K(16)>;
+		};
 	};
 };
 

@@ -139,5 +139,11 @@
 			reg = <24>;
 			#power-domain-cells = <0>;
 		};
+
+		main_rtc0_pd: power-domain@39 {
+			compatible = "arm,scmi-power-domain";
+			reg = <59>;
+			#power-domain-cells = <0>;
+		};
 	};
 };

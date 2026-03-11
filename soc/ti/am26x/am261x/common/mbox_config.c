@@ -13,7 +13,6 @@
 #include <zephyr/sys/util.h>
 
 #include <zephyr/drivers/mbox/ti_am26x_mbox.h>
-// #include "ti_am26x_mbox.h"
 
 /*
  * MSS controller mailbox register definitions

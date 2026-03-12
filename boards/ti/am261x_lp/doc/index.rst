@@ -13,7 +13,7 @@ See the `TI AM261x Product Page`_ for details.
 |
 
 Hardware
-*********
+********
 * Processor:
 
   + Dual Arm Cortex R5F CPU up to 500MHz
@@ -48,10 +48,11 @@ and 4 Counter Compare Blocks.
 Counter 0, Compare Block 0 of the chosen RTI is used for System Clock.
 
 The RTI Clock Source is fixed to SYS_CLK (250 MHz).
-Refer to table 13-304 in TRM for list of clock sources and frequencies.
+Refer to Table 13-304 in TRM for list of clock sources and frequencies.
 
-NOTE that RTI timer driver halves input frequency by default.
-Thus, an input of 250 MHz to RTI would become 125 MHz.
+.. note::
+    RTI timer driver halves input frequency by default.
+    For instance, input of 250 MHz to RTI would become 125 MHz.
 
 |
 
@@ -62,8 +63,7 @@ The AM261x SoC has 6 UART interfaces for serial communication.
 
 UART 0 is configured as UART for the console.
 
-Default connection settings are Baud Rate of 115200, no parity,
-Data Size of 8, 1 Stop Bit.
+Default settings: 115200 baud, no parity, 8 data bits, 1 stop bit.
 
 |
 
@@ -83,8 +83,8 @@ Data Movement Architecture
 
 AM261x SoC uses eDMA IP for Data Movement.
 
-About eDMA:
-===========
+About eDMA
+==========
 
 eDMA has 2 components:
     - Channel Controller (CC) that handles submitting requests to Transfer Controller (TC).
@@ -100,24 +100,27 @@ eDMA IP has 2 critical resources that must be split among CPUs:
 
 |
 
-Configuration:
-==============
+Configuration
+=============
+
 eDMA resource configuration instructions found in ti,edma.yaml file.
     - Each CPU should configure the eDMA resources it needs in overlay files.
     - Each CPU should set region-id = CPU_number to ensure proper resource partitioning.
     - Queue-number refers to which Transfer Controller (TC) handles DMA transfer.
 
-**> Ensure that 2 cores do NOT have conflicting resources.**
+.. note::
 
-Say both Core0 and Core1 are allocated DMA channels 0 to 20.
-It is possible at runtime for Core 0 to override Core 1's DMA channel configurations (and vice-versa).
+    **Ensure that 2 cores do NOT have conflicting resources.**
 
-**> It's the application developer's responsibility to ensure resource partitioning using appropriate overlay-files.**
+    **It's the application developer's responsibility to ensure resource partitioning using appropriate overlay-files.**
+
+    Say both Core0 and Core1 are allocated DMA channels 0 to 20.
+    It is possible at runtime for Core 0 to override Core 1's DMA channel configurations (and vice-versa).
 
 |
 
-Default Resource Partitioning:
-==============================
+Default Resource Partitioning
+=============================
 
 AM261x SoC has partitioned eDMA resources equally among the 2 CPUs:
 
@@ -148,6 +151,14 @@ Some IPs also have DMA channels configured by default:
 +----------+--------------+--------------+
 | UART5    | Tx:11  Rx:12 | Tx: 43 Rx: 44|
 +----------+--------------+--------------+
+| MCSPI0   | Tx:13  Rx:14 | Tx: 45 Rx: 46|
++----------+--------------+--------------+
+| MCSPI1   | Tx:15  Rx:16 | Tx: 47 Rx: 48|
++----------+--------------+--------------+
+| MCSPI2   | Tx:17  Rx:18 | Tx: 49 Rx: 50|
++----------+--------------+--------------+
+| MCSPI3   | Tx:19  Rx:20 | Tx: 51 Rx: 52|
++----------+--------------+--------------+
 
 |
 
@@ -156,22 +167,22 @@ IPC RPMSG TI - MCU_PLUS_SDK and Zephyr Interoperability
 
 AM261x SoC supports IPC RPMSG communication between MCU-PLUS SDK and Zephyr OS. Important points to note,
 
- * Zephyr Should always act as Host while MCU-PLUS SDK acts as Remote.
+ * Zephyr should always act as Host while MCU-PLUS SDK acts as Remote.
  * Zephyr uses OpenAMP framework for IPC RPMSG communication, whereas MCU_PLUS_SDK uses custom RPMSG implementation.
  * Ensure that both Zephyr and MCU-PLUS SDK use same RPMSG configuration (shared memory address, size, vring size etc.) for successful communication.
 
 .. note::
 
     - The tx and rx base address for the VRINGS should match on both sides for successful communication.
-    - Consider a breakpoint at the `open` function in the zephyr ipc rpmsg static vrings backend driver (`subsys/ipc/ipc_service/backends/ipc_rpmsg_static_vrings.c`) to ensure that the vring base addresses match on both sides.
+    - Consider a breakpoint at the *open* function in the zephyr ipc rpmsg static vrings backend driver (*subsys/ipc/ipc_service/backends/ipc_rpmsg_static_vrings.c*) to ensure that the vring base addresses match on both sides.
 
-        - This can be viewed at `data->vr->tx_addr and data->vr->rx_addr`.
-        - This rx and tx addresses should match the tx and rx base addresses in the ti_drivers_config.c file in the MCU-PLUS-SDK application, respectively.
+        - This can be viewed at *data->vr->tx_addr and data->vr->rx_addr*.
+        - This rx and tx addresses should match the tx and rx base addresses in the ti_drivers_config.c file in the MCU-PLUS SDK application, respectively.
 
 .. note::
 
-    1. The MCU_PLUS_SDK is designed to work RPMSG communication between peers and as remote core to a linux host. Therefore, some modifications are needed to make it work with Zephyr as host.
-    2. The following patch needs to be applied on the MCU-PLUS-SDK to make it interoperable with Zephyr as host and build the libs.
+    1. The MCU_PLUS_SDK is designed to work with RPMSG communication between peers and as remote core to a linux host. Therefore, some modifications are needed to make it work with Zephyr as host.
+    2. The following patch needs to be applied on the MCU-PLUS SDK to make it interoperable with Zephyr as host and build the libs.
 
         .. code-block:: diff
 
@@ -318,13 +329,19 @@ AM261x SoC supports IPC RPMSG communication between MCU-PLUS SDK and Zephyr OS. 
 
 |
 
-Flashing
-********
+Flashing and recommended Bootflow
+*********************************
 
-The binary can be prepared using zephyr's west tool, .elf files are supported for flashing.
+Flashing into AM261x LaunchPad is a two-step process:
 
-As a prerequisite, the board must contain a SBL.
-To prepare and flash an SBL, you will require the MCU-PLUS SDK.
+* Convert Zephyr binary/binaries into MCELF format.
+
+  See :ref:`The McELF Image Generation Process <mcelf_steps>` section for detailed steps.
+
+* Flash MCELF binary along with a SBL OSPI (bootloader) into board.
+  **NOTE that the SBL is required to parse MCELF files, OSPI setup for Flash access, and some clock/pinmux settings.**
+
+  See :ref:`Flashing McELF <flashing_mcelf>` section for detailed steps.
 
 Install latest version of MCU-PLUS SDK from `AM261x MCU-PLUS SDK`_
 
@@ -332,66 +349,183 @@ For more details on SBL and the Bootflow, refer to `AM261x Bootflow Guide`_
 
 For details on the various Boot Modes, refer to `AM261x Boot Modes`_
 
-To flash the SBL into the board, follow the below process:
+.. _mcelf_steps:
 
-*   Locate uart_uniflash.py script.
-    It should be found at {MCU_SDK_PATH}/tools/boot/
+The McELF Image Generation Process
+==================================
 
-*   SW4 must be in 0111. This sets the device to UART Boot Mode.
-    Verify by opening Serial console, the device periodically prints 'C'
-    if its in UART Boot mode.
+Use the genimage.py script located at {MCU_PLUS_SDK_PATH}/tools/boot/multicore-elf/
+to convert Zephyr ELF files into McELF format.
 
-*   Device is ready for flashing.
-    Flashing the SBL can be done with the following command:
+.. code-block:: bash
 
-    ``python uart_uniflash.py -p {port_name} --cfg=sbl_prebuilt/am261x-lp/default_sbl_null.cfg``
+    python genimage.py
+    --core-img=0:/path/to/your/core0/binary.elf
+    --core-img=1:/path/to/your/core1/binary.elf
+    --output=zephyr_hello.release.mcelf
+    --merge-segments=true
+    --tolerance-limit=0
+    --ignore-context=false
+    --xip=0x60100000:0x60800000
+    --xlat=none
+    --max-segment-size=8192
+    --otfaConfigFile=None
+
+Above script creates two files: a .mcelf file and a .mcelf_xip file.
+Both will be used for the subsequent flashing process.
+
+MCELF image generation process documented at: `AM261x MCELF Image Gen Guide`_
+
+.. note::
+    If your application needs to run on a single core only (say Core0),
+    you can remove the --core-img line corresponding to the unused core (Core1) and still generate the mcelf files.
+
+.. _flashing_mcelf:
+
+Flashing McELF
+==============
+
+#.  Prepare a .cfg file for easy flashing.
+    Sample .cfg files can be found at {MCU_PLUS_SDK_PATH}/tools/boot/sbl_prebuilt/am261x-lp/
+
+    Here's what default_sbl_ospi.cfg looks like:
+
+    .. code-block:: python
+
+        # First point to sbl_uart_uniflash binary, which function's as a server to flash one or more files
+        --flash-writer=sbl_prebuilt/am261x-lp/sbl_uart_uniflash.release.tiimage
+
+        # Program the OSPI PHY tuning attack vector
+        --operation=flash-phy-tuning-data
+
+        # When sending bootloader make sure to flash at offset 0x0. ROM expects bootloader at offset 0x0
+        --file=sbl_prebuilt/am261x-lp/sbl_ospi.release.tiimage --operation=flash --flash-offset=0x0
+
+        # When sending application image, make sure to flash at offset 0x81000 (default) or to whatever offset your bootloader is configured for
+        --file=../../examples/drivers/ipc/ipc_notify_echo/am261x-lp/system_freertos_nortos/ipc_notify_echo_system.release.appimage --operation=flash-sector-write --flash-offset=0x81000
+
+        # send the XIP image for this application, no need to specify flash offset since flash offset is specified within the image itself
+        --file=../../examples/drivers/ipc/ipc_notify_echo/am261x-lp/system_freertos_nortos/ipc_notify_echo_system.release.appimage_xip --operation=flash-xip
+
+    .. note::
+        Modify last 2 file paths in above file with the paths to generated .mcelf and .mcelf_xip files.
+
+#.  Switch to UART Boot Mode and Power Cycle the device.
+
+    Flash the McELF with the following command:
+
+    ``python uart_uniflash.py -p {port_name} --cfg=sbl_prebuilt/am261x-lp/your_cfg_file.cfg``
 
     Replace {port_name} with the port connected to UART0 of AM261x LP.
 
-    NOTE that the supplied .cfg file flashes the prebuilt sbl_null into the device.
-    To use any other prebuilt sbl, switch the .cfg file used in above command.
+    your_cfg_file.cfg represents the .cfg file prepared in the previous step.
 
-*   Switch device to OSPI boot mode (SW4 in 1100).
-    Power cycle the device.
+    .. note::
+        uart_uniflash.py script is located at {MCU_PLUS_SDK_PATH}/tools/boot/
+        It's preferable to call the script from the same directory
+        since the .cfg file contains **relative paths** to SBL binary and application binaries.
 
-You are ready to flash your zephyr binary using debugging tools.
+#.  Switch device to OSPI boot mode and Power Cycle the device.
+
+You should see SBL logs in the Serial console, indicating successful boot of SBL and handoff to application as below:
+
+.. code-block:: none
+
+    Starting OSPI Bootloader ...
+    KPI_DATA: [BOOTLOADER_PROFILE] CPU Clock        : 500.000 MHz
+    KPI_DATA: [BOOTLOADER_PROFILE] Boot Media       : NOR SPI FLASH
+    KPI_DATA: [BOOTLOADER_PROFILE] Boot Media Clock : 166.667 MHz
+    KPI_DATA: [BOOTLOADER_PROFILE] Boot Image Size  : 109 KB
+    KPI_DATA: [BOOTLOADER_PROFILE] Cores present    :
+    r5f0-0
+    r5f0-1
+    KPI_DATA: [BOOTLOADER PROFILE] System_init                      :       1054us
+    KPI_DATA: [BOOTLOADER PROFILE] Drivers_open                     :        258us
+    KPI_DATA: [BOOTLOADER PROFILE] LoadHsmRtFw                      :       6284us
+    KPI_DATA: [BOOTLOADER PROFILE] Board_driversOpen                :       9034us
+    KPI_DATA: [BOOTLOADER PROFILE] CPU load                         :       5888us
+    KPI_DATA: [BOOTLOADER PROFILE] SBL End                          :         26us
+    KPI_DATA: [BOOTLOADER_PROFILE] SBL Total Time Taken             :      22548us
+
+    Image loading done, switching to application ...
+
+.. note::
+    More details found at `Getting Started - Flash`_
 
 |
 
 Debugging
 *********
 
-It is recommended to use CCS for flashing & debugging binary.
-
-Debugging with CCS can be done as follows:
+It is recommended to use CCS for debugging binaries.
 
 *   Start project-less debug using AM261x's CCXML file.
 
-    IMPORTANT: Ensure that the initialization GEL scripts for Cortex R5_0 and Cortex R5_1 cores are removed.
+    .. note::
+        Ensure that the initialization GEL scripts for Cortex R5_0 and Cortex R5_1 cores are removed.
+        - Within CCXML file, go to Advanced.
+        - Select CortexR5_0, and erase the initialization GEL script.
 
-*   You may bring device to known state by power-cycling the board.
-    Verify by reading SBL logs in the Serial console.
+        Repeat for CortexR5_1.
 
-*   Connect to the core of your choice (Cortex R5_0 or Cortex R5_1)
-    Load the .elf file (zephyr binary)
+*   Power-cycle board, then connect to the core of your choice (Cortex R5_0 or Cortex R5_1)
+
+*   Load symbols of zephyr binary (Core0 zephyr binary for Core0 Debug)
 
 *   Enjoy debugging!
+
+Learn how to debug XIP applications at : `Debugging XIP Applications`_
+
+Alternate Debug Flow for Binary running entirely from RAM
+=========================================================
+
+The following flow is recommended for debugging non-XIP applications:
+
+*  In Step 2 of :ref:`Flashing McELF <flashing_mcelf>`, use default_sbl_null.cfg to flash SBL Null.
+   SBL Null is a minimal bootloader that performs basic initializations and waits for a binary load.
+
+*  Similar to Debugging steps, use CCXML and connect to the core of your choice.
+
+*  Load the Zephyr binary directly into RAM and run it.
+
+|
+
+Known Issues
+************
+
+*   DMA Callbacks are not firing for Core1.
+
+*   The following features are not yet supported in XIP:
+        - UART-DMA Integration
+        - McSPI
+
+*   Only minimal Logging Subsystem is supported in XIP.
+    (CONFIG_LOG_MODE_MINIMAL=y)
 
 |
 
 References
 **********
 
+*   `AM261x LaunchPad User Guide (Rev. A)`_
 *   `AM261x Technical Reference Manual (TRM)`_
-
 *   `AM261x Register Addendum`_
-
 *   `AM261x Sitara™ Microcontrollers datasheet (Rev. C)`_
 
-*   `AM261x LaunchPad User Guide (Rev. A)`_
+.. _AM261x Boot Modes:
+    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/EVM_SETUP_PAGE.html
 
-.. _AM261x Technical Reference Manual (TRM):
-    https://www.ti.com/lit/ug/sprujb6b/sprujb6b.pdf
+.. _AM261x Bootflow Guide:
+    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/BOOTFLOW_GUIDE.html
+
+.. _AM261x LaunchPad User Guide (Rev. A):
+    https://www.ti.com/lit/ug/sprujf1a/sprujf1a.pdf
+
+.. _AM261x MCELF Image Gen Guide:
+    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/TOOLS_BOOT.html#MCELF_GEN_TOOL
+
+.. _AM261x MCU-PLUS SDK:
+    https://www.ti.com/tool/MCU-PLUS-SDK-AM261X
 
 .. _AM261x Register Addendum:
     https://www.ti.com/lit/ug/spruj94a/spruj94a.pdf
@@ -399,17 +533,14 @@ References
 .. _AM261x Sitara™ Microcontrollers datasheet (Rev. C):
     https://www.ti.com/lit/ds/sprspa7c/sprspa7c.pdf
 
-.. _AM261x LaunchPad User Guide (Rev. A):
-    https://www.ti.com/lit/ug/sprujf1a/sprujf1a.pdf
+.. _AM261x Technical Reference Manual (TRM):
+    https://www.ti.com/lit/ug/sprujb6b/sprujb6b.pdf
 
-.. _AM261x Bootflow Guide:
-    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/BOOTFLOW_GUIDE.html
+.. _Debugging XIP Applications:
+    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/BOOTFLOW_XIP.html#autotoc_md347
 
-.. _AM261x Boot Modes:
-    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/EVM_SETUP_PAGE.html
-
-.. _AM261x MCU-PLUS SDK:
-    https://www.ti.com/tool/MCU-PLUS-SDK-AM261X
+.. _Getting Started - Flash:
+    https://software-dl.ti.com/mcu-plus-sdk/esd/AM261X/latest/exports/docs/api_guide_am261x/GETTING_STARTED_FLASH.html
 
 .. _TI AM261x Product Page:
     https://www.ti.com/tool/LP-AM261

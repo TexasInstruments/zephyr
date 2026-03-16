@@ -8,6 +8,7 @@
 
 #include <ti/cc35xxe.dtsi>
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/dma/ti-cc35xx-dma.h>
 #include "boosterpack_connector.dtsi"
 #include "lp_em_cc35x1-pinctrl.dtsi"
 
@@ -99,12 +100,18 @@
 	pinctrl-0 = <&spi0_master>;
 	pinctrl-names = "default";
 	cs-gpios = <&gpios 26 GPIO_ACTIVE_LOW>;
+	dmas = <&dma 4 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_SPI_0)>,
+	       <&dma 5 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_SPI_0)>;
+	dma-names = "tx", "rx";
 };
 
 &spi1 {
 	status = "okay";
 	pinctrl-0 = <&spi1_slave>;
 	pinctrl-names = "default";
+	dmas = <&dma 8 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_SPI_1)>,
+	       <&dma 9 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_SPI_1)>;
+	dma-names = "tx", "rx";
 };
 
 &flash0 {

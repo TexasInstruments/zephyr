@@ -53,3 +53,9 @@ CONFIG_WDT_SHELL=y
 # be enabled at the same time.
 CONFIG_I2S=n
 CONFIG_I2S_TI_CC35XX=n
+
+# There's a pin conflict between SPI / I2S / CAN so they cannot
+# be enabled at the same time.
+CONFIG_CAN=n
+CONFIG_CAN_TI_CC35XX=n
+CONFIG_CAN_SHELL=n

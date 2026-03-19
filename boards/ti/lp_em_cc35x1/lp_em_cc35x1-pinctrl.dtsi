@@ -88,4 +88,11 @@
 				 <(TI_CC35XX_PINCTRL_DIR_IN | P35_I2S_DATA1)>;
 		};
 	};
+
+	can_default: can_default {
+		group1 {
+			pinmux = <P30_DCAN_TX>,
+				 <P3_DCAN_RX>;
+		};
+	};
 };

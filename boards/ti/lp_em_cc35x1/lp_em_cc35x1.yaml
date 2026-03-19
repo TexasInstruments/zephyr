@@ -9,6 +9,7 @@ toolchain:
   - gnuarmemb
 supported:
   - adc
+  - can
   - counter
   - entropy
   - gpio

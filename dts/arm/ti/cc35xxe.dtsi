@@ -16,12 +16,20 @@
 #define INT_SP_SPI_1_EVT_REQ        21
 #define INT_GPTIMER_0_EVT_CPU_IRQ   22
 #define INT_GPTIMER_1_EVT_CPU_IRQ   23
+#define INT_I2S_IRQ_REQ             25
+#define INT_EVT_SWINT0_REQ          27
+#define INT_EVT_SWINT1_REQ          28
 #define INT_ULL_USC_ULPADCHP_PUB_EVT0_REQ 31
+#define INT_SECURED_GPIO_IRQ_EVT_IND_OUT 33
 #define INT_OSPR_HSM_HOST_0_SEC_IRQ 34
 #define INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT          41
 #define INT_HOST_ELP_TMR_WAKEUP_REQ 62
 #define INT_NAB_HOST_IRQ            63
 #define INT_RTC_EVENT_IRQ           65
+
+#define INT_CAN_LINE0_IRQ_REQ INT_EVT_SWINT0_REQ
+#define INT_CAN_LINE1_IRQ_REQ INT_EVT_SWINT1_REQ
+
 /*
  * Note: Zephyr uses exception numbers, vs the IRQ used by the TI SimpleLink WFF3 SDK
  * which are offset by 16:
@@ -34,7 +42,11 @@
 #define EXP_SPI1     (INT_SP_SPI_1_EVT_REQ - 16)
 #define EXP_GPT0     (INT_GPTIMER_0_EVT_CPU_IRQ - 16)
 #define EXP_GPT1     (INT_GPTIMER_1_EVT_CPU_IRQ - 16)
+#define EXP_I2S      (INT_I2S_IRQ_REQ - 16)
+#define EXP_CAN_IRQ0 (INT_CAN_LINE0_IRQ_REQ - 16)
+#define EXP_CAN_IRQ1 (INT_CAN_LINE1_IRQ_REQ - 16)
 #define EXP_ADC      (INT_ULL_USC_ULPADCHP_PUB_EVT0_REQ - 16)
+#define EXP_GPIO     (INT_SECURED_GPIO_IRQ_EVT_IND_OUT - 16)
 #define EXP_HSM      (INT_OSPR_HSM_HOST_0_SEC_IRQ - 16)
 #define EXP_DMA_NS (INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT - 16)
 #define EXP_NAB_HOST (INT_NAB_HOST_IRQ - 16)
@@ -90,6 +102,12 @@
 	};
 
 	i2cclk: i2c-clock {
+		compatible = "fixed-clock";
+		clock-frequency = <DT_FREQ_M(80)>;
+		#clock-cells = <0>;
+	};
+
+	canclk: can-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <DT_FREQ_M(80)>;
 		#clock-cells = <0>;
@@ -339,7 +357,7 @@
 					gpio-controller;
 					#gpio-cells = <2>;
 					gpio-index-offset = <(0*32)>;
-					interrupts = <17 1>;
+					interrupts = <EXP_GPIO 1>;
 					ngpios = <32>;
 				};
 
@@ -349,7 +367,7 @@
 					gpio-controller;
 					#gpio-cells = <2>;
 					gpio-index-offset = <(1*32)>;
-					interrupts = <17 1>;
+					interrupts = <EXP_GPIO 1>;
 					ngpios = <12>;
 				};
 			};
@@ -423,7 +441,21 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x41270000 DT_SIZE_K(64)>;
-			interrupts = <9 0>;
+			interrupts = <EXP_I2S 0>;
+			status = "disabled";
+		};
+
+		can0: can@412a0000 {
+			compatible = "ti,cc35xx-can";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x412a0000 DT_SIZE_K(64)>, <0x412a1000 DT_SIZE_K(4)>;
+			reg-names = "m_can", "message_ram";
+			interrupts = <EXP_CAN_IRQ0 0>, <EXP_CAN_IRQ1 0>;
+			interrupt-names = "int0", "int1";
+			clocks = <&canclk>;
+			bitrate = <500000>;
+			bosch,mram-cfg = <0x0 128 64 8 8 8 8 8>;
 			status = "disabled";
 		};
 	};

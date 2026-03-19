@@ -278,3 +278,9 @@
 	pin-dir-sd0 = <TI_CC35XX_I2S_PIN_DIR_OUTPUT>;
 	pin-dir-sd1 = <TI_CC35XX_I2S_PIN_DIR_INPUT>;
 };
+
+&can0 {
+	status = "okay";
+	pinctrl-0 = <&can_default>;
+	pinctrl-names = "default";
+};

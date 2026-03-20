@@ -99,6 +99,29 @@ def get_shas(refspec):
     return git('rev-list',
                f'--max-count={-1 if "." in refspec else 1}', refspec).split()
 
+def is_upstream_commit(sha):
+    """
+    Check if a commit is an upstream commit (has UPSTREAM: prefix in subject).
+
+    :param sha: Git commit SHA
+    :return: True if commit has UPSTREAM: prefix, False otherwise
+    """
+    subject = git('log', '--format=%s', '-n', '1', sha)
+    return subject.startswith('UPSTREAM:')
+
+def get_shas_filtered(refspec):
+    """
+    Returns the list of Git SHAs for 'refspec', filtering out upstream commits.
+
+    Upstream commits (with UPSTREAM: prefix) are already validated upstream,
+    so they don't need compliance checks in downstream repositories.
+
+    :param refspec: Git refspec
+    :return: List of commit SHAs excluding upstream commits
+    """
+    shas = get_shas(refspec)
+    return [sha for sha in shas if not is_upstream_commit(sha)]
+
 def get_files(filter=None, paths=None):
     filter_arg = (f'--diff-filter={filter}',) if filter else ()
     paths_arg = ('--', *paths) if paths else ()
@@ -1701,7 +1724,7 @@ class GitDiffCheck(ComplianceTest):
         # Reason: `--check` is mutually exclusive with `--name-only` and `-s`
         p = re.compile(r"\S+\: .*\.")
 
-        for shaidx in get_shas(COMMIT_RANGE):
+        for shaidx in get_shas_filtered(COMMIT_RANGE):
             # Ignore non-zero return status code
             # Reason: `git diff --check` sets the return code to the number of offending lines
             diff = git("diff", f"{shaidx}^!", "--check", "--", ":!*.diff", ":!*.patch", ignore_non_zero=True)
@@ -1909,7 +1932,7 @@ class Identity(ComplianceTest):
     doc = "See https://docs.zephyrproject.org/latest/contribute/guidelines.html#commit-guidelines for more details"
 
     def run(self):
-        for shaidx in get_shas(COMMIT_RANGE):
+        for shaidx in get_shas_filtered(COMMIT_RANGE):
             commit_info = git('show', '-s', '--format=%an%n%ae%n%b', shaidx).split('\n', 2)
 
             failures = []

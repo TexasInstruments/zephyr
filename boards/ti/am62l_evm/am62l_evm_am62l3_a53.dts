@@ -21,6 +21,7 @@
 
 	aliases {
 		led0 = &ld9;
+		watchdog0 = &main_rti0;
 	};
 
 	leds: leds {
@@ -87,4 +88,8 @@
 		#gpio-cells = <2>;
 		ngpios = <24>;
 	};
+};
+
+&main_rti0 {
+	status = "okay";
 };

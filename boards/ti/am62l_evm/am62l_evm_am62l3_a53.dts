@@ -21,6 +21,18 @@
 		zephyr,flash = &flash0_memory;
 	};
 
+	aliases {
+		led0 = &ld9;
+	};
+
+	leds: leds {
+		compatible = "gpio-leds";
+
+		ld9: led_0 {
+			gpios = <&main_gpio0_3 27 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
 	cpus {
 		cpu@0 {
 			status = "okay";
@@ -148,5 +160,11 @@
 };
 
 &main_rtc0 {
+	status = "okay";
+};
+
+&main_gpio0_3 {
+	pinctrl-0 = <&main_gpio0_3_led>;
+	pinctrl-names = "default";
 	status = "okay";
 };

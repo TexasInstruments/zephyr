@@ -22,6 +22,10 @@
 
 #include "test_buffers.h"
 
+/* Callback synchronization and tracking */
+static K_SEM_DEFINE(dma_callback_sem, 0, 1);
+static int callback_status;
+
 static void test_done(const struct device *dma_dev, void *arg,
 		      uint32_t id, int status)
 {
@@ -30,12 +34,20 @@ static void test_done(const struct device *dma_dev, void *arg,
 	} else {
 		TC_PRINT("DMA transfer met an error\n");
 	}
+
+	/* Signal that callback was invoked */
+	callback_status = status;
+	k_sem_give(&dma_callback_sem);
 }
 
 static int test_task(const struct device *dma, uint32_t chan_id, uint32_t blen)
 {
 	struct dma_config dma_cfg = { 0 };
 	struct dma_block_config dma_block_cfg = { 0 };
+
+	/* Reset callback tracking before each test */
+	k_sem_reset(&dma_callback_sem);
+	callback_status = -1;
 
 	if (!device_is_ready(dma)) {
 		TC_PRINT("dma controller device is not ready\n");
@@ -79,7 +91,20 @@ static int test_task(const struct device *dma, uint32_t chan_id, uint32_t blen)
 		TC_PRINT("ERROR: transfer\n");
 		return TC_FAIL;
 	}
-	k_sleep(K_MSEC(2000));
+
+	/* Wait for callback with timeout */
+	if (k_sem_take(&dma_callback_sem, K_MSEC(2000))) {
+		TC_PRINT("ERROR: Callback ISR was not invoked within timeout\n");
+		return TC_FAIL;
+	}
+	TC_PRINT("Callback was invoked successfully\n");
+
+	/* Verify callback reported success */
+	if (callback_status < 0) {
+		TC_PRINT("ERROR: Callback reported error status: %d\n", callback_status);
+		return TC_FAIL;
+	}
+	TC_PRINT("Callback status: %d (success)\n", callback_status);
 
 	TC_PRINT("%s\n", rx_data);
 	if (strcmp(tx_data, rx_data) != 0) {

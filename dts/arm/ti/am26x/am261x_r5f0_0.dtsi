@@ -38,6 +38,12 @@
 	};
 };
 
+&edma0 {
+	interrupts = <0 90 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
+	interrupt-names = "comp_intr";
+	interrupt-parent = <&vim>;
+};
+
 &uart0 {
 	dmas = <&edma0 1>, <&edma0 2>;
 	dma-names = "tx", "rx";

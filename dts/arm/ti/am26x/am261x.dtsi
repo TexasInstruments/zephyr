@@ -295,10 +295,6 @@
 			edma-queues = <2>;
 			dma-channels = <64>;
 			edma-params = <256>;
-
-			interrupts = <0 90 IRQ_TYPE_LEVEL IRQ_DEFAULT_PRIORITY>;
-			interrupt-names = "comp_intr";
-			interrupt-parent = <&vim>;
 		};
 	};
 

@@ -295,9 +295,9 @@ void ti_edma_masterISR(const void *args)
 		}
 	}
 	for (int tcc = 32; tcc < 64; tcc++) {
-		if ((intrLow & (1U << (tcc - 32))) != 0U) {
+		if ((intrHigh & (1U << (tcc - 32))) != 0U) {
 			EDMA_clrIntrRegion(baseAddr, regionId, tcc);
-			intrLow &= ~(1U << (tcc - 32));
+			intrHigh &= ~(1U << (tcc - 32));
 			EDMA_dummyIsrFxn(&(dev_data->channel_data[tcc].isr_data));
 		}
 	}

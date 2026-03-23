@@ -93,6 +93,24 @@
 				reg = <0x40600000 DT_SIZE_K(4)>;
 				status = "disabled";
 			};
+
+			unicomm0_i2cc: unicomm0_i2cc@40608000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <34 0>;
+				reg = <0x40608000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm0_i2ct: unicomm0_i2ct@40610000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <34 0>;
+				reg = <0x40610000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
 		};
 
 		unicomm1: unicomm@40632000 {
@@ -105,6 +123,24 @@
 				compatible = "ti,msp-uart";
 				interrupts = <35 0>;
 				reg = <0x40601000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm1_i2cc: unicomm1_i2cc@40609000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <35 0>;
+				reg = <0x40609000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm1_i2ct: unicomm1_i2ct@40611000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <35 0>;
+				reg = <0x40611000 DT_SIZE_K(4)>;
 				status = "disabled";
 			};
 		};
@@ -121,6 +157,25 @@
 				reg = <0x40602000 DT_SIZE_K(4)>;
 				status = "disabled";
 			};
+
+			unicomm2_i2cc: unicomm2_i2cc@4060A000 {
+				compatible = "ti,unicomm-i2c";
+				unicomm-advanced-i2c;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <36 0>;
+				reg = <0x4060A000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm2_i2ct: unicomm2_i2ct@40612000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <36 0>;
+				reg = <0x40612000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
 		};
 
 		unicomm3: unicomm@40670000 {
@@ -133,6 +188,24 @@
 				compatible = "ti,msp-uart";
 				interrupts = <37 0>;
 				reg = <0x40640000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm3_i2cc: unicomm3_i2cc@40648000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <37 0>;
+				reg = <0x40648000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm3_i2ct: unicomm3_i2ct@40650000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <37 0>;
+				reg = <0x40650000 DT_SIZE_K(4)>;
 				status = "disabled";
 			};
 		};
@@ -149,6 +222,24 @@
 				reg = <0x40641000 DT_SIZE_K(4)>;
 				status = "disabled";
 			};
+
+			unicomm4_i2cc: unicomm4_i2cc@40649000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <38 0>;
+				reg = <0x40649000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm4_i2ct: unicomm4_i2ct@40651000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <38 0>;
+				reg = <0x40651000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
 		};
 
 		unicomm5: unicomm@40674000 {
@@ -161,6 +252,25 @@
 				compatible = "ti,msp-uart";
 				interrupts = <39 0>;
 				reg = <0x40642000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm5_i2cc: unicomm5_i2cc@4064A000 {
+				compatible = "ti,unicomm-i2c";
+				unicomm-advanced-i2c;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <39 0>;
+				reg = <0x4064A000 DT_SIZE_K(4)>;
+				status = "disabled";
+			};
+
+			unicomm5_i2ct: unicomm5_i2ct@40652000 {
+				compatible = "ti,unicomm-i2c";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				interrupts = <39 0>;
+				reg = <0x40652000 DT_SIZE_K(4)>;
 				status = "disabled";
 			};
 		};

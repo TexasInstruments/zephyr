@@ -164,4 +164,8 @@
 	main_ecap0_in: ecap0_in_default {
 		pinmux = <K3_PINMUX(0x078, PIN_INPUT, MUX_MODE_5)>; /* (L22) ECAP0_IN_APWM_OUT */
 	};
+
+	main_gpio0_3_led: main_gpio0_led_default {
+		pinmux = <K3_PINMUX(0x0238, PIN_OUTPUT, MUX_MODE_7)>; /* (D6) MMC1_SDWP */
+	};
 };

@@ -44,6 +44,7 @@ static int test_task(const struct device *dma, uint32_t chan_id, uint32_t blen)
 {
 	struct dma_config dma_cfg = { 0 };
 	struct dma_block_config dma_block_cfg = { 0 };
+	int ret;
 
 	/* Reset callback tracking before each test */
 	k_sem_reset(&dma_callback_sem);
@@ -82,19 +83,27 @@ static int test_task(const struct device *dma, uint32_t chan_id, uint32_t blen)
 	dma_block_cfg.dest_address = (uint32_t)rx_data;
 #endif
 
-	if (dma_config(dma, chan_id, &dma_cfg)) {
-		TC_PRINT("ERROR: transfer\n");
+	ret = dma_config(dma, chan_id, &dma_cfg);
+	if (ret) {
+		TC_PRINT("ERROR: DMA configuration failed with error code %d\n", ret);
 		return TC_FAIL;
 	}
-
-	if (dma_start(dma, chan_id)) {
-		TC_PRINT("ERROR: transfer\n");
+	ret = dma_start(dma, chan_id);
+	if (ret) {
+		TC_PRINT("ERROR: DMA start failed with error code %d\n", ret);
 		return TC_FAIL;
 	}
 
 	/* Wait for callback with timeout */
 	if (k_sem_take(&dma_callback_sem, K_MSEC(2000))) {
 		TC_PRINT("ERROR: Callback ISR was not invoked within timeout\n");
+		if (strcmp(tx_data, rx_data) != 0) {
+			TC_PRINT("Mismatch between tx and rx data\n");
+			TC_PRINT("Transmitted data: %s\n", tx_data);
+			TC_PRINT("Received data: %s\n", rx_data);
+		} else {
+			TC_PRINT("Transmitted data matches received data\n");
+		}
 		return TC_FAIL;
 	}
 	TC_PRINT("Callback was invoked successfully\n");
@@ -106,10 +115,13 @@ static int test_task(const struct device *dma, uint32_t chan_id, uint32_t blen)
 	}
 	TC_PRINT("Callback status: %d (success)\n", callback_status);
 
-	TC_PRINT("%s\n", rx_data);
 	if (strcmp(tx_data, rx_data) != 0) {
+		TC_PRINT("Mismatch between tx and rx data\n");
+		TC_PRINT("Transmitted data: %s\n", tx_data);
+		TC_PRINT("Received data: %s\n", rx_data);
 		return TC_FAIL;
 	}
+	TC_PRINT("Transmitted data matches received data\n");
 	return TC_PASS;
 }
 

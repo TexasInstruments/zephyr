@@ -156,24 +156,17 @@ __ramfunc static int flash_cc35xx_erase(const struct device *dev, off_t offset, 
 static int flash_cc35xx_write(const struct device *dev, off_t offset, const void *buf, size_t size)
 {
 	const struct flash_cc35xx_config *config = dev->config;
-	uint32_t *addr = flash_cc35xx_offset_to_logic_addr(dev, offset);
-	const uint32_t *buffer = buf;
+	void *addr = flash_cc35xx_offset_to_logic_addr(dev, offset);
 
 	if (size % config->parameters->write_block_size) {
-		return -EINVAL;
-	}
-	if ((uintptr_t)buffer % config->parameters->write_block_size) {
 		return -EINVAL;
 	}
 	if (!flash_cc35xx_is_range_valid(dev, offset, size)) {
 		return -EINVAL;
 	}
 
-	size /= sizeof(uint32_t);
 	k_mutex_lock(&flash_cc35xx_mutex, K_FOREVER);
-	for (size_t i = 0; i < size; i++) {
-		addr[i] = buffer[i];
-	}
+	memcpy(addr, buf, size);
 	k_mutex_unlock(&flash_cc35xx_mutex);
 
 	return 0;

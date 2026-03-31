@@ -97,6 +97,13 @@ const struct arm_mpu_region mpu_regions[] = {
 			 0x60000000,                 /* base address */
 			 REGION_256M,                /* size */
 			 REGION_FLASH_CODE_DATA_ATTR /* attributes */
+			 ),
+
+	/* Region 7: PSRAM (OSPI1) - 128MB */
+	MPU_REGION_ENTRY("PSRAM",                    /* name */
+			 0xA0000000,                 /* base address */
+			 REGION_128M,                /* size */
+			 REGION_CACHE_CODE_DATA_ATTR /* attributes */
 			 )};
 
 /* MPU Configuration */

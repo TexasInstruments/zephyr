@@ -5,6 +5,14 @@
  */
 
 / {
+
+	/* PSRAM via OSPI1 - 128MB memory-mapped region */
+	psram0: memory@a0000000 {
+		compatible = "zephyr,memory-region", "mmio-sram";
+		reg = <0xa0000000 DT_SIZE_M(128)>;
+		zephyr,memory-region = "PSRAM";
+	};
+
 	reserved-memory {
 		/* Reserved for SBL residing in Flash */
 		ospi_sbl_flash: memory@60000000 {

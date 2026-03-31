@@ -1,0 +1,32 @@
+sample:
+  name: AM261x PSRAM I/O Sample
+  description: >
+    Demonstrates PSRAM read/write operations on TI AM261x LaunchPad.
+    Writes data from SRAM to PSRAM via OSPI1, reads it back, and verifies integrity.
+
+common:
+  tags:
+    - sample
+    - psram
+  integration_platforms:
+    - am261x_lp/am2612/r5f0_0
+    - am261x_lp/am2612/r5f0_1
+  harness: console
+  harness_config:
+    type: one_line
+    regex:
+      - "ALL TESTS PASSED!"
+
+tests:
+  sample.boards.ti.am261x_psram_io.normal:
+    tags: tests
+  sample.boards.ti.am261x_psram_io.cache_disabled:
+    tags: tests
+    extra_configs:
+      - CONFIG_CACHE_MANAGEMENT=n
+      - CONFIG_DCACHE=n
+      - CONFIG_ICACHE=n
+  sample.boards.ti.am261x_psram_io.execute_from_psram:
+    tags: tests
+    extra_configs:
+      - CONFIG_TEST_EXECUTE_FROM_PSRAM=y

@@ -73,6 +73,8 @@ pipeline
         --retry-failed 3 --timeout-multiplier 2 --clobber-output -W \
         -j $(nproc)'
 
+        TWISTER_ADDITIONAL_ARGS = '--fixture gpio_loopback'
+
         /* Avoid building large binary files */
         TWISTER_KCONFIG_OVERRIDES = '-x CONFIG_BUILD_OUTPUT_BIN=n'
 
@@ -363,7 +365,7 @@ pipeline
                         int statusTwister = docker_compose.bashGetStatus("""\
                             cd zephyr; \
                             source zephyr-env.sh; \
-                            west twister --prep-artifacts-for-testing ${env.TWISTER_COMMON} ${env.TWISTER_KCONFIG_OVERRIDES} ${env.BOARDS_FINAL} ${env.TESTFOLDERS_FINAL}; \
+                            west twister --prep-artifacts-for-testing ${env.TWISTER_COMMON} ${env.TWISTER_KCONFIG_OVERRIDES} ${env.TWISTER_ADDITIONAL_ARGS} ${env.BOARDS_FINAL} ${env.TESTFOLDERS_FINAL}; \
                         """, label: 'Build twister tests')
 
                         if (statusTwister != 0) {
@@ -396,7 +398,7 @@ pipeline
 
                         /* Only mount devices when required */
                         common.printHeading('Tests Results')
-                        test.allDevices(env.LAB_DEVICE_LABELS, '', additionalNodeSpec: env.LOCATION + "&& zephyr", twister: true)
+                        test.allDevices(env.LAB_DEVICE_LABELS, '', additionaltestArgs: env.TWISTER_ADDITIONAL_ARGS, additionalNodeSpec: env.LOCATION + "&& zephyr", twister: true)
 
                     }
                 }

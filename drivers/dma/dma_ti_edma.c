@@ -607,7 +607,7 @@ static int ti_edma_configure(const struct device *dev, uint32_t channel, struct 
 	EDMA_setPaRAM(baseAddr, param, &edmaParam);
 
 	/* Register ISR */
-	if (config->complete_callback_en && (config->dma_callback != NULL)) {
+	if (config->dma_callback != NULL) {
 
 		LOG_DBG("Registering DMA callback ISR...\n");
 		irq_disable(dev_config->gEdmaAttrs.compIntrNumber);

@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+config FLSOPSKD_INT_MODE
+    bool "Use this KConfig to overwrite SDK's implementation of Busy Poll"
+    default y
+    help
+      The wrapper implements Interrupt based status check, 
+      instead of SDK's Busy Polling mode.
+
+config FLSOPSKD_INT_NUM
+    int "Interrupt Number for Flash Operation Scheduler"
+    default 202
+    depends on FLSOPSKD_INT_MODE
+    help
+      Interrupt Number from SDK for FLSOPSKD interrupt based usage. this should match the SDK's 
+      CSLR_R5FSS0_CORE0_INTR_FOTA_STAT_INTR
+
+config FLSOPSKD_INT_PRIO
+    int "Interrupt Priority for the Flash Scheduler completion status"
+    default 5
+    depends on FLSOPSKD_INT_MODE
+    help
+       Interrupt Priority for FLSOPSKD interrupt based usage

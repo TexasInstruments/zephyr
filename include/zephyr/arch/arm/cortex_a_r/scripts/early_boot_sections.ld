@@ -7,7 +7,7 @@
  * This section must be placed in RAM for accessing Flash of AM261x SoC.
  */
 
-SECTION_PROLOGUE(early_boot_section,(NOLOAD),)
+SECTION_PROLOGUE(early_boot_section,,)
 {
     . = ALIGN(_region_min_align);
     __early_boot_section_start = .;

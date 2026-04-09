@@ -63,10 +63,10 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 			DL_GPIO_initPeripheralAnalogFunction(pin_cm);
 		} else if ((iomux >> AM13E_GPIO_INPUT_ENABLE) & 0x1) {
 			/* Pin has input-enable property, configure as peripheral input */
-			DL_GPIO_initPeripheralInputFunction(pin_cm, pin_function);
+			DL_GPIO_initPeripheralInputFunction(pin_cm, (iomux | pin_function));
 		} else {
 			/* Configure as peripheral output */
-			DL_GPIO_initPeripheralOutputFunction(pin_cm, pin_function);
+			DL_GPIO_initPeripheralOutputFunction(pin_cm, (iomux | pin_function));
 		}
 #endif
 	}

@@ -398,7 +398,7 @@ pipeline
 
                         /* Only mount devices when required */
                         common.printHeading('Tests Results')
-                        test.allDevices(env.LAB_DEVICE_LABELS, '', additionaltestArgs: env.TWISTER_ADDITIONAL_ARGS, additionalNodeSpec: env.LOCATION + "&& zephyr", twister: true)
+                        test.allDevices(env.LAB_DEVICE_LABELS, '', additionalTestArgs: env.TWISTER_ADDITIONAL_ARGS, additionalNodeSpec: env.LOCATION + "&& zephyr", twister: true)
 
                     }
                 }

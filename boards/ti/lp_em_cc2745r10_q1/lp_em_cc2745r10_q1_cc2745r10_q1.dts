@@ -37,6 +37,7 @@
 		sw1 = &btn1;
 		pwm-led0 = &pwm_led0;
 		pwm-led1 = &pwm_led1;
+		rtc = &rtc;
 	};
 
 	pwmleds {
@@ -227,4 +228,8 @@ ti_bt_hci: ti_bt_hci {
 	status = "okay";
 	pinctrl-0 = <&pwm7_default>;
 	pinctrl-names = "default";
+};
+
+&rtc {
+	status = "okay";
 };

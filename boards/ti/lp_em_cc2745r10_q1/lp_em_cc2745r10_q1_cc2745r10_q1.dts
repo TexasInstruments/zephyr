@@ -17,7 +17,7 @@
 #define BTN_GPIO_FLAGS (GPIO_ACTIVE_LOW | GPIO_PULL_UP)
 
 / {
-	model = "LP_EM_CC2745R10_Q1 with CC2745R10_Q1 SoC";
+	model = "TI CC2745R10_Q1 LaunchPad with CC2745R10_Q1 SoC";
 
 	chosen {
 		zephyr,sram = &sram0;

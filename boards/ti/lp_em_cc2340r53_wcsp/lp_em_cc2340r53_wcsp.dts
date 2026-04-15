@@ -17,7 +17,7 @@
 #define BTN_GPIO_FLAGS (GPIO_ACTIVE_LOW | GPIO_PULL_UP)
 
 / {
-	model = "CC2340R53 WCSP launchpad";
+	model = "TI CC2340R53 WCSP launchPad";
 	compatible = "ti,lp_em_cc2340r53_wcsp";
 
 	chosen {

@@ -37,7 +37,7 @@ manifest:
     - name: hal_ti
       remote: ti
       repo-path: hal_ti.git
-      revision: 9.20-baseline
+      revision: 218d961-ti-9.14-internal
       path: modules/hal/ti
       groups:
         - hal

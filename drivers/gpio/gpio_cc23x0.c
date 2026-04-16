@@ -81,6 +81,8 @@ static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_fl
 			GPIOSetDio(pin);
 		} else if (flags & GPIO_OUTPUT_INIT_LOW) {
 			GPIOClearDio(pin);
+		} else if (flags & GPIO_LINE_OPEN_DRAIN) {
+			GPIOSetDio(pin);
 		}
 		GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_ENABLE);
 

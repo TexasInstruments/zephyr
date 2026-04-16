@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+config DMA_TI_AM13
+	bool "TI AM13x DMA Driver"
+	default y
+	depends on DT_HAS_TI_AM13_DMA_ENABLED
+	help
+		DMA driver for TI AM13x.

@@ -1,0 +1,119 @@
+#include <zephyr/dt-bindings/i2c/ti-unicomm-i2c.h>
+
+&pinctrl {
+    pa11_uc2_tx_sda: pa11_uc2_tx_sda {
+        pinmux = <TI_AM13E_PINMUX(0, 11, 4)>;
+        bias-pull-up;
+        drive-open-drain;    /* Matches DL_GPIO_enableHiZ */
+        input-enable;        /* Required for bidirectional I2C */
+    };
+
+    pa23_uc2_rx_sclk: pa23_uc2_rx_sclk {
+        pinmux = <TI_AM13E_PINMUX(0, 23, 4)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+    };
+
+    /* Apply similar logic to your Target pins */
+    pa10_uc1_tx_sda_pico: pa10_uc1_tx_sda_pico {
+        pinmux = <TI_AM13E_PINMUX(0, 10, 6)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+    };
+
+    pa9_uc1_rx_scl_sclk: pa9_uc1_rx_scl_sclk {
+        pinmux = <TI_AM13E_PINMUX(0, 9, 5)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+    };
+
+	/* non-advanced controller */
+	pa22_uc3_tx_sda_pico: pa22_uc3_tx_sda_pico {
+		pinmux = <TI_AM13E_PINMUX(0, 22, 9)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+	};
+
+	pa24_uc3_rx_scl_sclk: pa24_uc3_rx_scl_sclk {
+		pinmux = <TI_AM13E_PINMUX(0, 24, 6)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+	};
+
+	pb10_uc3_rx_scl_sclk: pb10_uc3_rx_scl_sclk {
+		pinmux = <TI_AM13E_PINMUX(1, 10, 7)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+	};
+
+	pb11_uc3_tx_sda_pico: pb11_uc3_tx_sda_pico {
+		pinmux = <TI_AM13E_PINMUX(1, 11, 13)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+	};
+
+	/* advanced target */
+	pa22_uc5_tx_sda: pa22_uc5_tx_sda {
+		pinmux = <TI_AM13E_PINMUX(0, 22, 7)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+	};
+
+	pb6_uc5_rx_scl: pb6_uc5_rx_scl {
+		pinmux = <TI_AM13E_PINMUX(1, 6, 8)>;
+        bias-pull-up;
+        drive-open-drain;
+        input-enable;
+	};
+};
+
+/ {
+	aliases {
+		i2c-controller = &unicomm2_i2cc;
+		i2c-target = &unicomm1_i2ct;
+	};
+};
+
+/* advanced target */
+&unicomm5_i2ct {
+	status = "okay";
+
+	pinctrl-0 = <&pa22_uc5_tx_sda &pb6_uc5_rx_scl>;
+	pinctrl-names = "default";
+
+	rxfifo-threshold = <I2CT_RX_FIFO_LEVEL_NOT_EMPTY>;
+};
+
+/* target */
+&unicomm1_i2ct {
+	status = "okay";
+
+	pinctrl-0 = <&pa10_uc1_tx_sda_pico &pa9_uc1_rx_scl_sclk>;
+	pinctrl-names = "default";
+
+	//rxfifo-threshold = <I2CT_RX_FIFO_LEVEL_NOT_EMPTY>;
+};
+
+/* advanced controller */
+&unicomm2_i2cc {
+	status = "okay";
+
+	pinctrl-0 = <&pa11_uc2_tx_sda &pa23_uc2_rx_sclk>;
+	pinctrl-names = "default";
+};
+
+/* controller */
+&unicomm3_i2cc {
+	status = "okay";
+
+	pinctrl-0 = <&pb11_uc3_tx_sda_pico &pb10_uc3_rx_scl_sclk>;
+	pinctrl-names = "default";
+};

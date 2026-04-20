@@ -578,3 +578,5 @@ bool bt_drv_quirk_no_auto_dle(void);
 void bt_tx_irq_raise(void);
 
 int  bt_hci_le_rand(void *buffer, size_t len);
+
+void bt_tx_irq_raise(void);

@@ -375,6 +375,7 @@ pipeline
                         stash(
                             name: 'firmware_images',
                             includes: ".west/**/*,zephyr/twister-out/**/*",
+                            excludes: "zephyr/twister-out/**/build.log",
                             allowEmpty: true
                         )
 
@@ -392,7 +393,7 @@ pipeline
                         common.printBody(testResultTable)
 
                         junit testResults: 'zephyr/twister-out/twister_build.xml',
-                        allowEmptyResults: true, skipPublishingChecks: true
+                            allowEmptyResults: true, skipPublishingChecks: true
 
                         env.LOCATION = 'oslo'
 

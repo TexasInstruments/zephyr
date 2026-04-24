@@ -162,7 +162,15 @@ static int i2c_cc35xx_prime_transfer(const struct device *dev, uint8_t *buf, uin
 	I2CEnableInt(config->base, enable_interrupt);
 	I2CControllerSetTargetAddr(config->base, addr_mode, addr, direction);
 	I2CControllerSetCommand(config->base, cmd, data->buflen);
-	if (k_sem_take(&data->i2c_msg_done, K_MSEC(100))) {
+	/*
+	 * TRM §19.4: after issuing CCTR, "Wait until the transmission
+	 * completes by polling the CSR register's BUSY bit until it has
+	 * been cleared." ~500 us settle is required here for the
+	 * controller FSM to progress before the event IRQ takes over.
+	 */
+	k_busy_wait(500);
+	int st = k_sem_take(&data->i2c_msg_done, K_MSEC(100));
+	if (st) {
 		return -ETIMEDOUT;
 	}
 
@@ -185,7 +193,7 @@ static int i2c_cc35xx_transfer(const struct device *dev, struct i2c_msg *msgs,
 	k_sem_reset(&data->i2c_msg_done);
 
 	I2CFlushFifos(config->base);
-	I2CClearInt(config->base, I2C_INT_ALL);
+	I2CClearInt(config->base, I2C_INT_ALL);  /* 10ms match swuart print delay */
 
 	for (int i = 0; i < num_msgs; i++) {
 		msg = msgs + i;

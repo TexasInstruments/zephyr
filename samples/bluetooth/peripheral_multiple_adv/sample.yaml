@@ -5,4 +5,5 @@ tests:
     harness: bluetooth
     platform_allow:
       - lp_em_cc2340r53
+      - lp_em_cc2340r53_wcsp
     tags: bluetooth

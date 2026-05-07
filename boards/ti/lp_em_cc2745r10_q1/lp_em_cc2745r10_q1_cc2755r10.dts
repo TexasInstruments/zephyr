@@ -195,3 +195,7 @@
 &rtc {
 	status = "okay";
 };
+
+&rng {
+	status = "okay";
+};

@@ -95,7 +95,7 @@ endmenu
 #====== LogSinkTrace ======#
 
 config SIMPLELINK_LPF3_TRACE
-	bool "Enable LogSinkTrace"
+	bool "LogSinkTrace"
 	depends on HAS_CC23X0_SDK || HAS_CC27XX_SDK
 	default n
 	help

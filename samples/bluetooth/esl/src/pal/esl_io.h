@@ -1,4 +1,3 @@
-
 /**
  *  \file esl_io.h
  *
@@ -33,14 +32,35 @@
 /** Number of image slots */
 /** Size of each image in bytes */
 #define IO_IMAGE_MAX_SIZE   1024
+
 /** Number of LEDs on the board */
-#define IO_NUM_LEDS         BT_ESL_MAX_LED_SUPPORTED
+#if (CONFIG_BT_ESL_MAX_LED_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_LED_SUPPORTED <= 256)
+#define IO_NUM_LEDS         CONFIG_BT_ESL_MAX_LED_SUPPORTED
+#else
+#define IO_NUM_LEDS         2
+#endif
+
 /** Number of displays on the board */
-#define IO_NUM_DISPLAYS     BT_ESL_MAX_DISPLAY_SUPPORTED
+#if (CONFIG_BT_ESL_MAX_DISPLAY_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_DISPLAY_SUPPORTED <= 102)
+#define IO_NUM_DISPLAYS     CONFIG_BT_ESL_MAX_DISPLAY_SUPPORTED
+#else
+#define IO_NUM_DISPLAYS     1
+#endif
+
 /** Number of images */
-#define IO_MAX_IMAGES       BT_ESL_MAX_IMAGE_SUPPORTED
+#if (CONFIG_BT_ESL_MAX_IMAGE_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_IMAGE_SUPPORTED <= 256)
+#define IO_MAX_IMAGES       CONFIG_BT_ESL_MAX_IMAGE_SUPPORTED
+#else
+#define IO_MAX_IMAGES       2
+#endif
+
 /** Number of sensors */
-#define IO_NUM_SENSORS      BT_ESL_MAX_SENSOR_SUPPORTED
+#if (CONFIG_BT_ESL_MAX_SENSOR_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_SENSOR_SUPPORTED <= 256)
+#define IO_NUM_SENSORS      CONFIG_BT_ESL_MAX_SENSOR_SUPPORTED
+#else
+#define IO_NUM_SENSORS      2
+#endif
+
 /** Sensor data size */
 #define IO_SENSOR_DATA_SIZE 1
 

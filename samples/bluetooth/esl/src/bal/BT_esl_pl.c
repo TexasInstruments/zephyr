@@ -1891,6 +1891,21 @@ API_RESULT BT_esl_stop_periodic_adv_pl(void)
         }
     }
 
+    /*
+     * Demote only those Tags that are currently in BT_ESL_AP_SYNCHRONIZED
+     * state to BT_ESL_AP_UNSYNCHRONIZED, since the periodic advertising
+     * train has been stopped. Tags in any other state (e.g. CONNECTED,
+     * CONFIGURING, UNASSOCIATE) are intentionally left untouched.
+     * Passing NULL as the ESL Address performs this conditional update
+     * across every valid tag entry in the tag table.
+     */
+    (void) BT_esl_ap_set_esl_tag_state
+           (
+               NULL,
+               BT_ESL_AP_SYNCHRONIZED,
+               BT_ESL_AP_UNSYNCHRONIZED
+           );
+
     return retval;
 }
 
@@ -2709,7 +2724,7 @@ void update_esl_attr_handle_pl(const struct bt_uuid *uuid, uint16_t handle, BT_E
  *
  * \return BT_GATT_ITER_CONTINUE to continue discovery, BT_GATT_ITER_STOP to stop discovery.
  */
-static uint8_t discovery_cb_pl
+static uint8_t esl_discovery_cb_pl
                (
                     struct bt_conn *conn,
                     const struct bt_gatt_attr *attr,
@@ -2723,8 +2738,20 @@ static uint8_t discovery_cb_pl
     /* Init */
     retval = BT_GATT_ITER_CONTINUE;
 
-    /* Get connection index */
+    /* Validate connection before any dereference (bt_conn_index requires non-NULL) */
+    if (NULL == conn)
+    {
+        ESL_PL_ERR("[ESL PL]: Discovery callback received NULL conn");
+        return BT_GATT_ITER_STOP;
+    }
+
+    /* Get connection index and validate bounds */
     conn_idx = bt_conn_index(conn);
+    if (conn_idx >= CONFIG_BT_MAX_CONN)
+    {
+        ESL_PL_ERR("[ESL PL]: Invalid connection index %d", conn_idx);
+        return BT_GATT_ITER_STOP;
+    }
 
     /* Check if params is NULL */
     if (params == NULL)
@@ -2740,6 +2767,17 @@ static uint8_t discovery_cb_pl
     case BT_GATT_DISCOVER_PRIMARY:
     {
         struct bt_gatt_service_val *svc;
+
+        /* Zephyr passes NULL attr when discovery is exhausted (service not found) */
+        if ((NULL == attr) || (NULL == attr->user_data))
+        {
+            ESL_PL_TRC ("[ESL PL]: ESL primary service not found");
+            attr_handles[conn_idx].discovery_in_progress = BT_ESL_FALSE;
+            discovery_complete_to_ul(conn, NULL);
+            retval = BT_GATT_ITER_STOP;
+            break;
+        }
+
         /* Handle service discovery */
         svc = attr->user_data;
         ESL_PL_TRC ("[ESL PL]: Found Service:");
@@ -2770,7 +2808,8 @@ static uint8_t discovery_cb_pl
     {
         struct bt_gatt_chrc *chrc;
         /* Checking CHAR discovery is completed or not */
-        if ((NULL != attr) && (params->start_handle < params->end_handle))
+        if ((NULL != attr) && (NULL != attr->user_data)
+            && (params->start_handle < params->end_handle))
         {
             /* Handle characteristic discovery */
             chrc = attr->user_data;
@@ -2920,7 +2959,7 @@ API_RESULT BT_esl_discover_esl_service_pl(BT_ESL_BD_ADDR * bd_addr)
 
             /* Set up discovery parameters */
             attr_handles[conn_idx].discover_params.uuid = BT_UUID_DECLARE_16(BT_ESL_GATT_ESL_SERVICE);
-            attr_handles[conn_idx].discover_params.func = discovery_cb_pl;
+            attr_handles[conn_idx].discover_params.func = esl_discovery_cb_pl;
             attr_handles[conn_idx].discover_params.start_handle = 0x0001;
             attr_handles[conn_idx].discover_params.end_handle = 0xffff;
             attr_handles[conn_idx].discover_params.type = BT_GATT_DISCOVER_PRIMARY;
@@ -4819,7 +4858,7 @@ void update_ots_attr_handle_pl(const struct bt_uuid *uuid, uint16_t handle, uint
         print_uuid_pl(uuid);
     }
 }
-static uint8_t ots_discover_func
+static uint8_t ots_discovery_cb_pl
                (
                     struct bt_conn *conn,
                     const struct bt_gatt_attr *attr,
@@ -4835,15 +4874,27 @@ static uint8_t ots_discover_func
     retval = BT_GATT_ITER_CONTINUE;
     BT_ESL_mem_set(&bd_addr, 0x00U, sizeof(bd_addr));
 
-    if (conn != NULL)
+    /* Validate connection before any dereference (bt_conn_index requires non-NULL) */
+    if (NULL == conn)
     {
-        /* Copy the peer address */
+        ESL_PL_ERR("[ESL PL]: Discovery callback received NULL conn");
+        return BT_GATT_ITER_STOP;
+    }
+
+    /* Get connection index and validate bounds */
+    conn_idx = bt_conn_index(conn);
+    if (conn_idx >= CONFIG_BT_MAX_CONN)
+    {
+        ESL_PL_ERR("[ESL PL]: Invalid connection index %d", conn_idx);
+        return BT_GATT_ITER_STOP;
+    }
+
+    /* Copy the peer address (guard bt_conn_get_dst() return) */
+    if (NULL != bt_conn_get_dst(conn))
+    {
         BT_ESL_COPY_BD_ADDR(bd_addr.addr, (UCHAR *)(bt_conn_get_dst(conn)->a.val));
         BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
     }
-
-    /* Get connection index */
-    conn_idx = bt_conn_index(conn);
 
     /* Check if params is NULL */
     if (params == NULL)
@@ -4863,6 +4914,20 @@ static uint8_t ots_discover_func
     case BT_GATT_DISCOVER_PRIMARY:
     {
         struct bt_gatt_service_val *svc;
+
+        /* Zephyr passes NULL attr when discovery is exhausted (service not found) */
+        if ((NULL == attr) || (NULL == attr->user_data))
+        {
+            ESL_PL_TRC ("[ESL PL]: OTS primary service not found");
+            ots_discovery_session[conn_idx].discovery_in_progress = BT_ESL_FALSE;
+            if (NULL != ots_callback.discovery_complete)
+            {
+                ots_callback.discovery_complete(&bd_addr, BT_ESL_API_FAILURE);
+            }
+            retval = BT_GATT_ITER_STOP;
+            break;
+        }
+
         /* Handle service discovery */
         svc = attr->user_data;
         ESL_PL_TRC ("[ESL PL]: Found Service:");
@@ -4896,7 +4961,8 @@ static uint8_t ots_discover_func
     {
         struct bt_gatt_chrc *chrc;
         /* Checking CHAR discovery is completed or not */
-        if ((NULL != attr) && (params->start_handle < params->end_handle))
+        if ((NULL != attr) && (NULL != attr->user_data)
+            && (params->start_handle < params->end_handle))
         {
             /* Handle characteristic discovery */
             chrc = attr->user_data;
@@ -5006,7 +5072,7 @@ API_RESULT BT_esl_discover_ots_pl(BT_ESL_BD_ADDR * bd_addr)
 
             /* Set up discovery parameters */
             ots_discovery_session[conn_idx].discover_params.uuid = BT_UUID_OTS;
-            ots_discovery_session[conn_idx].discover_params.func = ots_discover_func;
+            ots_discovery_session[conn_idx].discover_params.func = ots_discovery_cb_pl;
             ots_discovery_session[conn_idx].discover_params.start_handle = 0x0001;
             ots_discovery_session[conn_idx].discover_params.end_handle = 0xffff;
             ots_discovery_session[conn_idx].discover_params.type = BT_GATT_DISCOVER_PRIMARY;
@@ -5132,7 +5198,7 @@ API_RESULT BT_esl_register_ots_callback_pl(BT_ESL_OTS_CALLBACK * callback)
 }
 #endif /* CONFIG_BT_OTS */
 
-static uint8_t dis_discover_func
+static uint8_t dis_discovery_cb_pl
                (
                     struct bt_conn *conn,
                     const struct bt_gatt_attr *attr,
@@ -5148,15 +5214,27 @@ static uint8_t dis_discover_func
     retval = BT_GATT_ITER_CONTINUE;
     BT_ESL_mem_set(&bd_addr, 0x00U, sizeof(bd_addr));
 
-    if (conn != NULL)
+    /* Validate connection before any dereference (bt_conn_index requires non-NULL) */
+    if (NULL == conn)
     {
-        /* Copy the peer address */
+        ESL_PL_ERR("[ESL PL]: DIS discovery callback received NULL conn");
+        return BT_GATT_ITER_STOP;
+    }
+
+    /* Get connection index and validate bounds */
+    conn_idx = bt_conn_index(conn);
+    if (conn_idx >= CONFIG_BT_MAX_CONN)
+    {
+        ESL_PL_ERR("[ESL PL]: Invalid connection index %d", conn_idx);
+        return BT_GATT_ITER_STOP;
+    }
+
+    /* Copy the peer address (guard bt_conn_get_dst() return) */
+    if (NULL != bt_conn_get_dst(conn))
+    {
         BT_ESL_COPY_BD_ADDR(bd_addr.addr, (UCHAR *)(bt_conn_get_dst(conn)->a.val));
         BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
     }
-
-    /* Get connection index */
-    conn_idx = bt_conn_index(conn);
 
     /* Check if params is NULL */
     if (params == NULL)
@@ -5172,6 +5250,16 @@ static uint8_t dis_discover_func
     case BT_GATT_DISCOVER_PRIMARY:
     {
         struct bt_gatt_service_val *svc;
+
+        /* Zephyr passes NULL attr when discovery is exhausted (service not found) */
+        if ((NULL == attr) || (NULL == attr->user_data))
+        {
+            ESL_PL_TRC ("[ESL PL]: DIS primary service not found");
+            dis_discovery_session[conn_idx].discovery_in_progress = BT_ESL_FALSE;
+            retval = BT_GATT_ITER_STOP;
+            break;
+        }
+
         /* Handle service discovery */
         svc = attr->user_data;
         ESL_PL_TRC ("[ESL PL]: Found DIS Service:");
@@ -5199,7 +5287,8 @@ static uint8_t dis_discover_func
     {
         struct bt_gatt_chrc *chrc;
         /* Checking CHAR discovery is completed or not */
-        if ((NULL != attr) && (params->start_handle < params->end_handle))
+        if ((NULL != attr) && (NULL != attr->user_data)
+            && (params->start_handle < params->end_handle))
         {
             /* Handle characteristic discovery */
             chrc = attr->user_data;
@@ -5289,7 +5378,7 @@ API_RESULT BT_esl_discover_dis_pl(BT_ESL_BD_ADDR * bd_addr)
 
             /* Set up discovery parameters */
             dis_discovery_session[conn_idx].discover_params.uuid = BT_UUID_DIS;
-            dis_discovery_session[conn_idx].discover_params.func = dis_discover_func;
+            dis_discovery_session[conn_idx].discover_params.func = dis_discovery_cb_pl;
             dis_discovery_session[conn_idx].discover_params.start_handle = 0x0001;
             dis_discovery_session[conn_idx].discover_params.end_handle = 0xffff;
             dis_discovery_session[conn_idx].discover_params.type = BT_GATT_DISCOVER_PRIMARY;

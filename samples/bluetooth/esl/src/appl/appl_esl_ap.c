@@ -15,11 +15,6 @@
 #ifdef BT_ESL_SUPPORT_AP_ROLE
 
 /* --------------------------------------------- Global Definitions */
-/** Number of groups: Mapped to the ones in Project Configuration */
-#define APPL_ESL_MAX_NO_OF_GROUPS                       BT_ESL_MAX_GROUPS_SUPPORTED
-/** Number of tags per group: Mapped to the ones in Project Configuration */
-#define APPL_ESL_MAX_NO_OF_TAGS_PER_GROUP               BT_ESL_MAX_ESL_TAGS_SUPPORTED
-
 /** Periodic adv params  */
 /**
  * RSP Slot Spacing
@@ -158,6 +153,7 @@ void appl_es_ap_tag_table_init(void)
 
     /* Initialize ESL groups and tags */
     appl_esl_tag_table.esl_groups = appl_esl_groups;
+
     for (i = 0; i < APPL_ESL_MAX_NO_OF_GROUPS; i++)
     {
         appl_esl_tag_table.esl_groups[i].esl_tags = appl_esl_tags[i];
@@ -542,32 +538,57 @@ API_RESULT appl_esl_ap_init(void)
 {
     API_RESULT retval;
 
+#ifdef BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY
+    BT_ESL_DYNAMIC_CONFIG appl_esl_dynamic_config;
+#endif /* BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY */
+
+#ifdef BT_ESL_AP_AUTO_START_PADV
+    BT_ESL_PERIODIC_ADV_PARAMS padv_param;
+#endif /* BT_ESL_AP_AUTO_START_PADV */
+
+#ifdef BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY
+    /** Initialize with default values for dynamic configuration */
+    BT_ESL_INIT_DYNAMIC_CONFIG_LIMITS(&appl_esl_dynamic_config);
+
+    /* Set the values that is set in application */
+    appl_esl_dynamic_config.config_BT_ESL_MAX_GROUPS_SUPPORTED   = APPL_ESL_MAX_NO_OF_GROUPS;
+    appl_esl_dynamic_config.config_BT_ESL_MAX_ESL_TAGS_SUPPORTED =
+        APPL_ESL_MAX_NO_OF_TAGS_PER_GROUP;
+    appl_esl_dynamic_config.config_BT_ESL_MAX_DISPLAY_SUPPORTED  = APPL_ESL_MAX_DISPLAY_SUPPORTED;
+    appl_esl_dynamic_config.config_BT_ESL_MAX_LED_SUPPORTED      = APPL_ESL_MAX_LED_SUPPORTED;
+    appl_esl_dynamic_config.config_BT_ESL_MAX_SENSOR_SUPPORTED   = APPL_ESL_MAX_SENSOR_SUPPORTED;
+    appl_esl_dynamic_config.config_BT_ESL_MAX_IMAGE_SUPPORTED    = APPL_ESL_MAX_IMAGE_SUPPORTED;
+
+    /* Initialize the ESL Module */
+    BT_esl_init((void *)&appl_esl_dynamic_config);
+
+#else /* BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY */
+    /** Initialize the ESL Module */
+    BT_esl_init(NULL);
+#endif /* BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY */
+
     /**
      * This flag is disabled by default for now.
      * Starting of PADV for AP is from CLI Command.
      */
 #ifdef BT_ESL_AP_AUTO_START_PADV
-    BT_ESL_PERIODIC_ADV_PARAMS padv_param;
-
     /** Init */
-    retval = BT_ESL_AP_SUCCESS;
+    retval                                       = BT_ESL_AP_SUCCESS;
     padv_param.periodic_advertising_interval_max = APPL_ESLP_DEFAULT_PERIODIC_INTERVAL_MAX;
     padv_param.periodic_advertising_interval_min = APPL_ESLP_DEFAULT_PERIODIC_INTERVAL_MIN;
-    padv_param.periodic_adv_prty = APPL_ESLP_DEFAULT_PERIODIC_ADV_PROPERTY;
-    padv_param.num_subevents = APPL_ESLP_DEFAULT_NUM_OF_SUBEVENTS;
-    padv_param.subevent_interval = APPL_ESLP_DEFAULT_SUBEVENT_INTERVAL;
-    padv_param.response_slot_delay = APPL_ESLP_DEFAULT_RSP_SLOT_DELAY;
-    padv_param.response_slot_spacing = APPL_ESLP_DEFAULT_RSP_SLOT_SPACING;
-    padv_param.num_response_slots = APPL_ESLP_DEFAULT_RESPONSE_COUNT;
+    padv_param.periodic_adv_prty                 = APPL_ESLP_DEFAULT_PERIODIC_ADV_PROPERTY;
+    padv_param.num_subevents                     = APPL_ESLP_DEFAULT_NUM_OF_SUBEVENTS;
+    padv_param.subevent_interval                 = APPL_ESLP_DEFAULT_SUBEVENT_INTERVAL;
+    padv_param.response_slot_delay               = APPL_ESLP_DEFAULT_RSP_SLOT_DELAY;
+    padv_param.response_slot_spacing             = APPL_ESLP_DEFAULT_RSP_SLOT_SPACING;
+    padv_param.num_response_slots                = APPL_ESLP_DEFAULT_RESPONSE_COUNT;
 
     /** Start PAWR */
     BT_esl_start_periodic_adv_pl(padv_param);
 #endif /* BT_ESL_AP_AUTO_START_PADV */
+
     /** Initialize ESL AP tag table */
     appl_es_ap_tag_table_init();
-
-    /* Initialize the ESL Module */
-    BT_esl_init(NULL);
 
     /** Init ESL AP */
     retval = BT_esl_ap_init(&appl_esl_callbacks, &appl_esl_tag_table);
@@ -576,8 +597,10 @@ API_RESULT appl_esl_ap_init(void)
         APPL_ESL_ERR("[APPL]: ESL AP initialization failed- retval 0x%04X\n", retval);
     }
 
+#ifdef APPL_ESL_AP_OTS_SUPPORT
     /** Init OTS  */
     appl_esl_ap_ots_init();
+#endif /* APPL_ESL_AP_OTS_SUPPORT */
 
     return retval;
 }
@@ -588,15 +611,15 @@ API_RESULT appl_esl_ap_start_periodic_adv(void)
     BT_ESL_PERIODIC_ADV_PARAMS padv_param;
 
     /** Init */
-    retval = BT_ESL_AP_SUCCESS;
+    retval                                       = BT_ESL_AP_SUCCESS;
     padv_param.periodic_advertising_interval_max = APPL_ESLP_DEFAULT_PERIODIC_INTERVAL_MAX;
     padv_param.periodic_advertising_interval_min = APPL_ESLP_DEFAULT_PERIODIC_INTERVAL_MIN;
-    padv_param.periodic_adv_prty = APPL_ESLP_DEFAULT_PERIODIC_ADV_PROPERTY;
-    padv_param.num_subevents = APPL_ESLP_DEFAULT_NUM_OF_SUBEVENTS;
-    padv_param.subevent_interval = APPL_ESLP_DEFAULT_SUBEVENT_INTERVAL;
-    padv_param.response_slot_delay = APPL_ESLP_DEFAULT_RSP_SLOT_DELAY;
-    padv_param.response_slot_spacing = APPL_ESLP_DEFAULT_RSP_SLOT_SPACING;
-    padv_param.num_response_slots = APPL_ESLP_DEFAULT_RESPONSE_COUNT;
+    padv_param.periodic_adv_prty                 = APPL_ESLP_DEFAULT_PERIODIC_ADV_PROPERTY;
+    padv_param.num_subevents                     = APPL_ESLP_DEFAULT_NUM_OF_SUBEVENTS;
+    padv_param.subevent_interval                 = APPL_ESLP_DEFAULT_SUBEVENT_INTERVAL;
+    padv_param.response_slot_delay               = APPL_ESLP_DEFAULT_RSP_SLOT_DELAY;
+    padv_param.response_slot_spacing             = APPL_ESLP_DEFAULT_RSP_SLOT_SPACING;
+    padv_param.num_response_slots                = APPL_ESLP_DEFAULT_RESPONSE_COUNT;
 
     /** Start PAWR */
     retval = BT_esl_start_periodic_adv_pl(padv_param);

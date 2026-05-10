@@ -26,6 +26,10 @@
 
 /** ESL TAG instance */
 DECL_STATIC BT_ESL_INSTANCE   tag_instance;
+DECL_STATIC BT_ESL_DISPLAY    appl_esl_display[IO_NUM_DISPLAYS];
+DECL_STATIC BT_ESL_LED        appl_esl_led[IO_NUM_LEDS];
+DECL_STATIC BT_ESL_SENSOR     appl_esl_sensor[IO_NUM_SENSORS];
+
 APPL_ESL_DISPLAY_IMAGE_PARAMS appl_esl_display_image[IO_NUM_DISPLAYS];
 APPL_ESL_DISPLAY_DATA_STRUCT  appl_esl_display_info[IO_NUM_DISPLAYS];
 APPL_ESL_LED_CONTROL_PARAM    appl_esl_led_control[IO_NUM_LEDS];
@@ -305,6 +309,7 @@ void appl_esl_populate_sensor_info(void)
 
     j = 0;
 
+    tag_instance.sensor_info.esl_sensor    = appl_esl_sensor;
     tag_instance.sensor_info.no_of_sensors = appl_esl_tag_get_number_of_io(BT_ESL_SENSOR_INFO_TYPE);
 
     /* Set Sensor type and size */
@@ -330,6 +335,7 @@ void appl_esl_populate_display_info(void)
 
     j = 0;
 
+    tag_instance.display_info.esl_display    = appl_esl_display;
     tag_instance.display_info.no_of_displays = appl_esl_tag_get_number_of_io(BT_ESL_DISPLAY_INFO_TYPE);
 
     for (i = 0; i < tag_instance.display_info.no_of_displays; i++)
@@ -362,6 +368,7 @@ void appl_esl_populate_led_info(void)
 {
     UINT32 i;
 
+    tag_instance.led_info.esl_led    = appl_esl_led;
     tag_instance.led_info.no_of_leds = appl_esl_tag_get_number_of_io(BT_ESL_LED_INFO_TYPE);
 
     /* Set LED type */
@@ -374,6 +381,10 @@ void appl_esl_populate_led_info(void)
 void appl_esl_tag_init()
 {
     API_RESULT retval;
+
+#ifdef BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY
+    BT_ESL_DYNAMIC_CONFIG appl_esl_dynamic_config;
+#endif /* BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY */
 
     /* IO init */
     esl_io_init();
@@ -409,9 +420,17 @@ void appl_esl_tag_init()
     appl_esl_cb.unassociated_ind_cb = appl_esl_unassociated_ind_cb;
     appl_esl_cb.unsynchronized_ind_cb = appl_esl_unsynchronized_ind_cb;
     appl_esl_cb.esl_update_complete_cmd_cb = appl_esl_tag_update_complete_cmd_cb;
+#ifdef BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY
+    /** Initialize with default values for dynamic configuration */
+    BT_ESL_INIT_DYNAMIC_CONFIG_LIMITS(&appl_esl_dynamic_config);
 
     /* Initialize the ESL Module */
+    BT_esl_init((void *)&appl_esl_dynamic_config);
+
+#else /* BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY */
+    /** Initialize the ESL Module */
     BT_esl_init(NULL);
+#endif /* BT_ESL_HAVE_DYNAMIC_GLOBAL_ARRAY */
 
     /* Initialize the ESL Tag */
     retval = BT_esl_tag_init(&tag_instance);
@@ -968,7 +987,7 @@ API_RESULT appl_esl_tag_read_sensor_data_cmd_cb
            )
         {
             APPL_ESL_ERR(
-            "[APPL]: Invalid data length for Ping command: %d, expected: %d\n",
+            "[APPL]: Invalid data length for Read Sensor Data command: %d, expected: %d\n",
             data_length, length);
 
             /* Send Error response */
@@ -1022,7 +1041,7 @@ API_RESULT appl_esl_tag_refresh_display_cmd_cb
 
     retval = BT_ESL_API_SUCCESS;
 
-    APPL_ESL_TRC("[APPL]: appl_esl_tag_read_sensor_data_cmd_cb\n");
+    APPL_ESL_TRC("[APPL]: appl_esl_tag_refresh_display_cmd_cb\n");
 
     addr = (BT_ESL_BD_ADDR*)blob;
     opcode = data[0];
@@ -1036,7 +1055,7 @@ API_RESULT appl_esl_tag_refresh_display_cmd_cb
 
     if (NULL != addr)
     {
-        APPL_ESL_TRC("[APPL]: Read sensor data command received from : "
+        APPL_ESL_TRC("[APPL]: Refresh Display command received from : "
         BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER "\n",
         BT_ESL_DEVICE_ADDR_PRINT_STR(addr));
     }
@@ -1060,7 +1079,7 @@ API_RESULT appl_esl_tag_refresh_display_cmd_cb
             )
         {
             APPL_ESL_ERR(
-            "[APPL]: Invalid data length for Ping command: %d, expected: %d\n",
+            "[APPL]: Invalid data length for Refresh Display command: %d, expected: %d\n",
             data_len, length);
 
             /* Send Error response */
@@ -1282,7 +1301,7 @@ API_RESULT appl_esl_tag_update_complete_cmd_cb
         if ((data_len != length) || (tag_instance.esl_address.esl_id != esl_id))
         {
             APPL_ESL_ERR(
-            "[APPL]: Invalid data length for Ping command: %d, expected: %d\n",
+            "[APPL]: Invalid data length for Update Complete command: %d, expected: %d\n",
             data_len, length);
 
             /* Send Error response */

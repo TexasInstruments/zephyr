@@ -19,6 +19,46 @@
 /**Macro to enable OTS in appl - now controlled via CMakeLists.txt */
 /* #define APPL_ESL_AP_OTS_SUPPORT */
 
+/** Number of groups: Mapped to the ones in Project Configuration or Preprocessor */
+#if (CONFIG_BT_ESL_MAX_GROUPS_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_GROUPS_SUPPORTED <= 128)
+#define APPL_ESL_MAX_NO_OF_GROUPS CONFIG_BT_ESL_MAX_GROUPS_SUPPORTED
+#else
+#define APPL_ESL_MAX_NO_OF_GROUPS                       BT_ESL_MAX_GROUPS_SUPPORTED
+#endif
+
+/** Number of tags per group: Mapped to the ones in Project Configuration */
+#if (CONFIG_BT_ESL_MAX_ESL_TAGS_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_ESL_TAGS_SUPPORTED <= 255)
+#define APPL_ESL_MAX_NO_OF_TAGS_PER_GROUP CONFIG_BT_ESL_MAX_ESL_TAGS_SUPPORTED
+#else
+#define APPL_ESL_MAX_NO_OF_TAGS_PER_GROUP               BT_ESL_MAX_ESL_TAGS_SUPPORTED
+#endif
+
+/* Number of Sensor: Mapped to the ones in Project Configuration*/
+#if (CONFIG_BT_ESL_MAX_SENSOR_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_SENSOR_SUPPORTED <= 256)
+#define APPL_ESL_MAX_SENSOR_SUPPORTED CONFIG_BT_ESL_MAX_SENSOR_SUPPORTED
+#else
+#define APPL_ESL_MAX_SENSOR_SUPPORTED                                   256U
+#endif
+
+
+#if (CONFIG_BT_ESL_MAX_LED_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_LED_SUPPORTED <= 256)
+#define APPL_ESL_MAX_LED_SUPPORTED CONFIG_BT_ESL_MAX_LED_SUPPORTED
+#else
+#define APPL_ESL_MAX_LED_SUPPORTED                                      256U
+#endif
+
+#if (CONFIG_BT_ESL_MAX_IMAGE_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_IMAGE_SUPPORTED <= 256)
+#define APPL_ESL_MAX_IMAGE_SUPPORTED CONFIG_BT_ESL_MAX_IMAGE_SUPPORTED
+#else
+#define APPL_ESL_MAX_IMAGE_SUPPORTED                                    256U
+#endif
+
+#if (CONFIG_BT_ESL_MAX_DISPLAY_SUPPORTED >= 1) && (CONFIG_BT_ESL_MAX_DISPLAY_SUPPORTED <= 102)
+#define APPL_ESL_MAX_DISPLAY_SUPPORTED CONFIG_BT_ESL_MAX_DISPLAY_SUPPORTED
+#else
+#define APPL_ESL_MAX_DISPLAY_SUPPORTED                                  102U
+#endif
+
 /** Macro to get sm state string of the tag */
 #define APPL_ESL_AP_GET_SM_STATE_STRING(sm_state)                      \
          (sm_state == BT_ESL_AP_UNASSOCIATE) ? "UNASSOCIATE" :         \

@@ -71,9 +71,9 @@ Display and LED Support
 The tag supports:
 
 * **Multiple Displays**: Up to 4 configurable displays with different resolutions
-* **Display Types**: Black/white.
-Refer below link for list of supported display types
-https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/profiles_and_services/esl/display_types.yaml
+* **Display Types**: Black/white. See `ESL display types
+  <https://bitbucket.org/bluetooth-SIG/public/src/main/assigned_numbers/profiles_and_services/esl/display_types.yaml>`_
+  for the full list of supported display types.
 * **LED Control**: Individual LED control with patterns and timing
 * **Image Management**: Upload and display of custom images
 * **Sensor Integration**: Built-in sensors for environmental monitoring
@@ -127,7 +127,7 @@ When the application starts, you will see output similar to:
    [ESL PL]: Bluetooth initialized
    [ESL PL]: Local BD address C4:74:8F:4A:E6:B7 (random)
    [ESL PL]: Settings loaded successfully
-   [ESL PL]: database registeration success
+   [ESL PL]: database registration success
    [ESL PL]: Auth info callbacks registered successfully
    [ESL PL]: Device name updated
    [ESL PL]: ESL TAG Periodic Advertising callbacks register
@@ -148,7 +148,7 @@ When connected by an Access Point, you'll see connection events and command proc
 
 .. code-block:: console
 
-   [ESL PL]: Connection complete recieved for ADDR: 2F:AD:D8:E8:07:C0, TYPE: 00 (0x00)
+   [ESL PL]: Connection complete received for ADDR: 2F:AD:D8:E8:07:C0, TYPE: 00 (0x00)
    [APPL]: esl_connect_ind_cb
    [APPL]: Connected to ESL tag with address: ADDR: 2F:AD:D8:E8:07:C0, TYPE: 00
    [ESL PL]: Pairing complete ADDR: 2F:AD:D8:E8:07:C0, TYPE: 00(bonded 1)
@@ -189,4 +189,4 @@ References
 
 * `Bluetooth SIG Electronic Shelf Label Service Specification <https://www.bluetooth.com/specifications/specs/electronic-shelf-label-service-1-0/>`_
 * `Bluetooth SIG Electronic Shelf Label Profile Specification <https://www.bluetooth.com/specifications/specs/electronic-shelf-label-profile-1-0/>`_
-* :zephyr:code-sample-category:`bluetooth` samples for more Bluetooth LE examples
+* `Bluetooth samples <https://docs.zephyrproject.org/latest/samples/bluetooth/bluetooth.html>`_ for more Bluetooth LE examples

@@ -120,4 +120,4 @@ References
 
 * `Bluetooth SIG Electronic Shelf Label Service Specification <https://www.bluetooth.com/specifications/specs/electronic-shelf-label-service-1-0/>`_
 * `Bluetooth SIG Electronic Shelf Label Profile Specification <https://www.bluetooth.com/specifications/specs/electronic-shelf-label-profile-1-0/>`_
-* :zephyr:code-sample-category:`bluetooth` samples for more Bluetooth LE examples
+* `Bluetooth samples <https://docs.zephyrproject.org/latest/samples/bluetooth/bluetooth.html>`_ for more Bluetooth LE examples

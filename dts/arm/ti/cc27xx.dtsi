@@ -104,21 +104,23 @@
 		};
 
 		uart0: uart@40034000{
-			compatible = "ti,cc27xx-uart";
+			compatible = "ti,lpf3-uart";
 			reg = <0x40034000 0x4c>;
 			interrupts = <11 0>;
 			clocks = <&uartclk>;
+			ti,clkctl-id = <0x4>; /* CLKCTL_UART0 */
 			dmas = <&dma 2 6>, <&dma 3 7>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
 		uart1: uart@40035000{
-			compatible = "ti,cc27xx-uart";
+			compatible = "ti,lpf3-uart";
 			reg = <0x40035000 0x4c>;
 			interrupts = <22 0>;
 			clocks = <&uartclk>;
-			dmas = <&dma 0 12>, <&dma 1 13>;
+			ti,clkctl-id = <0x8>; /* CLKCTL_UART1 */
+			dmas = <&dma 1 12>, <&dma 0 13>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};

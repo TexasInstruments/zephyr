@@ -4,7 +4,7 @@ import java.util.regex.Matcher
 /* groovylint-disable DuplicateStringLiteral, NestedBlockDepth, UnnecessaryGetter */
 /* groovylint-disable DuplicateNumberLiteral, CompileStatic */
 
-env.FWTOOLS_TAG = '2026.04.23_0'
+env.FWTOOLS_TAG = '2026.05.21_0'
 library("fwtools@${env.FWTOOLS_TAG}")
 
 /* Command syntax help text
@@ -388,6 +388,7 @@ pipeline
 '''
                         /* Publish test summary to PR comment */
                         sh('cp zephyr/twister-out/twister.xml zephyr/twister-out/twister_build.xml')
+                        sh('sed -i \'s/classname="/classname="build./g\' zephyr/twister-out/twister_build.xml')
 
                         testResultTable += common.parseMultiXmlResults('zephyr/twister-out/twister_build.xml')
                         common.printBody(testResultTable)

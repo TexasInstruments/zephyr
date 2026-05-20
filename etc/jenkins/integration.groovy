@@ -346,7 +346,7 @@ pipeline
             }
         }
 
-        stage('Twister')
+        stage('Twister Build')
 
         {
             steps
@@ -383,7 +383,7 @@ pipeline
                         git.checkoutHttps('lprfmw', 'fwtools', env.FWTOOLS_TAG)
 
                         String testResultTable = '''
-| Test Results | Pass   | Fail   | Error | Skip    | Total |
+| Build Results | Pass   | Fail   | Error | Skip    | Total |
 |--------------|--------|--------|-------|---------|-------|
 '''
                         /* Publish test summary to PR comment */
@@ -395,6 +395,18 @@ pipeline
 
                         junit testResults: 'zephyr/twister-out/twister_build.xml',
                             allowEmptyResults: true, skipPublishingChecks: true
+                    }
+                }
+            }
+        }
+        stage('Twister Test')
+
+        {
+            steps
+            {
+                script
+                {
+                    if(!keywords.containsKey('no_twister')) {
 
                         env.LOCATION = 'oslo'
 
@@ -404,9 +416,10 @@ pipeline
 
                     }
                 }
+
             }
         }
-    }
+}
 
     post
     {

@@ -78,6 +78,9 @@ struct uart_lpf3_data {
 	uart_irq_callback_user_data_t callback;
 	void *user_data;
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_LPF3_DMA_DRIVEN */
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
+	bool tx_irq_enabled;
+#endif
 #ifdef CONFIG_UART_LPF3_DMA_DRIVEN
 	const struct device *dev;
 
@@ -306,11 +309,14 @@ static int uart_lpf3_fifo_read(const struct device *dev, uint8_t *buf, const int
 static void uart_lpf3_irq_tx_enable(const struct device *dev)
 {
 	const struct uart_lpf3_config *config = dev->config;
+	struct uart_lpf3_data *data = dev->data;
 
 	/* When TX IRQ is enabled, it is implicit that we are expecting to transmit
 	 * using the UART, hence we should no longer go into standby
 	 */
-	uart_lpf3_pm_policy_state_lock_get(dev->data, UART_LPF3_PM_LOCK_TX);
+	uart_lpf3_pm_policy_state_lock_get(data, UART_LPF3_PM_LOCK_TX);
+
+	data->tx_irq_enabled = true;
 
 	UARTEnableInt(config->reg, UART_INT_TX);
 
@@ -327,17 +333,21 @@ static void uart_lpf3_irq_tx_enable(const struct device *dev)
 static void uart_lpf3_irq_tx_disable(const struct device *dev)
 {
 	const struct uart_lpf3_config *config = dev->config;
+	struct uart_lpf3_data *data = dev->data;
+
+	data->tx_irq_enabled = false;
 
 	UARTDisableInt(config->reg, UART_INT_TX);
 
-	uart_lpf3_pm_policy_state_lock_put(dev->data, UART_LPF3_PM_LOCK_TX);
+	uart_lpf3_pm_policy_state_lock_put(data, UART_LPF3_PM_LOCK_TX);
 }
 
 static int uart_lpf3_irq_tx_ready(const struct device *dev)
 {
 	const struct uart_lpf3_config *config = dev->config;
+	const struct uart_lpf3_data *data = dev->data;
 
-	return UARTSpaceAvailable(config->reg) ? 1 : 0;
+	return (data->tx_irq_enabled && UARTSpaceAvailable(config->reg)) ? 1 : 0;
 }
 
 static void uart_lpf3_irq_rx_enable(const struct device *dev)
@@ -395,11 +405,26 @@ static void uart_lpf3_irq_err_disable(const struct device *dev)
 static int uart_lpf3_irq_is_pending(const struct device *dev)
 {
 	const struct uart_lpf3_config *config = dev->config;
+	const struct uart_lpf3_data *data = dev->data;
 
 	/* Read masked interrupt status */
 	uint32_t status = UARTIntStatus(config->reg, true);
 
-	return status ? 1 : 0;
+	if (status) {
+		return 1;
+	}
+
+	/* The TX interrupt is edge-triggered (fires on FIFO level transition,
+	 * not while level is already below watermark). When TX IRQ is enabled
+	 * with an already-empty FIFO, no hardware transition occurs so the UART
+	 * interrupt status register stays 0. Check the software flag so the
+	 * callback can still fill the FIFO on the NVIC-pended initial ISR.
+	 */
+	if (data->tx_irq_enabled && UARTSpaceAvailable(config->reg)) {
+		return 1;
+	}
+
+	return 0;
 }
 
 static int uart_lpf3_irq_update(const struct device *dev)
@@ -933,7 +958,7 @@ static DEVICE_API(uart, uart_lpf3_driver_api) = {
 	} while (false)
 
 #define UART_LPF3_IRQ_INIT(n) .irq = DT_INST_IRQN(n),
-#define UART_LPF3_INT_FIELDS .callback = NULL, .user_data = NULL,
+#define UART_LPF3_INT_FIELDS .callback = NULL, .user_data = NULL, .tx_irq_enabled = false,
 #else
 #define UART_LPF3_IRQ_CFG(n)
 #define UART_LPF3_IRQ_INIT(n)
@@ -1048,7 +1073,9 @@ static int uart_lpf3_pm_action(const struct device *dev, enum pm_device_action a
 				.parity = DT_INST_ENUM_IDX(n, parity),					\
 				.stop_bits =  DT_INST_ENUM_IDX(n, stop_bits),				\
 				.data_bits = DT_INST_ENUM_IDX(n, data_bits),				\
-				.flow_ctrl = DT_INST_PROP(n, hw_flow_control),				\
+				.flow_ctrl = DT_INST_PROP(n, hw_flow_control)			\
+						? UART_CFG_FLOW_CTRL_RTS_CTS		\
+						: UART_CFG_FLOW_CTRL_NONE,		\
 			},									\
 		UART_LPF3_INT_FIELDS};								\
 												\

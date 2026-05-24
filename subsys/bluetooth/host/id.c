@@ -167,20 +167,6 @@ static int set_random_address(const bt_addr_t *addr)
 	return 0;
 }
 
-int bt_id_set_random_address_direct(const bt_addr_t *addr)
-{
-	int ret;
-
-	CHECKIF(addr == NULL) {
-		return -EINVAL;
-	}
-
-	ret = set_random_address(addr);
-
-	LOG_WRN("In %s %s with return %d", __func__, bt_addr_str(addr), ret);
-
-	return ret;
-}
 
 int bt_id_set_adv_random_addr(struct bt_le_ext_adv *adv,
 			      const bt_addr_t *addr)

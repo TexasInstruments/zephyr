@@ -39,22 +39,6 @@
  */
 /* #define BT_ESL_AP_HAVE_SUBEVENT_ADJUSTMENT */
 
-/**
- * NOTE:
- * This flag disables the temporary workaround to set the Random
- * Address in the some of the controllers while enabling periodic
- * Advertisements. This is needed to be disabled once the controllers
- * are fixed to set the Random Address by Set specific Random Address
- * while enabling periodic Advertisements.
- * Example, TI CC2340r53 controller requires this workaround. It uses
- * Zephyr(v3.7.0). nRF52840 controller built from ncs does not require
- * this workaround. It uses Zephyr(v4.0.99).
- *
- * This is enabled from the Build system depending on the controller
- * being used based on the Zephyr version being used.
- */
-/* #define BT_ESL_DONOT_ENABLE_SET_RANDOM_ADDR_WORKAROUND */
-
 #define GATT_ESL_ADDRESS_CHARACTERISTIC                             0x2BF6U
 #define GATT_AP_SYNC_KEY_MATERIAL_CHARACTERISTIC                    0x2BF7U
 #define GATT_ESL_RESPONSE_KEY_MATERIAL_CHARACTERISTIC               0x2BF8U
@@ -82,12 +66,6 @@
 #define DISC_OTS_LIST_CP_BIT                                        7U
 #endif /* BT_ESL_SUPPORT_AP_ROLE */
 /* --------------------------------------------- External Global Variables */
-#ifdef BT_ESL_SUPPORT_AP_ROLE
-#ifndef BT_ESL_DONOT_ENABLE_SET_RANDOM_ADDR_WORKAROUND
-/* Temporary WorkAround to set Random Address Directly */
-extern int bt_id_set_random_address_direct(const bt_addr_t *addr);
-#endif /* BT_ESL_DONOT_ENABLE_SET_RANDOM_ADDR_WORKAROUND */
-#endif /* BT_ESL_SUPPORT_AP_ROLE */
 
 /* --------------------------------------------- Exported Global Variables */
 
@@ -1769,21 +1747,6 @@ API_RESULT BT_esl_start_periodic_adv_pl(BT_ESL_PERIODIC_ADV_PARAMS padv_params)
 #else /* CONFIG_BT_PER_ADV_RSP */
         ESL_PL_ERR ("[ESL PL]: Periodic advertising with response not enabled");
 #endif /* CONFIG_BT_PER_ADV_RSP */
-
-#ifndef BT_ESL_DONOT_ENABLE_SET_RANDOM_ADDR_WORKAROUND
-        /**
-         * WorkAround:
-         * ===========
-         * Setting Random Address of Controller, specifically for TI
-         * Platform.
-         * Workaround to enable using random Address in Adv sets.
-         * the actual address in the advSet will be the one set adv_create
-         */
-        {
-           bt_addr_t random_addr = { .val = { 0xC0, 0xDE, 0xC0, 0xDE, 0xC0, 0xDE } };
-           bt_id_set_random_address_direct(&random_addr);
-        }
-#endif /* BT_ESL_DONOT_ENABLE_SET_RANDOM_ADDR_WORKAROUND */
 
         /* Create a non-connectable advertising set */
         err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN, &adv_cb, &adv_pawr);

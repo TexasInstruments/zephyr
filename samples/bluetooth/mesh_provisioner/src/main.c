@@ -239,8 +239,20 @@ static void unprovisioned_beacon(uint8_t uuid[16],
 				 bt_mesh_prov_oob_info_t oob_info,
 				 uint32_t *uri_hash)
 {
-	memcpy(node_uuid, uuid, 16);
-	k_sem_give(&sem_unprov_beacon);
+	uint8_t i = 0;
+
+	/* Check if UUID is already set */
+	for (i = 0; i < 16; i++) {
+		if (node_uuid[i] != 0) {
+			break;
+		}
+	}
+
+	/* Only set a new UUID if not currently set */
+	if (i == 16) {
+		memcpy(node_uuid, uuid, 16);
+		k_sem_give(&sem_unprov_beacon);
+	}
 }
 
 static void node_added(uint16_t idx, uint8_t uuid[16], uint16_t addr, uint8_t num_elem)

@@ -6,9 +6,9 @@
 config LPF3_CLOCKP_TIMER
 	bool "SYSTIM timer"
 	default y
-	depends on HAS_CC27XX_SDK || HAS_CC23X0_SDK
+	depends on SOC_SERIES_CC27XX || SOC_SERIES_CC23X0
 	select TICKLESS_CAPABLE
-	select TIMER_HAS_64BIT_CYCLE_COUNTER if HAS_CC27XX_SDK
+	select TIMER_HAS_64BIT_CYCLE_COUNTER if SOC_SERIES_CC27XX
 	help
 	  This module provides ClockP DPL as "system clock driver" interfaces
 	  for the TI Simplelink CC23X0 and CC27XX devices.

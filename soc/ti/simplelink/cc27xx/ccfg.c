@@ -26,34 +26,39 @@ const ccfg_t ccfg __attribute__((section(".ti_ccfg"))) __attribute__((used)) = {
 
 	.bootCfg.pBldrVtor = (void *)CC27XX_BLDR_VTOR,
 
-	.bootCfg.bldrParam.serialRomBldrParamStruct = {
-		.bldrEnabled        = IS_ENABLED(CONFIG_CC27XX_BLDR_ENABLED),
-		.serialIoCfgIndex   = CONFIG_CC27XX_SERIAL_IO_CFG_INDEX,
-		.pinTriggerEnabled  = IS_ENABLED(CONFIG_CC27XX_PIN_TRIGGER_ENABLED),
-		.pinTriggerDio      = CONFIG_CC27XX_PIN_TRIGGER_DIO,
-		.pinTriggerLevel    = IS_ENABLED(CONFIG_CC27XX_PIN_TRIGGER_LEVEL_HI),
-	},
+	.bootCfg.bldrParam.serialRomBldrParamStruct =
+		{
+			.bldrEnabled = IS_ENABLED(CONFIG_CC27XX_BLDR_ENABLED),
+			.serialIoCfgIndex = CONFIG_CC27XX_SERIAL_IO_CFG_INDEX,
+			.pinTriggerEnabled = IS_ENABLED(CONFIG_CC27XX_PIN_TRIGGER_ENABLED),
+			.pinTriggerDio = CONFIG_CC27XX_PIN_TRIGGER_DIO,
+			.pinTriggerLevel = IS_ENABLED(CONFIG_CC27XX_PIN_TRIGGER_LEVEL_HI),
+		},
 
-	.bootCfg.pAppVtor  = (void *)CONFIG_CC27XX_P_APP_VTOR,
+	.bootCfg.pAppVtor = (void *)CONFIG_CC27XX_P_APP_VTOR,
 
 	.INTERNAL_FIELD_0,
 
-	.permissions.allowDebugPort       = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_DEBUG_PORT),
-	.permissions.allowEnergyTrace     = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_ENERGY_TRACE),
-	.permissions.allowFlashVerify     = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_FLASH_VERIFY),
-	.permissions.allowFlashProgram    = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_FLASH_PROGRAM),
-	.permissions.allowChipErase       = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_CHIP_ERASE),
+	.permissions.allowDebugPort = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_DEBUG_PORT),
+	.permissions.allowEnergyTrace = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_ENERGY_TRACE),
+	.permissions.allowFlashVerify = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_FLASH_VERIFY),
+	.permissions.allowFlashProgram = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_FLASH_PROGRAM),
+	.permissions.allowChipErase = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_CHIP_ERASE),
 	.permissions.allowToolsClientMode = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_TOOLS_CLIENT_MODE),
 	.permissions.allowReturnToFactory = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_RETURN_TO_FACTORY),
-	.permissions.allowFakeStby        = CCFG_PERMISSION_ALLOW,
+	.permissions.allowFakeStby = CCFG_PERMISSION_ALLOW,
 
-	.misc.saciTimeoutOverride  = IS_ENABLED(CONFIG_CC27XX_SACI_TIMEOUT_OVERRIDE),
-	.misc.saciTimeoutExp       = CONFIG_CC27XX_SACI_TIMEOUT_EXP,
-	.misc.allowMainAppErase    = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_MAIN_APP_ERASE),
+	.misc.saciTimeoutOverride = IS_ENABLED(CONFIG_CC27XX_SACI_TIMEOUT_OVERRIDE),
+	.misc.saciTimeoutExp = CONFIG_CC27XX_SACI_TIMEOUT_EXP,
+	.misc.allowMainAppErase = CC27_TO_PERM_VAL(CONFIG_CC27XX_ALLOW_MAIN_APP_ERASE),
 
-	.flashProt.writeEraseProt.mainSectors0_31      = CONFIG_CC27XX_WR_ER_PROT_SECT0_31,
-	.flashProt.writeEraseProt.mainSectors32_255    = CONFIG_CC27XX_WR_ER_PROT_SECT32_255,
-	.flashProt.writeEraseProt.mainSectors256_511   = CONFIG_CC27XX_WR_ER_PROT_SECT256_511,
+	.flashProt.writeEraseProt.mainSectors0_31 = CONFIG_CC27XX_WR_ER_PROT_SECT0_31,
+	.flashProt.writeEraseProt.mainSectors32_255 = CONFIG_CC27XX_WR_ER_PROT_SECT32_255,
+	.flashProt.writeEraseProt.mainSectors256_511 = CONFIG_CC27XX_WR_ER_PROT_SECT256_511,
+#ifdef CONFIG_HAS_CC27XXX20_SDK
+	.flashProt.writeEraseProt.mainSectors512_767 = CONFIG_CC27XX_WR_ER_PROT_SECT512_767,
+	.flashProt.writeEraseProt.mainSectors768_1023 = CONFIG_CC27XX_WR_ER_PROT_SECT768_1023,
+#endif
 
 	.flashProt.writeEraseProt.ccfgSector = CONFIG_CC27XX_WR_ER_PROT_CCFG_SECT,
 	.flashProt.writeEraseProt.fcfgSector = CONFIG_CC27XX_WR_ER_PROT_FCFG_SECT,
@@ -64,9 +69,13 @@ const ccfg_t ccfg __attribute__((section(".ti_ccfg"))) __attribute__((used)) = {
 	.flashProt.readProt.mainSectors = CONFIG_CC27XX_READ_PROT_MAIN_SEC,
 	.flashProt.readProt.ccfgSector = CONFIG_CC27XX_READ_PROT_CCFG_SEC,
 
-	.flashProt.chipEraseRetain.mainSectors0_31     = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT0_31,
-	.flashProt.chipEraseRetain.mainSectors32_255   = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT32_255,
-	.flashProt.chipEraseRetain.mainSectors256_511  = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT256_511,
+	.flashProt.chipEraseRetain.mainSectors0_31 = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT0_31,
+	.flashProt.chipEraseRetain.mainSectors32_255 = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT32_255,
+	.flashProt.chipEraseRetain.mainSectors256_511 = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT256_511,
+#ifdef CONFIG_HAS_CC27XXX20_SDK
+	.flashProt.chipEraseRetain.mainSectors512_767 = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT512_767,
+	.flashProt.chipEraseRetain.mainSectors768_1023 = CONFIG_CC27XX_CHIP_ER_RETAIN_SECT768_1023,
+#endif
 
 	.debugCfg.authorization = CCFG_DBGAUTH_DBGOPEN,
 };

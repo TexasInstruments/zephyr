@@ -514,7 +514,7 @@ static int spi_cc23x0_cc27xx_configure(const struct device *dev, const struct sp
 	data->ctx.config = config;
 
 	/* Configure TX/RX FIFO level */
-#ifdef CONFIG_HAS_CC27XX_SDK
+#ifdef CONFIG_SOC_SERIES_CC27XX
 	/*
 	 * Set TX FIFO <= 1/4 empty, and RX FIFO >= 1/2 full (default).
 	 * This is a workaround for a DMA errata UDMA_01.

@@ -958,7 +958,11 @@ static DEVICE_API(uart, uart_lpf3_driver_api) = {
 	} while (false)
 
 #define UART_LPF3_IRQ_INIT(n) .irq = DT_INST_IRQN(n),
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
 #define UART_LPF3_INT_FIELDS .callback = NULL, .user_data = NULL, .tx_irq_enabled = false,
+#else
+#define UART_LPF3_INT_FIELDS .callback = NULL, .user_data = NULL,
+#endif
 #else
 #define UART_LPF3_IRQ_CFG(n)
 #define UART_LPF3_IRQ_INIT(n)

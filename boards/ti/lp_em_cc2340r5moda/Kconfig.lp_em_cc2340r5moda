@@ -3,4 +3,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 config BOARD_LP_EM_CC2340R5MODA
-	select SOC_CC2340R5
+	select SOC_CC2340R53

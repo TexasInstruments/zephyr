@@ -8,9 +8,38 @@ config SOC_SERIES_CC35XXE
 	help
 	  Enable support for TI SimpleLink CC35xxE SoCs
 
+config SOC_CC3500E
+	bool
+	select SOC_SERIES_CC35XXE
+	select SOC_CC35XXE_HAS_WIFI
+
+config SOC_CC3501E
+	bool
+	select SOC_SERIES_CC35XXE
+	select SOC_CC35XXE_HAS_WIFI
+	select SOC_CC35XXE_HAS_BT
+
+config SOC_CC3550E
+	bool
+	select SOC_SERIES_CC35XXE
+	select SOC_CC35XXE_HAS_WIFI
+	select SOC_CC35XXE_HAS_WIFI_5GHZ
+
 config SOC_CC3551E
 	bool
 	select SOC_SERIES_CC35XXE
+	select SOC_CC35XXE_HAS_WIFI
+	select SOC_CC35XXE_HAS_WIFI_5GHZ
+	select SOC_CC35XXE_HAS_BT
+
+config SOC_CC35XXE_HAS_WIFI
+	bool
+
+config SOC_CC35XXE_HAS_WIFI_5GHZ
+	bool
+
+config SOC_CC35XXE_HAS_BT
+	bool
 
 config SOC_SERIES
 	string
@@ -18,6 +47,9 @@ config SOC_SERIES
 
 config SOC
 	string
+	default "cc3500e" if SOC_CC3500E
+	default "cc3501e" if SOC_CC3501E
+	default "cc3550e" if SOC_CC3550E
 	default "cc3551e" if SOC_CC3551E
 
 config CC35XXE_SIGN_PRIVATE_KEY_FILE

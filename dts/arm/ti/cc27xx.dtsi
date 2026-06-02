@@ -139,8 +139,21 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x40030000 0x164>;
+			clock-id = <0x400>;	/* CLKCTL_SPI0 */
 			interrupts = <10 0>;
 			dmas = <&dma 0 0>, <&dma 1 1>;
+			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		spi1: spi@40031000 {
+			compatible = "ti,cc23x0-cc27xx-spi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x40031000 0x164>;
+			clock-id = <0x800>;	/* CLKCTL_SPI1 */
+			interrupts = <23 0>;
+			dmas = <&dma 6 10>, <&dma 7 11>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};

@@ -152,6 +152,19 @@
 	};
 };
 
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_sck_default
+		     &spi1_mosi_default
+		     &spi1_miso_default
+		     &spi1_cs_default>;
+	pinctrl-1 = <&spi1_sck_sleep
+		     &spi1_mosi_sleep
+		     &spi1_miso_sleep
+		     &spi1_cs_sleep>;
+	pinctrl-names = "default", "sleep";
+};
+
 &dma {
 	status = "okay";
 };

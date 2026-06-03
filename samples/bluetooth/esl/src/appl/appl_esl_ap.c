@@ -210,7 +210,8 @@ void appl_connected_ind_cb(BT_ESL_ADDR *esl_addr, UCHAR status, void *blob)
     "[APPL]: ESL tag [%d : %d] connected (status %d)\n",
     esl_addr->group_id, esl_addr->esl_id, status);
 
-    if (NULL != bd_addr)
+    /* Check if the BD Address is not NULL and the Connection Status is successful i.e. 0x00U */
+    if ((NULL != bd_addr) && (status == 0U))
     {
         APPL_ESL_TRC(
         "[APPL]: ESL tag BD Address: "BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER"\n",
@@ -552,8 +553,7 @@ API_RESULT appl_esl_ap_init(void)
 
     /* Set the values that is set in application */
     appl_esl_dynamic_config.config_BT_ESL_MAX_GROUPS_SUPPORTED   = APPL_ESL_MAX_NO_OF_GROUPS;
-    appl_esl_dynamic_config.config_BT_ESL_MAX_ESL_TAGS_SUPPORTED =
-        APPL_ESL_MAX_NO_OF_TAGS_PER_GROUP;
+    appl_esl_dynamic_config.config_BT_ESL_MAX_ESL_TAGS_SUPPORTED = APPL_ESL_MAX_NO_OF_TAGS_PER_GROUP;
     appl_esl_dynamic_config.config_BT_ESL_MAX_DISPLAY_SUPPORTED  = APPL_ESL_MAX_DISPLAY_SUPPORTED;
     appl_esl_dynamic_config.config_BT_ESL_MAX_LED_SUPPORTED      = APPL_ESL_MAX_LED_SUPPORTED;
     appl_esl_dynamic_config.config_BT_ESL_MAX_SENSOR_SUPPORTED   = APPL_ESL_MAX_SENSOR_SUPPORTED;

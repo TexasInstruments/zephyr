@@ -31,7 +31,7 @@
 /**
  * NOTE:
  * This flag enables adjustment for Subevent Codes.
- * In some controller it is observed that the Subevet Start
+ * In some controller it is observed that the Subevent Start
  * is happening from 1 instead of 0.
  * This needs to be verified from Specification to understand
  * defined behaviour.
@@ -272,7 +272,7 @@ typedef struct _BT_ESL_BONDING_INFO_PL
 
 /* --------------------------------------------- Static Global Variables */
 
-/* PL init complete CB */
+/* PL Initialization complete CB */
 static PL_INIT_COMPLETE_CB pl_ready_cb = NULL;
 
 /* PL MTU exchange CB */
@@ -646,7 +646,7 @@ static void bt_ready(int err)
 
     if (err)
     {
-        ESL_PL_ERR ("[ESL PL]: Bluetooth init failed (err %d)", err);
+        ESL_PL_ERR ("[ESL PL]: Bluetooth Initialization failed (err %d)", err);
         /* Inform upper layer */
         if (pl_ready_cb)
         {
@@ -793,7 +793,7 @@ API_RESULT BT_esl_init_pl(PL_INIT_COMPLETE_CB cb)
         err = bt_enable(bt_ready);
         if (err)
         {
-            ESL_PL_ERR("[ESL PL]: Bluetooth init failed (err %d)", err);
+            ESL_PL_ERR("[ESL PL]: Bluetooth Initialization failed (err %d)", err);
             pl_ready_cb = NULL;
             retval = BT_ESL_API_FAILURE;
         }
@@ -833,7 +833,7 @@ static void connected(struct bt_conn *conn, uint8_t err)
         BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
 
         ESL_PL_TRC (
-        "[ESL PL]: Connection complete received for "BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER" (0x%02X)",
+        "[ESL PL]: Connection complete received for "BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER" with status as (0x%02X)",
         BT_ESL_DEVICE_ADDR_PRINT_STR(&bd_addr), err);
 
         /* Callback to core */
@@ -1019,8 +1019,10 @@ API_RESULT BT_esl_pawr_connect_pl(BT_ESL_BD_ADDR * bd_addr, UCHAR subevent)
             BT_ESL_DEVICE_ADDR_PRINT_STR(bd_addr), err);
             retval = BT_ESL_API_FAILURE;
         }
-
-        bt_conn_unref(conn);
+        else
+        {
+            bt_conn_unref(conn);
+        }
     }
     else
     {
@@ -1459,7 +1461,7 @@ API_RESULT BT_esl_unpair_pl(BT_ESL_BD_ADDR * bd_addr)
 #endif /* BT_ESL_SUPPORT_TAG_ROLE */
         if (0 != err)
         {
-            ESL_PL_ERR("[ESL PL]: Encryption failed (err %d)", err);
+            ESL_PL_ERR("[ESL PL]: Unpair failed (err %d)", err);
             retval = BT_ESL_API_FAILURE;
         }
         else
@@ -1750,9 +1752,36 @@ API_RESULT BT_esl_start_periodic_adv_pl(BT_ESL_PERIODIC_ADV_PARAMS padv_params)
 
         /* Create a non-connectable advertising set */
         err = bt_le_ext_adv_create(BT_LE_EXT_ADV_NCONN, &adv_cb, &adv_pawr);
-        if (err)
+        if (0 == err)
         {
-            ESL_PL_TRC ("[ESL PL]: Failed to create advertising set (err %d)", err);
+            /* Successfully created a new advertising set */
+            ESL_PL_TRC("[ESL PL]: Advertising set created. Adv Handle: 0x%02X",
+            (uint8_t)bt_le_ext_adv_get_index(adv_pawr));
+        }
+        else if (-ENOMEM == err)
+        {
+            /* No free advertising set slot available */
+            if (adv_pawr != NULL)
+            {
+                /**
+                 * The handle is already populated (set was previously created),
+                 * reuse the existing handle and continue.
+                 */
+                ESL_PL_TRC("[ESL PL]: No free adv slot; reusing existing adv handle 0x%02X",
+                (uint8_t)bt_le_ext_adv_get_index(adv_pawr));
+            }
+            else
+            {
+                /* No existing handle to reuse � cannot proceed */
+                ESL_PL_ERR("[ESL PL]: Failed to create advertising set: no free slot (max sets: %d)",
+                CONFIG_BT_EXT_ADV_MAX_ADV_SET);
+                retval = BT_ESL_API_FAILURE;
+            }
+        }
+        else
+        {
+            /* Any other error (e.g. invalid parameters, controller error) */
+            ESL_PL_ERR("[ESL PL]: Failed to create advertising set (err %d)", err);
             retval = BT_ESL_API_FAILURE;
         }
 
@@ -1964,7 +1993,7 @@ API_RESULT BT_esl_set_subevent_data_pl
 
     /* Allocate subevent parameters for zephyr */
     sub_params = (struct bt_le_per_adv_subevent_data_params *)BT_ESL_alloc_mem(num_subevents * sizeof(struct bt_le_per_adv_subevent_data_params));
-    /* Allocate net bufs for nume of subevents */
+    /* Allocate net bufs for number of subevents */
     sub_data = (struct net_buf_simple *)BT_ESL_alloc_mem(num_subevents * sizeof(struct net_buf_simple));
 
     if ((NULL != sub_params) && (NULL != sub_data))
@@ -2155,12 +2184,39 @@ API_RESULT BT_esl_start_advertise_pl(void)
     adv_param.interval_max = BT_GAP_ADV_FAST_INT_MAX_2;
     adv_param.peer = NULL;
 
-    /* Create a non-connectable advertising set */
+    /* Create a connectable advertising set */
     err = bt_le_ext_adv_create(&adv_param, NULL, &ext_adv_tag);
-    if (err)
+    if (0 == err)
     {
+        /* Successfully created a new advertising set */
+        ESL_PL_TRC("[ESL PL]: Advertising set created. Adv Handle: 0x%02X",
+        (uint8_t)bt_le_ext_adv_get_index(ext_adv_tag));
+    }
+    else if (-ENOMEM == err)
+    {
+        /* No free advertising set slot available */
+        if (ext_adv_tag != NULL)
+        {
+            /**
+             * The handle is already populated (set was previously created),
+             * reuse the existing handle and continue.
+             */
+            ESL_PL_TRC("[ESL PL]: No free adv slot; reusing existing adv handle 0x%02X",
+            (uint8_t)bt_le_ext_adv_get_index(ext_adv_tag));
+        }
+        else
+        {
+            /* No existing handle to reuse � cannot proceed */
+            ESL_PL_ERR("[ESL PL]: Failed to create advertising set: no free slot (max sets: %d)",
+            CONFIG_BT_EXT_ADV_MAX_ADV_SET);
+            retval = BT_ESL_API_FAILURE;
+        }
+    }
+    else
+    {
+        /* Any other error (e.g. invalid parameters, controller error) */
         ESL_PL_ERR("[ESL PL]: Failed to create advertising set (err %d)", err);
-        retval = BT_ESL_API_SUCCESS;
+        retval = BT_ESL_API_FAILURE;
     }
 
     if (BT_ESL_API_SUCCESS == retval)
@@ -2249,6 +2305,10 @@ static void sync_cb
     BT_ESL_mem_set(&advertiser_addr, 0, sizeof(BT_ESL_BD_ADDR));
     BT_ESL_mem_set(le_addr, 0, sizeof(le_addr));
 
+    /* Copy the address from info->addr to advertiser_addr */
+    BT_ESL_COPY_BD_ADDR(advertiser_addr.addr, (UCHAR *)(info->addr->a.val));
+    BT_ESL_COPY_TYPE(advertiser_addr.type, (UCHAR)info->addr->type);
+
     bt_addr_le_to_str(info->addr, le_addr, sizeof(le_addr));
 #if defined(CONFIG_BT_PER_ADV_SYNC_RSP) && defined(CONFIG_BT_PER_ADV_SYNC)
     ESL_PL_TRC (
@@ -2267,6 +2327,7 @@ static void sync_cb
     info->response_slot_delay,
     info->response_slot_spacing);
 #endif /* CONFIG_BT_PER_ADV_SYNC_RSP && CONFIG_BT_PER_ADV_SYNC */
+
     /* store sync handle */
     sync_handle = bt_le_per_adv_sync_get_index(sync);
     BT_esl_tag_padv_sync_tx_received_handler
@@ -2794,7 +2855,7 @@ static uint8_t esl_discovery_cb_pl
         }
         else
         {
-            /* Discover cccd of control point char */
+            /* Discover CCCD of control point char */
             if (attr_handles[conn_idx].attr_handles.cp_hdl != BT_ESL_AP_ATTR_HANDLE_INIT_VAL)
             {
                 ESL_PL_TRC ("[ESL PL]: Starting CCCD discovery for Control Point");
@@ -2833,7 +2894,7 @@ static uint8_t esl_discovery_cb_pl
             ESL_PL_TRC ("[ESL PL]:   Handle: 0x%04x", attr->handle);
             print_uuid_pl(attr->uuid);
 
-            /* Store CCCD discriptor only */
+            /* Store CCCD descriptor only */
             if (0 == bt_uuid_cmp(attr->uuid,BT_UUID_GATT_CCC))
             {
                 ESL_PL_TRC ("[ESL PL]: Found CCCD Descriptor for Control Point");
@@ -3039,7 +3100,7 @@ static uint8_t gatt_read_cb_pl
 
     /**
      * The "length" received does not account of ATT Opcode.
-     * If recieved length is less than (ATT_MTU - 1) or
+     * If received length is less than (ATT_MTU - 1) or
      * "err" reported by stack is Invalid Offset, then
      * Read operation is deemed completed
      */
@@ -3989,7 +4050,7 @@ static ssize_t display_info_read_handler
     BT_ESL_COPY_BD_ADDR(bd_addr.addr, (UCHAR *)(bt_conn_get_dst(conn)->a.val));
     BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
 
-    ESL_PL_TRC ("[ESL PL]: Write: offset %u, len %u", offset, len);
+    ESL_PL_TRC ("[ESL PL]: Read: offset %u, len %u", offset, len);
     /* Inform upper layer */
     result = BT_esl_tag_read_request_handler
              (
@@ -4047,7 +4108,7 @@ static ssize_t image_info_read_handler
     BT_ESL_COPY_BD_ADDR(bd_addr.addr, (UCHAR *)(bt_conn_get_dst(conn)->a.val));
     BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
 
-    ESL_PL_TRC ("[ESL PL]: Write: offset %u, len %u", offset, len);
+    ESL_PL_TRC ("[ESL PL]: Read: offset %u, len %u", offset, len);
     /* Inform upper layer */
     result = BT_esl_tag_read_request_handler
               (
@@ -4105,7 +4166,7 @@ static ssize_t sensor_info_read_handler
     BT_ESL_COPY_BD_ADDR(bd_addr.addr, (UCHAR *)(bt_conn_get_dst(conn)->a.val));
     BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
 
-    ESL_PL_TRC ("[ESL PL]: Write: offset %u, len %u", offset, len);
+    ESL_PL_TRC ("[ESL PL]: Read: offset %u, len %u", offset, len);
     /* Inform upper layer */
     result = BT_esl_tag_read_request_handler
              (
@@ -4163,7 +4224,7 @@ static ssize_t led_info_read_handler
     BT_ESL_COPY_BD_ADDR(bd_addr.addr, (UCHAR *)(bt_conn_get_dst(conn)->a.val));
     BT_ESL_COPY_TYPE(bd_addr.type, (UCHAR)bt_conn_get_dst(conn)->type);
 
-    ESL_PL_TRC ("[ESL PL]: Write: offset %u, len %u", offset, len);
+    ESL_PL_TRC ("[ESL PL]: Read: offset %u, len %u", offset, len);
     /* Inform upper layer */
     result = BT_esl_tag_read_request_handler
              (
@@ -4948,7 +5009,7 @@ static uint8_t ots_discovery_cb_pl
         else
         {
             ots_discovery_session[conn_idx].discovery_in_progress = BT_ESL_FALSE;
-            /* Discover cccd of control point char */
+            /* Discover CCCD of control point char */
             if (is_discovery_complete(conn_idx))
             {
                 /* Discovery completed */
@@ -5266,7 +5327,7 @@ static uint8_t dis_discovery_cb_pl
         else
         {
             dis_discovery_session[conn_idx].discovery_in_progress = BT_ESL_FALSE;
-            /* Discover cccd of control point char */
+            /* Discover CCCD of control point char */
             if (is_discovery_complete(conn_idx))
             {
                 /* Discovery completed */

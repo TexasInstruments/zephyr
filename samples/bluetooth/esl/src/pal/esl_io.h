@@ -97,7 +97,7 @@ typedef struct _ESL_IO_LED_PARAMS
     UCHAR onoff;
 
     /** Time duration for LED to ON or OFF */
-    UCHAR onoff_period;
+    UINT16 onoff_period;
 
 }ESL_IO_LED_PARAMS;
 

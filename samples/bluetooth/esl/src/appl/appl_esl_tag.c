@@ -500,7 +500,7 @@ void appl_esl_tag_connection_ind_cb
     addr = (BT_ESL_BD_ADDR*)blob;
     if (NULL != addr)
     {
-        APPL_ESL_TRC("[APPL]: Connected to ESL tag with address: "
+        APPL_ESL_TRC("[APPL]: Connected to ESL AP with address: "
         BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER "\n",
         BT_ESL_DEVICE_ADDR_PRINT_STR(addr));
 
@@ -528,7 +528,7 @@ void appl_esl_tag_disconnection_ind_cb(void * blob)
     if (NULL != addr)
     {
         APPL_ESL_TRC(
-        "[APPL]: Disconnected from ESL tag with address: "
+        "[APPL]: Disconnected from ESL AP with address: "
         BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER "\n",
         BT_ESL_DEVICE_ADDR_PRINT_STR(addr));
     }
@@ -554,7 +554,7 @@ void appl_esl_tag_control_point_configured_ind_cb
     addr = (BT_ESL_BD_ADDR*)blob;
     if (NULL != addr)
     {
-        APPL_ESL_TRC("[APPL]: Control point configured for ESL tag with address: "
+        APPL_ESL_TRC("[APPL]: Control point configured by ESL AP with address: "
         BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER "\n",
         BT_ESL_DEVICE_ADDR_PRINT_STR(addr));
 
@@ -572,7 +572,7 @@ void appl_esl_tag_configured_ind_cb(void * blob)
     addr = (BT_ESL_BD_ADDR*)blob;
     if (NULL != addr)
     {
-        APPL_ESL_TRC("[APPL]: Configured for ESL tag with address: "
+        APPL_ESL_TRC("[APPL]: Configured by ESL AP with address: "
         BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER "\n",
         BT_ESL_DEVICE_ADDR_PRINT_STR(addr));
     }
@@ -1199,7 +1199,7 @@ void appl_esl_tag_synchronized_ind_cb
 
     if (NULL != addr)
     {
-        APPL_ESL_TRC("[APPL]: Synchronized with ESL tag with address: "
+        APPL_ESL_TRC("[APPL]: Synchronized with AP with address: "
             BT_ESL_DEVICE_ADDR_FRMT_SPECIFIER "\n",
             BT_ESL_DEVICE_ADDR_PRINT_STR(addr));
     }
@@ -1448,10 +1448,10 @@ void appl_esl_tag_write_esl_rsp_key_ind_cb
 {
     BT_ESL_IGNORE_UNUSED_PARAM(blob);
 
-    APPL_ESL_TRC("[APPL]: appl_els_write_ap_sync_key_ind_cb\n");
+    APPL_ESL_TRC("[APPL]: appl_esl_tag_write_esl_rsp_key_ind_cb\n");
 
     APPL_ESL_INF(
-    "[APPL]: AP Sync Key Material is written with retval 0x%04X\n", status);
+    "[APPL]: ESL Response Key Material is written with retval 0x%04X\n", status);
 
 }
 
@@ -1767,7 +1767,7 @@ API_RESULT appl_esl_display_timed_image_handler(UCHAR* data, UINT16 datalen)
             if (BT_ESL_TRUE == appl_esl_display_image[display_index].proc_pending)
             {
                 APPL_ESL_INF(
-                "[APPL]:Absolute Time set to Zero. Pending LED command will be deleted for \
+                "[APPL]:Absolute Time set to Zero. Pending Display command will be deleted for \
                 display index %d\n", display_index);
 
                 /* Stop the timer */
@@ -2253,29 +2253,29 @@ void appl_esl_led_control_handler(UCHAR led_index)
          * The value for Blue colour is in bit 4 and 5  (0x10, 0x20, 0x30)
          * Brightness is in bit 6 and 7
          */
-        APPL_ESL_INF("\tReceived %s colour\n",
+        APPL_ESL_TRC("\tReceived %s colour\n",
         (0x00U == (appl_esl_led_control[led_index].color & BT_ESL_SRGB_RED_LEVEL)) ? "Red" :
         (0x00U == (appl_esl_led_control[led_index].color & BT_ESL_SRGB_GREEN_LEVEL)) ? "Green" :
         (0x00U == (appl_esl_led_control[led_index].color & BT_ESL_SRGB_BLUE_LEVEL)) ? "Blue" : "Unknown");
     }
 
-    APPL_ESL_INF(
+    APPL_ESL_TRC(
     "\tBrightness percentage: %s\n",
     (brightness == 0x00) ? "25" :
     (brightness == 0x01) ? "50" :
     (brightness == 0x02) ? "75" :
     (brightness == 0x03) ? "100" : "Unknown");
-    APPL_ESL_INF("\tColour: 0x%02X\n", appl_esl_led_control[led_index].color);
+    APPL_ESL_TRC("\tColour: 0x%02X\n", appl_esl_led_control[led_index].color);
     APPL_ESL_TRC("\tFlashing Pattern: 0x%02X 0x%02X 0x%02X 0x%02X 0x%02X\n",
     appl_esl_led_control[led_index].flash_pattren[0],
     appl_esl_led_control[led_index].flash_pattren[1],
     appl_esl_led_control[led_index].flash_pattren[2],
     appl_esl_led_control[led_index].flash_pattren[3],
     appl_esl_led_control[led_index].flash_pattren[4]);
-    APPL_ESL_INF("\tBit_Off_Period: 0x%02X\n", bit_off_period);
-    APPL_ESL_INF("\tBit_On_Period: 0x%02X\n", bit_on_period);
-    APPL_ESL_INF("\tRepeat Type: %d\n", repeat_type);
-    APPL_ESL_INF("\tRepeat Duration 0x%04X\n", repeats_duration);
+    APPL_ESL_TRC("\tBit_Off_Period: 0x%02X\n", bit_off_period);
+    APPL_ESL_TRC("\tBit_On_Period: 0x%02X\n", bit_on_period);
+    APPL_ESL_TRC("\tRepeat Type: %d\n", repeat_type);
+    APPL_ESL_TRC("\tRepeat Duration 0x%04X\n", repeats_duration);
 
     /* Stop the repeat duration timer if previously started */
     appl_esl_stop_timer(appl_esl_led_control[led_index].led_repeat_duration_timer_handle);
@@ -2284,7 +2284,7 @@ void appl_esl_led_control_handler(UCHAR led_index)
     if ((repeats_duration != 0) && (repeat_type == 0))
     {
         /* Same Flashing pattern shall repeat no of times given in repeat duration */
-        APPL_ESL_INF(
+        APPL_ESL_TRC(
         "[APPL]: Repeating flashing pattern %d no of times\n", repeats_duration);
 
         /**
@@ -2317,7 +2317,7 @@ void appl_esl_led_control_handler(UCHAR led_index)
          */
         time_period = time_period * repeats_duration;
 
-        APPL_ESL_INF(
+        APPL_ESL_TRC(
         "[APPL]: Turning on LED for 0x%08X milliseconds\n", time_period);
 
         /* After timer expiry make Active LED off */
@@ -2335,7 +2335,7 @@ void appl_esl_led_control_handler(UCHAR led_index)
     else if ((repeats_duration != 0) && (repeat_type == 1))
     {
         /* Same Flasing pattern shall repeat till the time duration given in repeat duration */
-        APPL_ESL_INF(
+        APPL_ESL_TRC(
         "[APPL]: Repeat flashing pattern for %d seconds\n", repeats_duration);
 
         /* AFter timer expiry make Active LED off */
@@ -2352,7 +2352,7 @@ void appl_esl_led_control_handler(UCHAR led_index)
     /* Repeat duration is zero, Repeat Type is 0 = turn off continuously  */
     else if ((repeats_duration == 0) && (repeat_type == 0))
     {
-        APPL_ESL_INF("[APPL]: Turning off LED continuously\n");
+        APPL_ESL_TRC("[APPL]: Turning off LED continuously\n");
         /* Set active_led for led as false */
         appl_esl_led_control[led_index].active_led = BT_ESL_FALSE;
 
@@ -2370,7 +2370,7 @@ void appl_esl_led_control_handler(UCHAR led_index)
     /* Repeat duration is zero, Repeat Type is 0 = Turn on continuously */
     else if ((repeats_duration == 0) && (repeat_type == 1))
     {
-        APPL_ESL_INF("[APPL]: Turning on LED continuously\n");
+        APPL_ESL_TRC("[APPL]: Turning on LED continuously\n");
 
         esl_io_led_params.led_idx = led_index;
         esl_io_led_params.brightness = brightness;
@@ -2430,9 +2430,29 @@ UINT32 appl_esl_parse_flashing_pattern
                 /* 1st time found bit set 1 make variable to true */
                 foundfirstone = BT_ESL_TRUE;
             }
-            if (foundfirstone)
+
+            if (BT_ESL_TRUE == foundfirstone)
             {
+                /**
+                 * Console print for each bit in the flashing pattern is intentionally
+                 * disabled below (guarded by #if 0) to avoid excessive logging during
+                 * normal operation.
+                 *
+                 * *** INTEGRATION POINT ***
+                 * This is the recommended location to feed each resolved bit value
+                 * (LED ON = 1, LED OFF = 0) along with its corresponding ON/OFF period
+                 * to an external LED driver, GPIO controller, or display driver.
+                 *
+                 * Example usage:
+                 *   - For an external LED driver : call your driver's set_led_state(bit, period) API here.
+                 *   - For a GPIO-controlled LED  : toggle the GPIO pin based on the bit value and period.
+                 *   - For a display backlight    : pass the bit and timing to your display backlight driver.
+                 *
+                 * To enable the debug print, change '#if 0' to '#if 1' below.
+                 */
+#if 0
                 APPL_ESL_TRC("[APPL]: Flashing pattern bit is %d\n", bit);
+#endif /* 0 */
                 if (1 == bit)
                 {
                     /**
@@ -2465,7 +2485,7 @@ UINT32 appl_esl_parse_flashing_pattern
                     esl_io_led_params.led_idx = led_index;
                     esl_io_led_params.brightness = brightness;
                     esl_io_led_params.onoff = BT_ESL_FALSE;
-                    esl_io_led_params.onoff_period = (bit_on_period * 2);
+                    esl_io_led_params.onoff_period = (bit_off_period * 2);
 
                     esl_io_led_control(&esl_io_led_params);
                 }

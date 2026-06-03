@@ -201,10 +201,34 @@ API_RESULT esl_io_led_control(/* IN */ ESL_IO_LED_PARAMS* esl_io_led_params)
         retval = BT_ESL_API_FAILURE; /* Invalid value */
     }
 
+    /**
+     * Console print for LED control parameters is intentionally disabled below
+     * (guarded by #if 0) to avoid excessive logging during normal operation.
+     *
+     * *** INTEGRATION POINT ***
+     * This is the recommended location to pass the resolved LED control parameters
+     * to an external LED driver, PWM controller, or GPIO abstraction layer.
+     *
+     * The following parameters are available via `esl_io_led_params`:
+     *   - led_idx      : Index of the LED to control.
+     *   - brightness   : Brightness level (0-100).
+     *   - onoff        : BT_ESL_TRUE = ON, BT_ESL_FALSE = OFF.
+     *   - onoff_period : Duration (in ms) for which the LED should be kept ON or OFF.
+     *
+     * Example usage:
+     *   - For a PWM-controlled LED : call your PWM driver's set_duty_cycle(led_idx, brightness) here.
+     *   - For a GPIO-controlled LED: toggle the GPIO pin based on onoff and schedule onoff_period.
+     *   - For an external LED IC   : send the parameters over I2C/SPI to the LED controller.
+     *
+     * To enable the debug print, change '#if 0' to '#if 1' below.
+     */
+#if 0
     ESL_IO_TRC(
     "[ESL IO]: LED control - LED Index: %d, Brightness: %d, On/Off: %d, On/Off Period: %d\n",
     esl_io_led_params->led_idx, esl_io_led_params->brightness,
     esl_io_led_params->onoff, esl_io_led_params->onoff_period);
+#endif /* 0 */
+
     /** Turn on/off LED */
     ret = gpio_pin_set_dt
           (

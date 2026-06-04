@@ -17,6 +17,11 @@ if BT
 	config CRYPTO
 		default y
 
+	# TI BLE controller only supports HCI_LE_Generate_DHKey v2 (0x205e).
+	# Use TinyCrypt software ECC so Zephyr never sends the v1 command (0x2026).
+	config BT_TINYCRYPT_ECC
+		default y if BT_ECC
+
 	config ENTROPY_GENERATOR
 		default y
 

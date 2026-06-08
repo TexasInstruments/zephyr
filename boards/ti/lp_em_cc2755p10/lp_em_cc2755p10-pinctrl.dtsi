@@ -215,5 +215,16 @@
 		pinmux = <20 DIO20_I2S0_SD1>;
 		bias-disable;
 		input-enable;
+	/* LGPT2 ch1 output (DIO9, T2_C1N) */
+	pwm7_default: lgpt2_chan1_default {
+		pinmux = <9 DIO9_T2_C1N>;
+		bias-disable;
+	};
+
+	/* LGPT0 ch0 capture input (DIO0, T0_C0) */
+	pwm0_capture: lgpt0_chan0_capture {
+		pinmux = <0 DIO0_T0_C0>;
+		bias-disable;
+		input-enable;
 	};
 };

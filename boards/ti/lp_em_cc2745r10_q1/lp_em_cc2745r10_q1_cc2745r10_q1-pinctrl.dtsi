@@ -211,4 +211,30 @@
 		pinmux = <5 DIO5_T2_C1>;
 		bias-disable;
 	};
+
+	/* I2S0: DIO17=SCLK, DIO18=WS, DIO19=SD0(TX), DIO20=SD1(RX)
+	 * Reference: <&i2s0_sclk_default &i2s0_ws_default
+	 * 	           &i2s0_sd0_default &i2s0_sd1_default>
+	 * NOTE: All pins need input-enable (HW samples own outputs for sync)
+	 */
+	i2s0_sclk_default: i2s0_sclk_default {
+		pinmux = <17 DIO17_I2S0_SCLK>;
+		bias-disable;
+		input-enable;
+	};
+	i2s0_ws_default: i2s0_ws_default {
+		pinmux = <18 DIO18_I2S0_WS>;
+		bias-disable;
+		input-enable;
+	};
+	i2s0_sd0_default: i2s0_sd0_default {
+		pinmux = <19 DIO19_I2S0_SD0>;
+		bias-disable;
+		input-enable;
+	};
+	i2s0_sd1_default: i2s0_sd1_default {
+		pinmux = <20 DIO20_I2S0_SD1>;
+		bias-disable;
+		input-enable;
+	};
 };

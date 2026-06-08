@@ -158,6 +158,21 @@
 			status = "disabled";
 		};
 
+		i2s0: i2s@400c1000 {
+			compatible = "ti,cc27xx-i2s";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x400c1000 0x100>;
+			interrupts = <20 0>;
+			afclk-source = <0x02>; /* CLKAF (AFOSC) */
+			afosc-freq = <98304000>; /* 98.304 MHz for 48 kHz family */
+			cclk-divider = <40>; /* CCLK = AFCLK / 40 = 2.4576 MHz */
+			startup-delay = <2>; /* 2 WS cycles delay */
+			pin-dir-sd0 = <0x02>;  /* OUTPUT (TX to codec) */
+			pin-dir-sd1 = <0x01>;  /* INPUT (RX from codec) */
+			status = "disabled";
+		};
+
 		aes: aes@400c0000 {
 			compatible = "ti,cc23xx-cc27xx-aes";
 			reg = <0x400c0000 0x120>;

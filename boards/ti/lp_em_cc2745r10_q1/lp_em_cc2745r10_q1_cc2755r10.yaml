@@ -13,6 +13,7 @@ supported:
   - dma
   - crypto
   - spi
+  - i2s
   - adc
   - pm
   - watchdog

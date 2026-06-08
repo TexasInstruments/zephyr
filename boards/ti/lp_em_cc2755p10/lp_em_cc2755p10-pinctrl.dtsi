@@ -193,4 +193,22 @@
 		bias-disable;
 		input-enable;
 	};
+
+	/* I2S0: DIO16=MCLK, DIO17=SCLK, DIO18=WS, DIO19=SD0(TX), DIO20=SD1(RX) */
+	i2s_default: i2s_default {
+		group1 {
+			/* Clock outputs and TX data - no input-enable needed */
+			pinmux = <16 DIO16_I2S0_MCLK>,
+				 <17 DIO17_I2S0_SCLK>,
+				 <18 DIO18_I2S0_WS>,
+				 <19 DIO19_I2S0_SD0>;  /* TX output */
+			bias-disable;
+		};
+		group2 {
+			/* RX input - requires input-enable */
+			pinmux = <20 DIO20_I2S0_SD1>;
+			bias-disable;
+			input-enable;
+		};
+	};
 };

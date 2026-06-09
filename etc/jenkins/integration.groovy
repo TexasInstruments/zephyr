@@ -4,7 +4,7 @@ import java.util.regex.Matcher
 /* groovylint-disable DuplicateStringLiteral, NestedBlockDepth, UnnecessaryGetter */
 /* groovylint-disable DuplicateNumberLiteral, CompileStatic */
 
-env.FWTOOLS_TAG = '2026.06.02_0'
+env.FWTOOLS_TAG = '2026.06.10_0'
 library("fwtools@${env.FWTOOLS_TAG}")
 
 /* Command syntax help text
@@ -149,6 +149,8 @@ pipeline
                     } else {
                         env.BOARDS_FINAL = params.BOARDS
                     }
+
+                    env.BOARDS_UNDERSCORES = env.BOARDS_FINAL.replaceAll('/', '_')
 
                     /* Don't pass -p if no boards specified */
                     if (env.BOARDS_FINAL != '') {
@@ -371,13 +373,14 @@ pipeline
                         if (statusTwister != 0) {
                             unstable("Build marked unstable due to twister failures. Status code ${statusTwister}")
                         }
-
-                        stash(
-                            name: 'firmware_images',
-                            includes: ".west/**/*,zephyr/twister-out/**/*",
-                            excludes: "zephyr/twister-out/**/build.log",
-                            allowEmpty: true
-                        )
+                        for (board in env.BOARDS_UNDERSCORES.tokenize(' ')) {
+                            stash(
+                                name: "firmware_images_${board}",
+                                includes: ".west/**/*,zephyr/twister-out/${board}/**/*,zephyr/twister-out/*.*",
+                                excludes: "zephyr/twister-out/**/build.log",
+                                allowEmpty: true
+                            )
+                        }
 
                         /* Check out fwtools to have access to ./fwtools/scripts/jenkins/parse-xml-results.py */
                         git.checkoutHttps('lprfmw', 'fwtools', env.FWTOOLS_TAG)

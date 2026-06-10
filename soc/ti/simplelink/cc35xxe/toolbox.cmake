@@ -10,8 +10,10 @@ function(zephyr_simplelink_tasks)
   string(CONFIGURE "${CONFIG_CC35XXE_FLASH_DISCOVERY_CONFIG_OTFDE}" otfde)
   string(CONFIGURE "${CONFIG_CC35XXE_FLASH_DISCOVERY_CONFIG_EXT_MEM}" ext_mem)
   string(CONFIGURE "${CONFIG_CC35XXE_FLASH_DISCOVERY_CONFIG_XSPI}" xspi)
+  string(CONFIGURE "${CONFIG_CC35XXE_FLASH_PROFILE}" flash_profile)
   string(CONFIGURE "${CONFIG_CC35XXE_FUSE_CONFIG}" fuse_config)
   string(CONFIGURE "${CONFIG_CC35XXE_ACTION_PARAMS_FILE}" action_params)
+  string(CONFIGURE "${CONFIG_CC35XXE_TOOL_SETTINGS_FILE}" tool_settings)
 
   # Use default keys if not set
   if("${pubkey}" STREQUAL "")
@@ -31,8 +33,14 @@ function(zephyr_simplelink_tasks)
   endif()
 
   # Use default config jsons if not set
+  if("${flash_profile}" STREQUAL "")
+    set(flash_profile "is25wj032f")
+  endif()
+
+  set(flash_profile_dir "${BOARD_DIR}/config/flash/${flash_profile}")
+
   if("${otfde}" STREQUAL "")
-    set(otfde "${BOARD_DIR}/config/flash_disc_param_otfde.json")
+    set(otfde "${flash_profile_dir}/flash_disc_param_otfde.json")
   endif()
 
   if(NOT EXISTS "${otfde}")
@@ -40,7 +48,7 @@ function(zephyr_simplelink_tasks)
   endif()
 
   if("${ext_mem}" STREQUAL "")
-    set(ext_mem "${BOARD_DIR}/config/flash_disc_param_ext_mem.json")
+    set(ext_mem "${flash_profile_dir}/flash_disc_param_ext_mem.json")
   endif()
 
   if(NOT EXISTS "${ext_mem}")
@@ -48,7 +56,7 @@ function(zephyr_simplelink_tasks)
   endif()
 
   if("${xspi}" STREQUAL "")
-    set(xspi "${BOARD_DIR}/config/flash_disc_param_xspi.json")
+    set(xspi "${flash_profile_dir}/flash_disc_param_xspi.json")
   endif()
 
   if(NOT EXISTS "${xspi}")
@@ -71,8 +79,22 @@ function(zephyr_simplelink_tasks)
     message(FATAL_ERROR "Action parameters file not found: ${action_params}")
   endif()
 
+  if("${tool_settings}" STREQUAL "")
+    set(tool_settings "${BOARD_DIR}/config/tool_settings.json")
+  endif()
+
+  if(NOT EXISTS "${tool_settings}")
+    message(FATAL_ERROR "Tool settings file not found: ${tool_settings}")
+  endif()
+
   set(outdir ${ZEPHYR_BINARY_DIR}/flash)
   set(output ${ZEPHYR_BINARY_DIR}/${KERNEL_NAME})
+
+  set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
+               ${CMAKE_COMMAND} -E make_directory ${outdir})
+
+  set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
+               ${CMAKE_COMMAND} -E copy ${tool_settings} ${outdir}/tool_settings.json)
 
   set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
                simplelink-wifi-toolbox flash-images-builder build programming_image
@@ -80,8 +102,7 @@ function(zephyr_simplelink_tasks)
                --flash_discovery_config_ext_mem ${ext_mem}
                --flash_discovery_config_xspi ${xspi}
                --fuses_programming_instructions ${fuse_config}
-               --dir_out_path ${outdir}
-               --use_my_jsons)
+               --dir_out_path ${outdir})
 
   set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
                simplelink-wifi-toolbox flash-images-builder sign programming_image
@@ -146,7 +167,8 @@ function(zephyr_simplelink_tasks)
                "${outdir}/programming_instructions_image.sign.bin"
                "${outdir}/programming_action_request.sign.bin"
                "${outdir}/debug_action_request.sign.bin"
-               "${outdir}/vendor_image.sign.bin")
+               "${outdir}/vendor_image.sign.bin"
+               "${outdir}/tool_settings.json")
 endfunction()
 
 zephyr_simplelink_tasks()

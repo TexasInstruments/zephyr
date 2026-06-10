@@ -126,14 +126,14 @@
 		extflash_ns: extflash@10000000 {
 			status = "disabled";
 			compatible = "zephyr,memory-region";
-			reg = <0x10000000 DT_SIZE_M(64)>;
+			reg = <0x10000000 DT_SIZE_M(4)>;
 			zephyr,memory-region = "EXTFLASH_NS";
 		};
 
 		extflash: extflash@14000000 {
 			status = "disabled";
 			compatible = "zephyr,memory-region";
-			reg = <0x14000000 DT_SIZE_M(64)>;
+			reg = <0x14000000 DT_SIZE_M(4)>;
 			zephyr,memory-region = "EXTFLASH";
 		};
 

@@ -21,7 +21,9 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
         self.vendor_file = (
             Path(cfg.build_dir) / 'zephyr' / 'flash' / 'vendor_image.sign.bin'
         ).resolve()
-        self.tool_setting_file = (Path(cfg.board_dir) / 'config' / 'tool_settings.json').resolve()
+        self.tool_setting_file = (
+            Path(cfg.build_dir) / 'zephyr' / 'flash' / 'tool_settings.json'
+        ).resolve()
         self.programming_report_file = (
             Path(self.cfg.build_dir) / 'simplelink_toolbox_report.txt'
         ).resolve()

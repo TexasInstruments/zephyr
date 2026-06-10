@@ -17,6 +17,7 @@
 
 #define DT_DRV_COMPAT        ti_cc35xx_nv_flash
 #define CC35XX_ERASE_TIMEOUT 200
+#define CC35XX_FLASH_WRITE_SIZE 256
 
 struct flash_cc35xx_config {
 	mem_addr_t base;
@@ -28,6 +29,7 @@ struct flash_cc35xx_config {
 };
 static int flash_cc35xx_initialized;
 static struct k_mutex flash_cc35xx_mutex;
+static uint8_t flash_cc35xx_write_buf[CC35XX_FLASH_WRITE_SIZE] __aligned(sizeof(uint32_t));
 
 static mem_addr_t flash_cc35xx_offset_to_phys_addr(const struct device *dev, off_t offset)
 {
@@ -48,7 +50,23 @@ static bool flash_cc35xx_is_range_valid(const struct device *dev, off_t offset, 
 {
 	const struct flash_cc35xx_config *config = dev->config;
 
-	return ((size_t)offset < config->size) && (size < config->size - offset);
+	if ((offset < 0) || ((size_t)offset > config->size)) {
+		return false;
+	}
+
+	return size <= config->size - (size_t)offset;
+}
+
+static int flash_cc35xx_get_udma_status(void)
+{
+	uint32_t status;
+
+	status = XIPGetUDMAIrqStatus(XIP_UDMA_SECURE_CHANNEL);
+	if (status != XIP_UDMA_JOB_IRQ_STATUS_DONE) {
+		return -EIO;
+	}
+
+	return 0;
 }
 
 extern XMEMWFF3_HWAttrs XMEMWFF3_hwAttrs;
@@ -121,7 +139,7 @@ __ramfunc static int flash_cc35xx_erase(const struct device *dev, off_t offset, 
 	const struct flash_cc35xx_config *config = dev->config;
 	size_t erase_size = config->erase_size;
 	mem_addr_t addr = flash_cc35xx_offset_to_phys_addr(dev, offset);
-	int ret;
+	int ret = 0;
 	unsigned int key;
 
 	if (offset % erase_size) {
@@ -156,20 +174,56 @@ __ramfunc static int flash_cc35xx_erase(const struct device *dev, off_t offset, 
 static int flash_cc35xx_write(const struct device *dev, off_t offset, const void *buf, size_t size)
 {
 	const struct flash_cc35xx_config *config = dev->config;
-	void *addr = flash_cc35xx_offset_to_logic_addr(dev, offset);
+	const uint8_t *src = buf;
+	size_t remaining = size;
+	int ret = 0;
+
+	if (!size) {
+		return 0;
+	}
 
 	if (size % config->parameters->write_block_size) {
 		return -EINVAL;
 	}
+
 	if (!flash_cc35xx_is_range_valid(dev, offset, size)) {
 		return -EINVAL;
 	}
 
+	if (offset % config->parameters->write_block_size) {
+		return -EINVAL;
+	}
+
 	k_mutex_lock(&flash_cc35xx_mutex, K_FOREVER);
-	memcpy(addr, buf, size);
+	while (remaining) {
+		off_t chunk_offset = offset & ~(CC35XX_FLASH_WRITE_SIZE - 1);
+		size_t chunk_pos = offset - chunk_offset;
+		size_t chunk_len = MIN(remaining, CC35XX_FLASH_WRITE_SIZE - chunk_pos);
+		uint8_t *addr = flash_cc35xx_offset_to_logic_addr(dev, chunk_offset);
+
+		if (chunk_pos != 0 || chunk_len != sizeof(flash_cc35xx_write_buf)) {
+			FlashRead((uint32_t *)addr, (uint32_t *)flash_cc35xx_write_buf,
+				  sizeof(flash_cc35xx_write_buf));
+			ret = flash_cc35xx_get_udma_status();
+			if (ret) {
+				break;
+			}
+		}
+		memcpy(&flash_cc35xx_write_buf[chunk_pos], src, chunk_len);
+		FlashWrite((uint32_t *)flash_cc35xx_write_buf, (uint32_t *)addr,
+			   sizeof(flash_cc35xx_write_buf));
+		ret = flash_cc35xx_get_udma_status();
+		if (ret) {
+			break;
+		}
+
+		src += chunk_len;
+		offset += chunk_len;
+		remaining -= chunk_len;
+	}
 	k_mutex_unlock(&flash_cc35xx_mutex);
 
-	return 0;
+	return ret;
 }
 
 static int flash_cc35xx_read(const struct device *dev, off_t offset, void *buf, size_t size)

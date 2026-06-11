@@ -104,6 +104,9 @@ static inline void set_rx_sample_stamp_trigger(const struct device *dev,
 
 
 
+static inline uint32_t hw_frame_count_for(const struct device *dev,
+					   uint32_t logical_frame_count);
+
 static void config_serial_format(const struct device *dev,
 				 struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
 				 uint32_t dma_frame_count)
@@ -149,8 +152,13 @@ static void config_serial_format(const struct device *dev,
 			   is_dual_phase,               /* dualPhase = true for I2S/LJF/RJF */
 			   bits_per_sample); /* wordLength (no afterPadding for dual) */
 
-	/* Set WCLK counter period for sample stamp generation (used for DMA timing) */
-	I2SConfigureWclkCounterPeriod(config->reg_base, dma_frame_count);
+	/* Set WCLK counter period for sample stamp generation (used for DMA timing).
+	 * STMPWPER must be a multiple of (END_FRAME_IDX + 1) per the TRM (section
+	 * 26.7), so when start_dma() doubles the END_FRAME_IDX in MEMLEN32 mode
+	 * we double STMPWPER here too to keep them coordinated.
+	 */
+	I2SConfigureWclkCounterPeriod(config->reg_base,
+				      hw_frame_count_for(dev, dma_frame_count));
 
 	I2SConfigureInSampleStampTrigger(config->reg_base, I2S_STMP_SATURATION);
 	I2SConfigureOutSampleStampTrigger(config->reg_base, I2S_STMP_SATURATION);
@@ -201,6 +209,40 @@ static void config_clocks(const struct device *dev)
 			   data->sck_divider);
 }
 
+/* When the audio sample is held in a 32-bit memory slot (MEMLEN32=EN, used
+ * for 24-bit data), the cc27xx I2S DMA programs internally on a half-frame
+ * granularity: the AIFDMACFG.END_FRAME_IDX field reaches its target after
+ * (programmed_value / 2) WCLK frames, not the full programmed value. To make
+ * the user-visible "DMA fills N frames per pointer-refresh" contract hold for
+ * 16-bit AND 24-bit data, double the value programmed into the register when
+ * MEMLEN32 is in use. The software-visible `dma_frame_count` remains the
+ * logical (user) frame count and the rest of the driver's bookkeeping is
+ * unaffected.
+ */
+static inline uint32_t hw_frame_count_for(const struct device *dev,
+					   uint32_t logical_frame_count)
+{
+	struct ti_cc27xx_i2s_data *data = dev->data;
+	bool is_memlen32 =
+		(data->stream_rx.enabled &&
+		 data->stream_rx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16) ||
+		(data->stream_tx.enabled &&
+		 data->stream_tx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16);
+
+	/* Before either stream is enabled (initial start path), inspect either
+	 * stream's configured memory width directly.
+	 */
+	if (!data->stream_rx.enabled && !data->stream_tx.enabled) {
+		is_memlen32 =
+			(data->stream_rx.configured &&
+			 data->stream_rx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16) ||
+			(data->stream_tx.configured &&
+			 data->stream_tx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16);
+	}
+
+	return is_memlen32 ? (logical_frame_count * 2U) : logical_frame_count;
+}
+
 static inline void start_dma(const struct device *dev, uint32_t frame_count)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
@@ -209,7 +251,7 @@ static inline void start_dma(const struct device *dev, uint32_t frame_count)
 	if (!data->is_dma_frame_count_fixed) {
 		data->dma_frame_count = frame_count;
 	}
-	I2SStart(config->reg_base, data->dma_frame_count);
+	I2SStart(config->reg_base, hw_frame_count_for(dev, data->dma_frame_count));
 }
 
 static void enable_clocks(const struct device *dev)
@@ -1698,10 +1740,22 @@ int_dma_in_done:
 end:
 
 	if (!stream_tx->enabled && !stream_rx->enabled) {
-		stop_dma(dev);
 		if (full_teardown) {
+			/* Fatal error: stop DMA module and clocks immediately. */
+			stop_dma(dev);
 			disable_clocks(dev);
 		}
+		/*
+		 * Non-fatal stop (PTR_ERR / slab exhaustion): DMA pointers are
+		 * already 0 from stop_stream(). Do NOT call I2SStop() here —
+		 * that writes DMACFG=0, disabling the entire I2S module and
+		 * cutting the master SCK/WS output. SimpleLink mirrors this:
+		 * when its DMA queue empties it zeroes the pointers but keeps
+		 * DMACFG non-zero so clocks continue until I2S_stopClocks() is
+		 * explicitly called. An explicit TRIGGER_DROP or the next
+		 * TRIGGER_START will call stop_dma()/disable_clocks() when
+		 * needed.
+		 */
 	}
 
 

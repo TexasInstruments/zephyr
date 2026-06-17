@@ -36,7 +36,9 @@ COPY zephyr/scripts/ scripts
 RUN pip3 --proxy wwwgate.ti.com install --no-cache-dir -r ./scripts/requirements.txt -r ci_requirements.txt
 
 # Install ti-openocd from hardcoded URL to currently used version, to be manually bumped when needed
-ENV TI_OPENOCD_INSTALL_URL=https://github.com/TexasInstruments/ti-openocd/releases/download/ti-v1.1.1/openocd_linux_1.1.1.46.zip
+# Note: Any update to OpenOCD udev rules must be applied to the lab nodes as well.
+#   Ref: https://bitbucket.itg.ti.com/projects/DEVOPS/repos/ansible-playbook-jenkins-agent/browse/roles/openocd/defaults/main.yml#5
+ENV TI_OPENOCD_INSTALL_URL=http://vmtgpejenkins00.toro.design.ti.com:8080/view/build/job/build.openocd.all/58/artifact/bin/openocd_linux_1.4.1.58.zip
 ENV TI_OPENOCD_INSTALL_DIR=/home/developer/ti_openocd
 # ENV OPENOCD_BASE=${TI_OPENOCD_INSTALL_DIR}/openocd/bin
 # ENV OPENOCD=${OPENOCD_BASE}/bin/openocd

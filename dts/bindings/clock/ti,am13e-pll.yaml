@@ -1,0 +1,59 @@
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  TI AM13E SYSPLL node.
+
+  The SYSPLL output frequency formula:
+    F_VCO  = (F_REF / p-div) * (q-div + 1)
+    F_CLK0 = F_VCO / clk0-div
+    F_CLK1 = F_VCO / clk1-div
+
+  Example for 200 MHz output with a 25 MHz HFXTAL:
+    p-div   = 2   -> F_input = 12.5 MHz  (in 8-16 MHz range)
+    q-div   = 31  -> F_VCO   = 400 MHz
+    clk0-div = 2  -> CLK0    = 200 MHz
+    clk1-div = 2  -> CLK1    = 200 MHz
+
+compatible: "ti,am13e-pll"
+
+include: [clock-controller.yaml, base.yaml]
+
+properties:
+  "#clock-cells":
+    const: 1
+
+  clocks:
+    required: true
+    description: Reference clock source (hfclk or sysosc)
+
+  clock-frequency:
+    type: int
+    required: true
+    description: CLK0 output frequency in Hz (used for clock-frequency reporting)
+
+  ti,p-div:
+    type: int
+    required: true
+    description: |
+      PLL reference pre-divider. Valid values: 1, 2, 4, 8.
+
+  ti,q-div:
+    type: int
+    required: true
+    description: |
+      PLL feedback divider. Effective multiplier = q-div + 1.
+      Valid range: 1 to 126 (register value 0 to 125).
+
+  ti,clk0-div:
+    type: int
+    description: |
+      CLK0 output divider. Even values 2..32. Omit to disable CLK0.
+
+  ti,clk1-div:
+    type: int
+    description: |
+      CLK1 output divider. Even values 2..32. Omit to disable CLK1.
+
+clock-cells:
+  - clk

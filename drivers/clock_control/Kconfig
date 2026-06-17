@@ -52,6 +52,8 @@ source "drivers/clock_control/Kconfig.mcux_sim"
 
 source "drivers/clock_control/Kconfig.mcux_syscon"
 
+source "drivers/clock_control/Kconfig.am13e"
+
 source "drivers/clock_control/Kconfig.mspm0"
 
 source "drivers/clock_control/Kconfig.npcm"

@@ -1,0 +1,14 @@
+# TI AM13E Family
+#
+# Copyright (c) 2026, Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+config CLOCK_CONTROL_AM13E
+	bool "TI AM13E clock control"
+	default y
+	depends on DT_HAS_TI_AM13E_CLK_ENABLED
+	help
+	  Enable clock control driver for the TI AM13E SoC family.
+	  Provides clock frequency queries (get_rate) and configures the
+	  HFCLK, SYSPLL, MCLK, MCLK2, MCLK4 and HSCLK tree from
+	  device tree properties at PRE_KERNEL_1.

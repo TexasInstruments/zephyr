@@ -7,6 +7,7 @@
 #include <arm/armv8-m.dtsi>
 #include <mem.h>
 #include <freq.h>
+#include <zephyr/dt-bindings/clock/am13e_clock.h>
 
 /{
 	cpus {
@@ -25,6 +26,121 @@
 		mpu: mpu@e000ed90 {
 			compatible = "arm,armv8m-mpu";
 			reg = <0xe000ed90 0x40>;
+		};
+	};
+
+	/*
+	 * Clock module: single clock controller device for AM13E230X.
+	 * Peripheral drivers reference this with:
+	 *   clocks = <&ckm AM13E_CLOCK_MCLK4>;
+	 */
+	ckm: clock-module {
+		compatible = "ti,am13e-clk";
+		#clock-cells = <1>;
+		ti,sysctl-base = <0x400AF000UL>;
+	};
+
+	/*
+	 * Clock tree data nodes.  No separate Zephyr device is created for
+	 * these; the ckm driver reads their properties at init time.
+	 */
+	clocks {
+		/*
+		 * Internal System Oscillator (SYSOSC).
+		 */
+		sysosc: sysosc {
+			compatible = "fixed-clock";
+			clock-frequency = <DT_FREQ_M(4)>;
+			#clock-cells = <0>;
+		};
+
+		/*
+		 * External high-frequency crystal oscillator (HFXT).
+		 *
+		 * Startup delay has to be set in units of 64us, with the
+		 * upper limit of 255, i.e. for a 25MHz crystal,
+		 * maximum startup delay = 255 * 64 us = 16320 us
+		 */
+		hfxt: hfxt {
+			compatible = "ti,am13e-osc";
+			clock-frequency = <DT_FREQ_M(25)>;
+			#clock-cells = <0>;
+			ti,xtal-startup-delay = <255>;
+			status = "okay";
+		};
+
+		/*
+		 * HFCLK: driven from the external XTAL (hfxt).
+		 * clock-frequency must equal hfxt clock-frequency.
+		 */
+		hfclk: hfclk {
+			compatible = "ti,am13e-clk";
+			clock-frequency = <DT_FREQ_M(25)>;
+			clocks = <&hfxt>;
+			#clock-cells = <1>;
+			status = "okay";
+		};
+
+		/*
+		 * SYSPLL configuration:
+		 *   F_input = HFCLK / p-div = 25 / 2 = 12.5 MHz  (8-16 MHz range)
+		 *   F_VCO   = F_input * (q-div + 1) = 12.5 * 32  = 400 MHz
+		 *   CLK0    = F_VCO / clk0-div      = 400 / 2    = 200 MHz
+		 *   CLK1    = F_VCO / clk1-div      = 400 / 2    = 200 MHz
+		 *
+		 * clock-frequency reports the CLK0 output frequency.
+		 */
+		syspll: syspll {
+			compatible = "ti,am13e-pll";
+			clock-frequency = <DT_FREQ_M(200)>;
+			clocks = <&hfclk AM13E_CLOCK_HFCLK>;
+			#clock-cells = <1>;
+			ti,p-div = <2>;
+			ti,q-div = <31>;
+			ti,clk0-div = <2>;
+			ti,clk1-div = <2>;
+			status = "okay";
+		};
+
+		/*
+		 * HSCLK: high-speed clock, fed from SYSPLL CLK0 (200 MHz).
+		 */
+		hsclk: hsclk {
+			compatible = "ti,am13e-clk";
+			clock-frequency = <DT_FREQ_M(200)>;
+			clocks = <&syspll AM13E_CLOCK_SYSPLL0>;
+			#clock-cells = <1>;
+		};
+
+		/*
+		 * MCLK: main CPU clock sourced from HSCLK.
+		 * clock-frequency must match CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC.
+		 */
+		mclk: mclk {
+			compatible = "ti,am13e-clk";
+			clock-frequency = <DT_FREQ_M(200)>;
+			clocks = <&hsclk AM13E_CLOCK_HSCLK>;
+			#clock-cells = <1>;
+		};
+
+		/*
+		 * MCLK2: MCLK / 2 = 100 MHz.
+		 * Peripheral bus clock for high-speed peripherals.
+		 */
+		mclk2: mclk2 {
+			compatible = "ti,am13e-clk";
+			clock-frequency = <DT_FREQ_M(100)>;
+			#clock-cells = <1>;
+		};
+
+		/*
+		 * MCLK4: MCLK / 4 = 50 MHz.
+		 * Default peripheral clock for UNICOMM (UART, I2C, SPI).
+		 */
+		mclk4: mclk4 {
+			compatible = "ti,am13e-clk";
+			clock-frequency = <DT_FREQ_M(50)>;
+			#clock-cells = <1>;
 		};
 	};
 };

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 board_runner_args(jlink "--device=CC2755P10")
-board_runner_args(openocd --cmd-pre-init "source [find board/ti_lp_em_cc2755p10.cfg]")
+board_runner_args(openocd --cmd-pre-init "source [find board/ti_lp_em_cc2755P10.cfg]")
 set(OPENOCD_BASE $ENV{TI_OPENOCD_INSTALL_DIR}/openocd/bin)
 set(OPENOCD ${OPENOCD_BASE}/bin/openocd)
 set(OPENOCD_DEFAULT_PATH ${OPENOCD_BASE}/share/openocd/scripts)

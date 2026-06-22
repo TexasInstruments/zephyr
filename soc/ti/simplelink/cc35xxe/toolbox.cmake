@@ -113,9 +113,27 @@ function(zephyr_simplelink_tasks)
                --private_key ${privkey} --public_key ${pubkey}
                --dir_out_path ${outdir})
 
+  set(conf_default_dir "${SOC_DIR}/conf")
+
+  string(CONFIGURE "${CONFIG_CC35XXE_CONF_INI_FILE}" conf_ini)
+  if("${conf_ini}" STREQUAL "")
+    set(conf_ini "${conf_default_dir}/cc35xx-conf.ini")
+  endif()
+
+  set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
+               simplelink-wifi-toolbox ini-composer generate bin_from_files
+               --device_family CC35X1E
+               --dict "${conf_default_dir}/dictionary_cc35xx.txt"
+               --default_conf "${conf_default_dir}/default_cc35xx.conf"
+               --header "${conf_default_dir}/conf_cc35xx.h"
+               --ini "${conf_ini}"
+               --conf_key "${conf_default_dir}/conf.key"
+               --output "${outdir}/cc35xx-conf.bin")
+
   set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
                simplelink-wifi-toolbox flash-images-builder build vendor_image
                --vendor_out_file ${output}.elf
+               --conf_bin_file ${outdir}/cc35xx-conf.bin
                --dir_out_path ${outdir})
 
   set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND

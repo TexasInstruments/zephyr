@@ -40,3 +40,11 @@ config CC35XXE_FUSE_CONFIG
 
 config CC35XXE_ACTION_PARAMS_FILE
 	string "Path to the action parameters file"
+
+config CC35XXE_CONF_INI_FILE
+	string "Path to the cc35xx-conf.ini file"
+	help
+	  Override the default cc35xx-conf.ini file used to generate
+	  cc35xx-conf.bin during the build. If left empty, the in-tree
+	  default at soc/ti/simplelink/cc35xxe/conf/cc35xx-conf.ini is
+	  used.

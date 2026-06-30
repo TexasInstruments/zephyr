@@ -217,9 +217,9 @@
 		input-enable;
 	};
 
-	/* LGPT2 ch1 output (DIO9, T2_C1N) */
-	pwm7_default: lgpt2_chan1_default {
-		pinmux = <9 DIO9_T2_C1N>;
+	/* LGPT3 ch0 output (DIO28, T3_C0N) */
+	pwm9_default: lgpt3_chan0_default {
+		pinmux = <28 DIO28_T3_C0N>;
 		bias-disable;
 	};
 

@@ -24,28 +24,28 @@ struct ti_cc27xx_i2s_stream;
 
 /* Callback to stop an I2S stream */
 typedef void (*ti_cc27xx_i2s_stop_stream_cb)(const struct device *dev,
-					      struct ti_cc27xx_i2s_stream *stream);
+					     struct ti_cc27xx_i2s_stream *stream);
 
 /* Callback to peek at next transfer without dequeuing */
 typedef struct ti_cc27xx_i2s_transfer *(*ti_cc27xx_i2s_peek_next_transfer_cb)(
-					      struct ti_cc27xx_i2s_stream *stream);
+	struct ti_cc27xx_i2s_stream *stream);
 
 /* Callback to allocate transfer descriptor from mem_slab */
 typedef struct ti_cc27xx_i2s_transfer *(*ti_cc27xx_i2s_alloc_transfer_cb)(
-					      struct ti_cc27xx_i2s_stream *stream);
+	struct ti_cc27xx_i2s_stream *stream);
 
 /* Callback to purge all transfers from stream queue */
 typedef void (*ti_cc27xx_i2s_purge_queue_cb)(struct ti_cc27xx_i2s_stream *stream);
 
 /* Hardware limits */
-#define TI_CC27XX_I2S_CLOCK_DIVIDER_MAX  1024U
-#define TI_CC27XX_I2S_CLOCK_DIVIDER_MIN  2U
-#define TI_CC27XX_I2S_NB_CHANNELS_MAX    8U
-#define TI_CC27XX_I2S_DUAL_PHASE_CHANNEL_MAX    2
-#define TI_CC27XX_I2S_SINGLE_PHASE_CHANNEL_MAX  8
+#define TI_CC27XX_I2S_CLOCK_DIVIDER_MAX        1024U
+#define TI_CC27XX_I2S_CLOCK_DIVIDER_MIN        2U
+#define TI_CC27XX_I2S_NB_CHANNELS_MAX          8U
+#define TI_CC27XX_I2S_DUAL_PHASE_CHANNEL_MAX   2
+#define TI_CC27XX_I2S_SINGLE_PHASE_CHANNEL_MAX 8
 
 /* Default configuration values */
-#define I2S_CC27XX_STARTUP_DELAY  2U
+#define I2S_CC27XX_STARTUP_DELAY 2U
 #define I2S_CC27XX_QUEUE_DEPTH   32U
 
 /* Channel count configuration */
@@ -104,16 +104,16 @@ enum TI_CC27XX_I2S_PIN_DIR {
 
 /* Audio frequency clock source */
 enum TI_CC27XX_I2S_CLK_SRC {
-	TI_CC27XX_I2S_CLK_SRC_CLKREF = 0x00,  /* 48MHz reference clock */
-	TI_CC27XX_I2S_CLK_SRC_CLKHF = 0x01,   /* 96MHz high-frequency clock */
-	TI_CC27XX_I2S_CLK_SRC_CLKAF = 0x02,   /* AFOSC (80/90.3168/98.304 MHz) */
+	TI_CC27XX_I2S_CLK_SRC_CLKREF = 0x00, /* 48MHz reference clock */
+	TI_CC27XX_I2S_CLK_SRC_CLKHF = 0x01,  /* 96MHz high-frequency clock */
+	TI_CC27XX_I2S_CLK_SRC_CLKAF = 0x02,  /* AFOSC (80/90.3168/98.304 MHz) */
 };
 
 /* AFOSC frequency options (exact sample rate generation) */
 enum TI_CC27XX_I2S_AFOSC_FREQ {
 	TI_CC27XX_AFOSC_FREQ_80MHZ = 80000000U,
-	TI_CC27XX_AFOSC_FREQ_90P3168MHZ = 90316800U,  /* Optimized for 44.1 kHz */
-	TI_CC27XX_AFOSC_FREQ_98P304MHZ = 98304000U,   /* Optimized for 48 kHz */
+	TI_CC27XX_AFOSC_FREQ_90P3168MHZ = 90316800U, /* Optimized for 44.1 kHz */
+	TI_CC27XX_AFOSC_FREQ_98P304MHZ = 98304000U,  /* Optimized for 48 kHz */
 };
 
 /* Memory length: 16-bit or 32-bit DMA word size */
@@ -129,14 +129,14 @@ enum TI_CC27XX_I2S_MEMORY_LENGTH {
  * Used in double-buffering scheme (active_transfer + next_transfer).
  */
 struct ti_cc27xx_i2s_transfer {
-	void *fifo_reserved;                     /* k_fifo linked-list management */
-	struct k_mem_slab *own_mem_slab;         /* Descriptor mem_slab */
-	struct k_mem_slab *audio_mem_slab;       /* Audio buffer mem_slab */
-	void *mem_block;                         /* Audio data buffer pointer */
-	size_t size;                             /* Buffer size in bytes */
-	uint32_t frames_total;                   /* Total frames in buffer */
-	uint32_t frames_transferred;             /* Frames transferred by DMA */
-	uint32_t frames_scheduled;               /* Frames scheduled to hardware */
+	void *fifo_reserved;               /* k_fifo linked-list management */
+	struct k_mem_slab *own_mem_slab;   /* Descriptor mem_slab */
+	struct k_mem_slab *audio_mem_slab; /* Audio buffer mem_slab */
+	void *mem_block;                   /* Audio data buffer pointer */
+	size_t size;                       /* Buffer size in bytes */
+	uint32_t frames_total;             /* Total frames in buffer */
+	uint32_t frames_transferred;       /* Frames transferred by DMA */
+	uint32_t frames_scheduled;         /* Frames scheduled to hardware */
 };
 
 /**
@@ -146,18 +146,18 @@ struct ti_cc27xx_i2s_transfer {
  * Cached to avoid recalculation during runtime.
  */
 struct ti_cc27xx_i2s_stream_cfg {
-	uint32_t frame_clk_freq;                 /* Sample rate (Hz) */
-	uint32_t bits_per_memory_word;           /* 16 or 32 bits */
-	uint32_t bytes_per_frame;                /* channels × bytes_per_sample */
-	size_t bytes_per_audio_block;            /* Block size in bytes */
-	size_t frames_per_audio_block;           /* Frames per DMA interrupt */
-	uint8_t data_shift;                      /* I2S format timing delay */
-	uint8_t bits_per_audio_word;             /* Actual bits per sample (8-24) */
-	uint8_t before_word_padding;             /* SCK periods before MSB */
-	uint8_t after_word_padding;              /* SCK periods after LSB */
-	enum TI_CC27XX_I2S_CHANNEL_BITMASK channel_bitmask;  /* Active channels */
-	uint8_t channel_count;                   /* Number of active channels */
-	k_timeout_t timeout;                     /* Buffer operation timeout */
+	uint32_t frame_clk_freq;                            /* Sample rate (Hz) */
+	uint32_t bits_per_memory_word;                      /* 16 or 32 bits */
+	uint32_t bytes_per_frame;                           /* channels × bytes_per_sample */
+	size_t bytes_per_audio_block;                       /* Block size in bytes */
+	size_t frames_per_audio_block;                      /* Frames per DMA interrupt */
+	uint8_t data_shift;                                 /* I2S format timing delay */
+	uint8_t bits_per_audio_word;                        /* Actual bits per sample (8-24) */
+	uint8_t before_word_padding;                        /* SCK periods before MSB */
+	uint8_t after_word_padding;                         /* SCK periods after LSB */
+	enum TI_CC27XX_I2S_CHANNEL_BITMASK channel_bitmask; /* Active channels */
+	uint8_t channel_count;                              /* Number of active channels */
+	k_timeout_t timeout;                                /* Buffer operation timeout */
 };
 
 /**
@@ -167,22 +167,22 @@ struct ti_cc27xx_i2s_stream_cfg {
  * Each device has two streams: stream_tx (playback), stream_rx (recording).
  */
 struct ti_cc27xx_i2s_stream {
-	struct ti_cc27xx_i2s_transfer *active_transfer;    /* Currently in DMA */
-	struct ti_cc27xx_i2s_transfer *next_transfer;      /* Pre-loaded to hardware */
-	struct ti_cc27xx_i2s_stream_cfg cfg;               /* Stream configuration */
-	struct k_fifo queue;                               /* Pending transfers */
-	struct k_mem_slab *audio_mem_slab;                 /* Audio buffer pool */
-	struct k_mem_slab *transfer_mem_slab;              /* Descriptor pool */
-	enum i2s_state state;                              /* Stream state machine */
-	bool configured;                                   /* Configuration valid */
-	bool drain;                                        /* STOP vs DROP mode */
-	bool enabled;                                      /* DMA active */
-	ti_cc27xx_i2s_set_pointer_cb set_dma_pointer;      /* Set INPTR/OUTPTR */
-	ti_cc27xx_i2s_set_stamp_trigger_cb set_stamp_trigger;  /* Sync trigger */
-	ti_cc27xx_i2s_peek_next_transfer_cb peek_next_transfer;  /* Peek queue */
-	ti_cc27xx_i2s_purge_queue_cb purge_queue;          /* Clear queue */
-	struct i2s_config i2s_config_copy;                 /* Power event restore */
-	uint32_t irq_flag;                                 /* I2S_INT_DMA_IN/OUT */
+	struct ti_cc27xx_i2s_transfer *active_transfer;         /* Currently in DMA */
+	struct ti_cc27xx_i2s_transfer *next_transfer;           /* Pre-loaded to hardware */
+	struct ti_cc27xx_i2s_stream_cfg cfg;                    /* Stream configuration */
+	struct k_fifo queue;                                    /* Pending transfers */
+	struct k_mem_slab *audio_mem_slab;                      /* Audio buffer pool */
+	struct k_mem_slab *transfer_mem_slab;                   /* Descriptor pool */
+	enum i2s_state state;                                   /* Stream state machine */
+	bool configured;                                        /* Configuration valid */
+	bool drain;                                             /* STOP vs DROP mode */
+	bool enabled;                                           /* DMA active */
+	ti_cc27xx_i2s_set_pointer_cb set_dma_pointer;           /* Set INPTR/OUTPTR */
+	ti_cc27xx_i2s_set_stamp_trigger_cb set_stamp_trigger;   /* Sync trigger */
+	ti_cc27xx_i2s_peek_next_transfer_cb peek_next_transfer; /* Peek queue */
+	ti_cc27xx_i2s_purge_queue_cb purge_queue;               /* Clear queue */
+	struct i2s_config i2s_config_copy;                      /* Power event restore */
+	uint32_t irq_flag;                                      /* I2S_INT_DMA_IN/OUT */
 };
 
 /**
@@ -191,14 +191,15 @@ struct ti_cc27xx_i2s_stream {
  * Per-instance runtime state combining both streams and shared hardware state.
  */
 struct ti_cc27xx_i2s_data {
-	enum i2s_dir dir;                        /* TX, RX, or BOTH */
-	bool invert_ws;                          /* WS signal inversion */
-	struct ti_cc27xx_i2s_stream stream_tx;   /* Transmit stream */
-	struct ti_cc27xx_i2s_stream stream_rx;   /* Receive stream */
-	uint32_t dma_frame_count;                /* Frames per DMA transfer */
-	bool is_dma_frame_count_fixed;           /* Fixed vs variable buffer size */
-	uint32_t ws_divider;                     /* Word select divider */
-	uint32_t sck_divider;                    /* Serial clock divider */
+	enum i2s_dir dir;                      /* TX, RX, or BOTH */
+	bool invert_ws;                        /* WS signal inversion */
+	struct ti_cc27xx_i2s_stream stream_tx; /* Transmit stream */
+	struct ti_cc27xx_i2s_stream stream_rx; /* Receive stream */
+	uint32_t dma_frame_count;              /* Frames per DMA transfer */
+	bool is_dma_frame_count_fixed;         /* Fixed vs variable buffer size */
+	uint32_t ws_divider;                   /* Word select divider */
+	uint32_t sck_divider;                  /* Serial clock divider */
+	bool clocks_active;                    /* PM constraints held by start_clocks */
 };
 
 /**
@@ -207,17 +208,17 @@ struct ti_cc27xx_i2s_data {
  * Compile-time configuration from DT bindings. Const, stored in ROM.
  */
 struct ti_cc27xx_i2s_cfg {
-	const struct pinctrl_dev_config *pin_cfg;  /* Pin muxing */
-	uint32_t reg_base;                         /* Peripheral base address */
-	uint32_t startup_delay;                    /* WS cycles before first DMA */
-	uint32_t cclk_divider;                     /* Controller clock divider */
-	enum TI_CC27XX_I2S_ROLE module_role;       /* Controller or Target */
-	enum TI_CC27XX_I2S_PHASE_TYPE phase_type;  /* Dual or Single phase */
-	enum TI_CC27XX_I2S_SAMPLING_EDGE sampling_edge;  /* Rising or Falling */
-	enum TI_CC27XX_I2S_CLK_SRC afclk_src;      /* Audio clock source */
-	uint32_t afosc_freq;                       /* AFOSC frequency (if used) */
-	enum TI_CC27XX_I2S_PIN_DIR pin_dir_sd0;    /* SD0 pin direction */
-	enum TI_CC27XX_I2S_PIN_DIR pin_dir_sd1;    /* SD1 pin direction */
+	const struct pinctrl_dev_config *pin_cfg;       /* Pin muxing */
+	uint32_t reg_base;                              /* Peripheral base address */
+	uint32_t startup_delay;                         /* WS cycles before first DMA */
+	uint32_t cclk_divider;                          /* Controller clock divider */
+	enum TI_CC27XX_I2S_ROLE module_role;            /* Controller or Target */
+	enum TI_CC27XX_I2S_PHASE_TYPE phase_type;       /* Dual or Single phase */
+	enum TI_CC27XX_I2S_SAMPLING_EDGE sampling_edge; /* Rising or Falling */
+	enum TI_CC27XX_I2S_CLK_SRC afclk_src;           /* Audio clock source */
+	uint32_t afosc_freq;                            /* AFOSC frequency (if used) */
+	enum TI_CC27XX_I2S_PIN_DIR pin_dir_sd0;         /* SD0 pin direction */
+	enum TI_CC27XX_I2S_PIN_DIR pin_dir_sd1;         /* SD1 pin direction */
 };
 
 #ifdef __cplusplus

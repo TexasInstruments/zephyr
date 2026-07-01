@@ -51,12 +51,11 @@
 		     &i2s0_sd0_default &i2s0_sd1_default>;
 	pinctrl-names = "default";
 
-	/* Override AFOSC for 8 kHz sample rate (twister tests use FRAME_CLK_FREQ = 8000)
-	 * 8 kHz family formula: afosc = 8000 × 2048 = 16,384,000 Hz (16.384 MHz)
-	 * This allows exact division: 16,384,000 / 2048 = 8000 Hz
-	 * Default is 98.304 MHz which is for 48 kHz family (48000 × 2048)
+	/* AFOSC frequency for i2s_api test (FRAME_CLK_FREQ = 8000 Hz, 16-bit stereo).
+	 * 98.304 MHz is optimized for the 48 kHz family (48k, 32k, 24k, 16k, 8k Hz).
+	 * sck_divider = 98304000 / (8000 x 2 x 16) = 384 (exact integer, within [2,1024]).
 	 */
-	afosc-freq = <16384000>;
+	afosc-freq = <98304000>;
 };
 
 /* Disable conflicting peripherals */

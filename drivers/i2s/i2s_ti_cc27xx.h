@@ -199,6 +199,7 @@ struct ti_cc27xx_i2s_data {
 	bool is_dma_frame_count_fixed;           /* Fixed vs variable buffer size */
 	uint32_t ws_divider;                     /* Word select divider */
 	uint32_t sck_divider;                    /* Serial clock divider */
+	bool clocks_active;                      /* PM constraints held by start_clocks */
 };
 
 /**

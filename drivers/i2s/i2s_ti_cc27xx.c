@@ -15,12 +15,15 @@
 #include <zephyr/irq.h>
 #include <zephyr/sys/util.h>
 
+#include <zephyr/pm/policy.h>
+
 #include <ti/devices/DeviceFamily.h>
 #include DeviceFamily_constructPath(driverlib/i2s.h)
 #include DeviceFamily_constructPath(driverlib/ckmd.h)
 #include DeviceFamily_constructPath(driverlib/clkctl.h)
 #include DeviceFamily_constructPath(inc/hw_memmap.h)
 #include DeviceFamily_constructPath(inc/hw_i2s.h)
+#include DeviceFamily_constructPath(inc/hw_clkctl.h)
 #include <ti/drivers/power/PowerCC27XX.h>
 
 #include "i2s_ti_cc27xx.h"
@@ -106,6 +109,7 @@ static inline void set_rx_sample_stamp_trigger(const struct device *dev,
 
 static inline uint32_t hw_frame_count_for(const struct device *dev,
 					   uint32_t logical_frame_count);
+static void purge_stream(struct ti_cc27xx_i2s_stream *stream);
 
 static void config_serial_format(const struct device *dev,
 				 struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
@@ -271,32 +275,6 @@ static void enable_clocks(const struct device *dev)
 	}
 }
 
-static int enable_peripheral_clock(const struct device *dev)
-{
-	const struct ti_cc27xx_i2s_cfg *cfg = dev->config;
-	unsigned int key;
-	int ret;
-
-	key = irq_lock();
-
-	if (cfg->afclk_src == CKMD_AFCLKSEL_SRC_CLKAF) {
-		ret = PowerLPF3_startAFOSC(cfg->afosc_freq);
-		if (ret != Power_SOK) {
-			irq_unlock(key);
-			return -EIO;
-		}
-	}
-
-	irq_unlock(key);
-
-	ret = Power_setDependency(PowerLPF3_PERIPH_I2S);
-	if (ret != Power_SOK) {
-		return -EIO;
-	}
-
-	return 0;
-}
-
 static void init_hw(const struct device *dev,
 		    struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
 		    uint32_t dma_frame_count)
@@ -311,16 +289,26 @@ static void start_clocks(const struct device *dev,
 			 uint32_t dma_frame_count)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
+	struct ti_cc27xx_i2s_data *data = dev->data;
 	unsigned int key;
 
-	Power_setDependency(PowerLPF3_PERIPH_I2S);
+	/* Prevent standby and idle before enabling AFOSC.
+	 * - STANDBY: AFOSC auto-disables on standby entry (CKMD_AFOSCCTL_AUTODIS),
+	 *   so the lock must be acquired before startAFOSC to avoid a race.
+	 * - RUNTIME_IDLE: I2S DMA pointer registers must be refreshed within one
+	 *   WCLK frame period. CPU idle latency can delay the ISR past that
+	 *   window, causing the hardware to raise PTR_ERR and halt streaming.
+	 */
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	CLKCTLEnable(CLKCTL_BASE, CLKCTL_CLKENSET0_I2S);
+	data->clocks_active = true;
 
 	if (config->afclk_src == CKMD_AFCLKSEL_SRC_CLKAF) {
 		key = irq_lock();
 		PowerLPF3_startAFOSC(config->afosc_freq);
 		irq_unlock(key);
 	}
-	Power_setConstraint(PowerLPF3_DISALLOW_STANDBY);
 	init_hw(dev, stream_cfg, dma_frame_count);
 	enable_clocks(dev);
 }
@@ -349,7 +337,8 @@ static bool is_stream_writeable(struct ti_cc27xx_i2s_stream *stream)
 static bool is_stream_configurable(struct ti_cc27xx_i2s_stream *stream)
 {
 	return ((stream->state == I2S_STATE_NOT_READY) ||
-		(stream->state == I2S_STATE_READY));
+		(stream->state == I2S_STATE_READY) ||
+		(stream->state == I2S_STATE_ERROR));
 }
 
 static inline k_timeout_t translate_timeout(int32_t timeout_ms)
@@ -557,10 +546,17 @@ static int ti_cc27xx_i2s_configure(const struct device *dev, enum i2s_dir dir,
 	}
 
 	if (!is_stream_configurable(stream)) {
-		/* Stream is busy (RUNNING or ERROR) */
+		/* Stream is busy (RUNNING) */
 		return -EINVAL;
 	}
 
+	/* On ERROR, the ISR zeroes DMA pointers but leaves transfer descriptors
+	 * allocated. Free active_transfer, next_transfer, and queued transfers
+	 * to avoid memory slab exhaustion on the next start.
+	 */
+	if (stream->state == I2S_STATE_ERROR) {
+		purge_stream(stream);
+	}
 
 	if (i2s_cfg->frame_clk_freq == 0) {
 		memset(stream_cfg, 0, sizeof(*stream_cfg));  /* Clear config */
@@ -1202,7 +1198,12 @@ static inline void stop_stream(const struct device *dev,
 static void disable_clocks(const struct device *dev)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
+	struct ti_cc27xx_i2s_data *data = dev->data;
 
+	if (!data->clocks_active) {
+		return;
+	}
+	data->clocks_active = false;
 
 	I2SClearInt(config->reg_base, I2S_INT_ALL);
 	I2SDisableInt(config->reg_base,
@@ -1221,9 +1222,9 @@ static void disable_clocks(const struct device *dev)
 		PowerLPF3_stopAFOSC();
 	}
 
-	Power_releaseConstraint(PowerLPF3_DISALLOW_STANDBY);
-	/* Release power dependency - i.e. potentially power down serial domain. */
-	Power_releaseDependency(PowerLPF3_PERIPH_I2S);
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	CLKCTLDisable(CLKCTL_BASE, CLKCTL_CLKENSET0_I2S);
 }
 
 static int handle_trigger_drop(const struct device *dev, enum i2s_dir dir,
@@ -1819,10 +1820,6 @@ static const struct i2s_driver_api ti_cc27xx_i2s_driver_api = {
 		data->stream_tx.set_stamp_trigger = set_tx_sample_stamp_trigger;		\
 		data->stream_tx.peek_next_transfer = peek_next_tx_transfer;			\
 		k_fifo_init(&data->stream_tx.queue);						\
-		ret = enable_peripheral_clock(dev);						\
-		if (ret < 0) {									\
-			return ret;								\
-		}										\
 		I2SClearInt(config->reg_base, I2S_INT_ALL);					\
 		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),			\
 			ti_cc27xx_i2s_isr, DEVICE_DT_GET(					\

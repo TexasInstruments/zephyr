@@ -7,8 +7,8 @@
 / {
 	resources {
 		compatible = "test-gpio-basic-api";
-		/* Use DIO4 and DIO12 for GPIO loopback testing */
-		out-gpios = <&gpio0 4 0>;  /* DIO4 */
-		in-gpios = <&gpio0 12 0>;  /* DIO12 */
+		/* Use DIO17 and DIO18 for GPIO loopback testing */
+		out-gpios = <&gpio0 17 0>;  /* DIO17 */
+		in-gpios = <&gpio0 18 0>;  /* DIO18 */
 	};
 };

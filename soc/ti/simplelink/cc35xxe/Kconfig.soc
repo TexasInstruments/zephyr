@@ -166,6 +166,13 @@ config CC35XXE_CONF_INI_FILE
 	  default at soc/ti/simplelink/cc35xxe/conf/cc35xx-conf.ini is
 	  used.
 
+config CC35XXE_VENDOR_IMAGE_VERSION
+	string "TI CC35xx vendor image version"
+	default "0.0.1.0"
+	help
+	  Version passed to the SimpleLink Wi-Fi Toolbox when generating
+	  vendor_image.sign.bin. The format is major.minor.patch.other.
+
 config CC35XXE_GENERATE_FLASH_MAP_CONFIG
 	bool "Generate TI flash map config from MemoryConfigurator JSON"
 	default y if TI_CC35XX_HSM_ITS
@@ -180,3 +187,10 @@ config CC35XXE_MEMORY_CONFIG_JSON
 	  Override the default MemoryConfigurator JSON file used to generate
 	  ti_flash_map_config.c. If left empty, the board flash profile's
 	  external_memory_configurator.json is used.
+
+config CC35XXE_FWU
+	bool "TI CC35xx PSA firmware update support"
+	help
+	  Build the TI CC35xx PSA Firmware Update implementation from the
+	  SimpleLink SDK. This provides psa_fwu_* APIs for inspecting and
+	  managing TI bootloader OTA slots.

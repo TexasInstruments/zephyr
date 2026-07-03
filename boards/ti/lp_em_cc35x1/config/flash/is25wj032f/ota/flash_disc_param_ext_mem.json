@@ -9,8 +9,8 @@
     "ti_wsoc_alternate_image": true,
     "ti_wsoc_bl2_alternate_image": true,
     "region_0": {
-        "mem_region_0_start_phy_address": 1069056,
-        "mem_region_0_end_phy_address": 4194303,
+        "mem_region_0_start_phy_address": 1953792,
+        "mem_region_0_end_phy_address": 3071999,
         "region0_boot": false,
         "region0_main_code": true,
         "region0_nvs": false,
@@ -19,7 +19,7 @@
     },
     "region_1": {
         "mem_region_1_start_phy_address": 0,
-        "mem_region_1_end_phy_address": 1069055,
+        "mem_region_1_end_phy_address": 1953791,
         "region1_boot": true,
         "region1_main_code": false,
         "region1_nvs": true,
@@ -27,8 +27,8 @@
         "region1_alternate_code": false
     },
     "region_2": {
-        "mem_region_2_start_phy_address": 0,
-        "mem_region_2_end_phy_address": 0,
+        "mem_region_2_start_phy_address": 3072000,
+        "mem_region_2_end_phy_address": 4190207,
         "region2_boot": false,
         "region2_main_code": false,
         "region2_nvs": false,
@@ -57,7 +57,7 @@
         "boot_region_sec_ti_bl_minor": 0
     },
     "main_code_region_conf": {
-        "main_code_region_vendor_image_start_phy_address": 1073148,
+        "main_code_region_vendor_image_start_phy_address": 1957884,
         "main_code_region_vendor_image_magic": 0,
         "main_code_region_vendor_image_major": 0,
         "main_code_region_vendor_image_minor": 0,
@@ -67,7 +67,7 @@
         "main_code_region_sbl_minor": 0
     },
     "alt_code_region_conf": {
-        "alt_code_region_vendor_image_start_phy_address": 4194304,
+        "alt_code_region_vendor_image_start_phy_address": 3076092,
         "alt_code_region_vendor_image_magic": 0,
         "alt_code_region_vendor_image_major": 0,
         "alt_code_region_vendor_image_minor": 0,
@@ -77,13 +77,13 @@
         "alt_code_region_sbl_minor": 0
     },
     "nvs_code_region_conf": {
-        "nvs_start_phy_address": 892928,
+        "nvs_start_phy_address": 1777664,
         "nvs_region_size": 176128,
-        "nvs_region_primary_wsoc_start_phy_address": 430076,
+        "nvs_region_primary_wsoc_start_phy_address": 847868,
         "nvs_region_primary_wsoc_magic": 0,
         "nvs_region_primary_wsoc_major": 0,
         "nvs_region_primary_wsoc_minor": 0,
-        "nvs_region_sec_wsoc_start_phy_address": 897020,
+        "nvs_region_sec_wsoc_start_phy_address": 1314812,
         "nvs_region_sec_wsoc_magic": 0,
         "nvs_region_sec_wsoc_major": 0,
         "nvs_region_sec_wsoc_minor": 0,

@@ -63,6 +63,7 @@
 		led1 = &red_led;
 		led2 = &blue_led;
 		pwm-led0 = &green_pwm;
+		ambient-temp0 = &tmp1075_temperature;
 		sw0 = &user_switch_1;
 		sw1 = &user_switch_2;
 		dma0 = &dma;

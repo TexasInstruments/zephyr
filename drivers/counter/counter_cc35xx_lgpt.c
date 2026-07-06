@@ -19,7 +19,7 @@
 
 #define TI_CC35XX_COUNTER_CHANNELS	4
 #define TI_CC35XX_CXCFG										\
-	(GPTIMER_C0CFG_EDGE_RISE | GPTIMER_C0CFG_INPUT_EV | GPTIMER_C0CFG_CCACT_TGL_ON_CMP)
+	(GPTIMER_C0CFG_EDGE_RISE | GPTIMER_C0CFG_INPUT_EV | GPTIMER_C0CFG_CCACT_TGL_ON_CMP_DIS)
 #define TI_CC35XX_CHAN_DISABLE		0
 #define TI_CC35XX_CNTR_START		0x01
 #define TI_CC35XX_CNTR_STOP		0x00
@@ -54,14 +54,13 @@ static int counter_cc35xx_gptimer_get_value(const struct device *dev, uint32_t *
 static void counter_cc35xx_gptimer_isr(const struct device *dev)
 {
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
-	const struct counter_cc35xx_gptimer_data *data = dev->data;
+	struct counter_cc35xx_gptimer_data *data = dev->data;
 	uint32_t counter = sys_read32(config->base + GPTIMER_O_CNTR);
 	uint32_t reg_ris = sys_read32(config->base + GPTIMER_O_RIS);
 	uint32_t reg_mis = sys_read32(config->base + GPTIMER_O_MIS);
 	int i;
 
 	sys_write32(reg_ris, config->base + GPTIMER_O_ICLR);
-	sys_write32(reg_mis, config->base + GPTIMER_O_IMCLR);
 
 	if ((reg_mis & GPTIMER_MIS_TGT) && data->target_cfg.callback) {
 		data->target_cfg.callback(dev, data->target_cfg.user_data);
@@ -69,8 +68,15 @@ static void counter_cc35xx_gptimer_isr(const struct device *dev)
 
 	for (i = 0; i < TI_CC35XX_COUNTER_CHANNELS; i++) {
 		if ((reg_mis & GPTIMER_MIS_C0CC << i) && data->alarm_cfg[i].callback) {
-			data->alarm_cfg[i].callback(dev, i, counter,
-						    data->alarm_cfg[i].user_data);
+			counter_alarm_callback_t callback = data->alarm_cfg[i].callback;
+			void *user_data = data->alarm_cfg[i].user_data;
+
+			data->alarm_cfg[i].flags = 0;
+			data->alarm_cfg[i].ticks = 0;
+			data->alarm_cfg[i].callback = NULL;
+			data->alarm_cfg[i].user_data = NULL;
+
+			callback(dev, i, counter, user_data);
 		}
 	}
 }
@@ -89,23 +95,28 @@ static int counter_cc35xx_gptimer_set_alarm(const struct device *dev, uint8_t ch
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
 	struct counter_cc35xx_gptimer_data *data = dev->data;
 	uint32_t ticks = alarm_cfg->ticks;
+	uint32_t top = sys_read32(config->base + GPTIMER_O_TGTNC);
 
 	if (chan_id >= TI_CC35XX_COUNTER_CHANNELS) {
+		return -ENOTSUP;
+	}
+
+	if (ticks > top) {
 		return -EINVAL;
 	}
 
 	/*
 	 * Capture compare register always compares against the absolute value
 	 * of the counter register.
-	 * In order to handle alarms relative to the current counter value,
-	 * increment the ticks appropriately.
 	 */
 	if (!(alarm_cfg->flags & COUNTER_ALARM_CFG_ABSOLUTE)) {
-		ticks += sys_read32(config->base + GPTIMER_O_CNTR);
-	}
+		uint64_t absolute_ticks = (uint64_t)sys_read32(config->base + GPTIMER_O_CNTR) + ticks;
 
-	if (ticks > config->counter_info.max_top_value) {
-		return -ERANGE;
+		if (top != UINT32_MAX) {
+			absolute_ticks %= (uint64_t)top + 1U;
+		}
+
+		ticks = (uint32_t)absolute_ticks;
 	}
 
 	sys_write32(GPTIMER_IMSET_CXCC_SET(chan_id), config->base + GPTIMER_O_IMSET);
@@ -126,7 +137,7 @@ static int counter_cc35xx_gptimer_cancel_alarm(const struct device *dev, uint8_t
 	struct counter_cc35xx_gptimer_data *data = dev->data;
 
 	if (chan_id >= TI_CC35XX_COUNTER_CHANNELS) {
-		return -EINVAL;
+		return -ENOTSUP;
 	}
 
 	sys_write32(GPTIMER_IMCLR_CXCC_CLR(chan_id), config->base + GPTIMER_O_IMCLR);
@@ -153,24 +164,36 @@ static int counter_cc35xx_gptimer_set_top_value(const struct device *dev,
 {
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
 	struct counter_cc35xx_gptimer_data *data = dev->data;
+	uint32_t current = sys_read32(config->base + GPTIMER_O_CNTR);
 
-	/* If running return -EBUSY */
-	if (sys_read32(config->base + GPTIMER_O_STARTCFG)) {
-		return -EBUSY;
+	for (uint8_t chan_id = 0; chan_id < TI_CC35XX_COUNTER_CHANNELS; chan_id++) {
+		if (data->alarm_cfg[chan_id].callback != NULL) {
+			return -EBUSY;
+		}
 	}
 
 	if (cfg->ticks > config->counter_info.max_top_value) {
 		return -EINVAL;
 	}
 
-	if (cfg->flags & COUNTER_TOP_CFG_DONT_RESET) {
-		return -ENOTSUP;
+	if ((cfg->flags & COUNTER_TOP_CFG_DONT_RESET) && (cfg->ticks < current)) {
+		if (cfg->flags & COUNTER_TOP_CFG_RESET_WHEN_LATE) {
+			sys_write32(sys_read32(config->base + GPTIMER_O_CTL) & ~GPTIMER_CTL_MODE_M,
+				    config->base + GPTIMER_O_CTL);
+		} else {
+			return -ETIME;
+		}
 	}
 
-	sys_write32(GPTIMER_IMSET_TGT_SET, config->base + GPTIMER_O_IMSET);
-	sys_write32(cfg->ticks, config->base + GPTIMER_O_TGT);
+	if (cfg->callback != NULL) {
+		sys_write32(GPTIMER_IMSET_TGT_SET, config->base + GPTIMER_O_IMSET);
+	} else {
+		sys_write32(GPTIMER_IMCLR_TGT_CLR, config->base + GPTIMER_O_IMCLR);
+	}
 
-	data->target_cfg.flags = 0;
+	sys_write32(cfg->ticks, config->base + GPTIMER_O_TGTNC);
+
+	data->target_cfg.flags = cfg->flags;
 	data->target_cfg.ticks = cfg->ticks;
 	data->target_cfg.callback = cfg->callback;
 	data->target_cfg.user_data = cfg->user_data;
@@ -190,8 +213,8 @@ static int counter_cc35xx_gptimer_start(const struct device *dev)
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
 	uint32_t reg = sys_read32(config->base + GPTIMER_O_CTL);
 
-	/* Zephyr uses single-shot alarms. */
-	sys_write32(reg | GPTIMER_CTL_MODE_UP_ONCE, config->base + GPTIMER_O_CTL);
+	sys_write32((reg & ~GPTIMER_CTL_MODE_M) | GPTIMER_CTL_MODE_UP_PER,
+		    config->base + GPTIMER_O_CTL);
 
 	sys_write32(TI_CC35XX_CNTR_START, config->base + GPTIMER_O_STARTCFG);
 

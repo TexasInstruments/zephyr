@@ -157,10 +157,6 @@ static int spi_cc35xx_configure(const struct device *dev, const struct spi_confi
 		return 0;
 	}
 
-	SPIDisable(cfg->base);
-	SPIDisableInt(cfg->base, SPI_INT_ALL);
-	SPIClearInt(cfg->base, SPI_INT_ALL);
-
 	if (config->operation & SPI_HALF_DUPLEX) {
 		LOG_ERR("Half-duplex not supported");
 		return -ENOTSUP;
@@ -170,6 +166,10 @@ static int spi_cc35xx_configure(const struct device *dev, const struct spi_confi
 		LOG_ERR("Word sizes other than 8 bits are not supported");
 		return -ENOTSUP;
 	}
+
+	SPIDisable(cfg->base);
+	SPIDisableInt(cfg->base, SPI_INT_ALL);
+	SPIClearInt(cfg->base, SPI_INT_ALL);
 
 	ret = pinctrl_apply_state(cfg->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
@@ -346,11 +346,15 @@ static int spi_cc35xx_transceive(const struct device *dev,
 #else
 	data->rxleft = spi_context_total_rx_len(ctx);
 
-	if (IS_ENABLED(CONFIG_SPI_SLAVE) && spi_context_is_slave(ctx)) {
+#ifdef CONFIG_SPI_SLAVE
+	if (spi_context_is_slave(ctx)) {
 		spi_cc35xx_slave_transceive(dev);
 	} else {
 		spi_cc35xx_master_transceive(dev);
 	}
+#else
+	spi_cc35xx_master_transceive(dev);
+#endif /* CONFIG_SPI_SLAVE */
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 
 	ret = spi_context_wait_for_completion(ctx);
@@ -685,7 +689,7 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 #else
 #define SPI_CC35XX_DMA_CHANNEL(n, dir, ch_dir, src_burst, dst_burst)
 
-#define SPI_CC35XX_DMA_INIT_FUNC
+#define SPI_CC35XX_DMA_INIT_FUNC(dev) do { } while (0)
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 
 #define SPI_CC35XX_INIT_FUNC(n)                                                                    \

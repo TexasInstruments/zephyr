@@ -21,6 +21,7 @@
 #define INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT          41
 #define INT_HOST_ELP_TMR_WAKEUP_REQ 62
 #define INT_NAB_HOST_IRQ            63
+#define INT_RTC_EVENT_IRQ           65
 /*
  * Note: Zephyr uses exception numbers, vs the IRQ used by the CC32XX SDK
  * which are offset by 16:
@@ -38,6 +39,7 @@
 #define EXP_DMA_NS (INT_NON_SECURED_DMA_IRQ_EVT_IND_OUT - 16)
 #define EXP_NAB_HOST (INT_NAB_HOST_IRQ - 16)
 #define EXP_WDT      (INT_HOST_ELP_TMR_WAKEUP_REQ - 16)
+#define EXP_RTC      (INT_RTC_EVENT_IRQ - 16)
 
 / {
 	cpus {
@@ -252,6 +254,13 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+		};
+
+		rtc: rtc@41108000 {
+			compatible = "ti,cc35xx-rtc-timer";
+			reg = <0x41108000 0x4000>;
+			interrupts = <EXP_RTC 0>;
+			status = "okay";
 		};
 
 		dma: dma@41a00000 {

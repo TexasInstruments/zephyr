@@ -22,6 +22,7 @@
 	aliases {
 		led0 = &ld9;
 		watchdog0 = &main_rti0;
+		rtc = &counter_rtc0;
 	};
 
 	leds: leds {
@@ -91,5 +92,13 @@
 };
 
 &main_rti0 {
+	status = "okay";
+};
+
+&wkup_rtc0 {
+	status = "okay";
+};
+
+&counter_rtc0 {
 	status = "okay";
 };

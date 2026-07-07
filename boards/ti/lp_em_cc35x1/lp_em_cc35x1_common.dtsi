@@ -66,6 +66,10 @@
 	status = "okay";
 };
 
+&dmem_shared {
+	status = "okay";
+};
+
 &dmem_ns {
 	status = "okay";
 };

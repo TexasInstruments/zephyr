@@ -22,4 +22,5 @@ supported:
   - serial
   - spi
   - watchdog
+  - netif:wifi
 vendor: ti

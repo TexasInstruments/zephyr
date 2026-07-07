@@ -13,6 +13,7 @@
 
 #define	TI_CC35XX_DOMAIN_LEN			3
 #define	TI_CC35XX_CONNECT_TIMEOUT_MS		(MSEC_PER_SEC * 10)
+#define	TI_CC35XX_MAX_NUM_STA			4
 #define	TI_CC35XX_MAX_SCAN_RESULTS		30
 #define	TI_CC35XX_BAND_MASK			GENMASK(1, 0)
 
@@ -33,11 +34,13 @@ enum ti_cc35xx_wifi_state {
 	TI_CC35XX_INACTIVE,
 	TI_CC35XX_STA_CONNECTING,
 	TI_CC35XX_STA_CONNECTED,
+	TI_CC35XX_AP_STARTED,
 };
 
 static struct ti_cc35xx_wifi_priv {
 	struct net_if *iface;
 	char mac_addr_sta[WIFI_MAC_ADDR_LEN];
+	char mac_addr_ap[WIFI_MAC_ADDR_LEN];
 	scan_result_cb_t scan_res_cb;
 	uint8_t frame_buf[NET_ETH_MAX_FRAME_SIZE];
 	struct k_mutex dom_lock;
@@ -62,6 +65,11 @@ static void ti_cc35xx_wifi_iface_init(struct net_if *iface)
 	mac.roleType = WLAN_ROLE_STA;
 	Wlan_Get(WLAN_GET_MACADDRESS, &mac);
 	memcpy(priv->mac_addr_sta, mac.pMacAddress, WIFI_MAC_ADDR_LEN);
+
+	mac.roleType = WLAN_ROLE_AP;
+	Wlan_Get(WLAN_GET_MACADDRESS, &mac);
+	memcpy(priv->mac_addr_ap, mac.pMacAddress, WIFI_MAC_ADDR_LEN);
+
 	net_if_set_link_addr(iface, priv->mac_addr_sta, WIFI_MAC_ADDR_LEN,
 			     NET_LINK_ETHERNET);
 
@@ -90,7 +98,8 @@ static int ti_cc35xx_wifi_send(const struct device *dev, struct net_pkt *pkt)
 		goto out;
 	}
 
-	role = WLAN_ROLE_STA;
+	role = priv->status.state == TI_CC35XX_AP_STARTED ? WLAN_ROLE_AP :
+							    WLAN_ROLE_STA;
 	ret = Wlan_EtherPacketSend(role, priv->frame_buf, len, 0);
 
 out:
@@ -106,6 +115,11 @@ static int ti_cc35xx_wifi_scan(const struct device *dev,
 	struct ti_cc35xx_wifi_priv *priv = dev->data;
 	scanCommon_t common = { .Band = BAND_SEL_BOTH, };
 	int scan_count, ret;
+
+	if (priv->status.state == TI_CC35XX_AP_STARTED) {
+		LOG_INF("Scanning not supported in AP mode\n");
+		return -ENOTSUP;
+	}
 
 	if (priv->scan_res_cb ||
 	    priv->status.state == TI_CC35XX_STA_CONNECTING) {
@@ -253,6 +267,158 @@ static void ti_cc35xx_wifi_get_domain(struct ti_cc35xx_wifi_priv *priv,
 	k_mutex_unlock(&priv->dom_lock);
 }
 
+static int ti_cc35xx_wifi_ap_enable(const struct device *dev,
+				    struct wifi_connect_req_params *params)
+{
+	struct ti_cc35xx_wifi_priv *priv = dev->data;
+	RoleUpApCmd_t role_params = {};
+	WlanCtrlBlk_t ctrl = {
+		.TxSendPaceThresh = 1,
+		.TransmitQOnTxComplete = 0,
+		.TxSendPaceTimeoutMsec = 16,
+	};
+	int ret, key_len;
+	const char *key;
+
+	if (priv->status.state != TI_CC35XX_INACTIVE || priv->scan_res_cb) {
+		return -EBUSY;
+	}
+
+	ret = Wlan_Set(WLAN_SET_TX_CTRL, &ctrl);
+	if (ret) {
+		return ret;
+	}
+	k_sleep(K_SECONDS(2));
+
+	switch (params->security) {
+	case WIFI_SECURITY_TYPE_NONE:
+		role_params.secParams.Type = WLAN_SEC_TYPE_OPEN;
+		key = NULL;
+		key_len = 0;
+		break;
+	case WIFI_SECURITY_TYPE_WPA_PSK:
+		role_params.secParams.Type = WLAN_SEC_TYPE_WPA;
+		key = params->psk;
+		key_len = params->psk_length;
+		if (!key_len) {
+			LOG_ERR("Must specify PSK for WPA security\n");
+			return -ENOTSUP;
+		}
+		break;
+	case WIFI_SECURITY_TYPE_PSK:
+	/* Fall-through. */
+	case WIFI_SECURITY_TYPE_PSK_SHA256:
+	/* Fall-through. */
+	case WIFI_SECURITY_TYPE_WPA_AUTO_PERSONAL:
+		role_params.secParams.Type = WLAN_SEC_TYPE_WPA_WPA2;
+		key = params->psk;
+		key_len = params->psk_length;
+		if (!key_len) {
+			LOG_ERR("Must specify PSK for WPA2 security\n");
+			return -ENOTSUP;
+		}
+		break;
+	default:
+		LOG_ERR("Unsupported security type: %d\n", params->security);
+		return -ENOTSUP;
+	}
+
+	role_params.secParams.KeyLen = key_len;
+	if (key) {
+		role_params.secParams.Key = k_calloc(1, key_len + 1);
+		if (!role_params.secParams.Key) {
+			LOG_ERR("Failed to allocate memory\n");
+			ret = -ENOMEM;
+			goto out;
+		}
+
+		memcpy(role_params.secParams.Key, key, key_len);
+	}
+
+	ti_cc35xx_wifi_get_domain(priv, role_params.countryDomain);
+
+	role_params.sta_limit = MIN(CONFIG_WIFI_MGMT_AP_MAX_NUM_STA,
+				    TI_CC35XX_MAX_NUM_STA);
+	role_params.hidden = 0; /* Unsupported in Zephyr. */
+	role_params.tx_pow = 0;
+	role_params.channel = params->channel;
+	role_params.ssid = k_calloc(1, params->ssid_length + 1);
+	if (!role_params.ssid) {
+		LOG_ERR("Failed to allocate memory\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+	memcpy(role_params.ssid, params->ssid, params->ssid_length);
+
+	ret = Wlan_RoleDown(WLAN_ROLE_STA, WLAN_WAIT_FOREVER);
+	if (ret) {
+		LOG_ERR("Failed to change role: %d\n", ret);
+		goto out;
+	}
+
+	ret = Wlan_RoleUp(WLAN_ROLE_AP, &role_params, WLAN_WAIT_FOREVER);
+	if (ret) {
+		LOG_ERR("Failed to change role: %d\n", ret);
+		goto out;
+	}
+
+	strncpy(priv->status.ssid, params->ssid, params->ssid_length);
+	memcpy(priv->status.bssid, params->bssid, sizeof(priv->status.bssid));
+
+	priv->status.security = params->security;
+	Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_AP,
+					     ti_cc35xx_wifi_receive);
+	priv->status.state = TI_CC35XX_AP_STARTED;
+	net_if_set_link_addr(priv->iface, priv->mac_addr_ap, WIFI_MAC_ADDR_LEN,
+			     NET_LINK_ETHERNET);
+
+	net_if_dormant_off(priv->iface);
+	net_if_carrier_on(priv->iface);
+	wifi_mgmt_raise_ap_enable_result_event(priv->iface, 0);
+
+out:
+	k_free(role_params.ssid);
+	k_free(role_params.secParams.Key);
+
+	return ret;
+}
+
+static int ti_cc35xx_wifi_ap_disable(const struct device *dev)
+{
+	struct ti_cc35xx_wifi_priv *priv = dev->data;
+	RoleUpApCmd_t role_params = {};
+	int ret;
+
+	if (priv->status.state != TI_CC35XX_AP_STARTED) {
+		return -EINVAL;
+	}
+
+	ret = Wlan_RoleDown(WLAN_ROLE_AP, WLAN_WAIT_FOREVER);
+	if (ret) {
+		LOG_ERR("Failed to change role: %d\n", ret);
+		return ret;
+	}
+
+	wifi_mgmt_raise_ap_disable_result_event(priv->iface, 0);
+	net_if_dormant_on(priv->iface);
+	net_if_carrier_off(priv->iface);
+	net_if_set_link_addr(priv->iface, priv->mac_addr_sta, WIFI_MAC_ADDR_LEN,
+			     NET_LINK_ETHERNET);
+	Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_AP, NULL);
+	memset(priv->status.ssid, 0, sizeof(priv->status.ssid));
+	memset(priv->status.bssid, 0, sizeof(priv->status.bssid));
+
+	ti_cc35xx_wifi_get_domain(priv, role_params.countryDomain);
+	ret = Wlan_RoleUp(WLAN_ROLE_STA, &role_params, WLAN_WAIT_FOREVER);
+	if (ret) {
+		LOG_ERR("Failed to change role: %d\n", ret);
+		return ret;
+	}
+	priv->status.state = TI_CC35XX_INACTIVE;
+
+	return 0;
+}
+
 static int ti_cc35xx_wifi_status(const struct device *dev,
 				 struct wifi_iface_status *status)
 {
@@ -270,6 +436,8 @@ static int ti_cc35xx_wifi_status(const struct device *dev,
 		status->state = WIFI_STATE_SCANNING;
 		break;
 	case TI_CC35XX_STA_CONNECTED:
+	/* Fall-through. */
+	case TI_CC35XX_AP_STARTED:
 		status->state = WIFI_STATE_COMPLETED;
 		break;
 	}
@@ -283,8 +451,13 @@ static int ti_cc35xx_wifi_status(const struct device *dev,
 	status->ssid_len = strnlen(priv->status.ssid, WIFI_SSID_MAX_LEN);
 	memcpy(status->bssid, priv->status.bssid, sizeof(priv->status.bssid));
 
-	status->iface_mode = WIFI_MODE_INFRA;
-	chan.roleType = WLAN_ROLE_STA;
+	if (priv->status.state == TI_CC35XX_AP_STARTED) {
+		status->iface_mode = WIFI_MODE_AP;
+		chan.roleType = WLAN_ROLE_AP;
+	} else {
+		status->iface_mode = WIFI_MODE_INFRA;
+		chan.roleType = WLAN_ROLE_STA;
+	}
 
 	Wlan_Get(WLAN_GET_ROLE_CHANNEL_NUMBER, &chan);
 	status->channel = chan.channelNum;
@@ -309,11 +482,18 @@ static int ti_cc35xx_wifi_reg_domain(const struct device *dev,
 		memcpy(reg_domain->country_code, priv->status.domain,
 		       WIFI_COUNTRY_CODE_LEN);
 	} else {
+		/* Can't update reg domain while AP is running. */
+		if (priv->status.state == TI_CC35XX_AP_STARTED) {
+			ret = -EBUSY;
+			goto out;
+		}
+
 		memcpy(priv->status.domain, reg_domain->country_code,
 		       WIFI_COUNTRY_CODE_LEN);
 		priv->status.domain[2] = 'I'; /* Indoor only. */
 	}
 
+out:
 	k_mutex_unlock(&priv->dom_lock);
 
 	return ret;
@@ -323,6 +503,8 @@ static struct wifi_mgmt_ops ti_cc35xx_wifi_mgmt_ops = {
 	.scan = ti_cc35xx_wifi_scan,
 	.connect = ti_cc35xx_wifi_connect,
 	.disconnect = ti_cc35xx_wifi_disconnect,
+	.ap_enable = ti_cc35xx_wifi_ap_enable,
+	.ap_disable = ti_cc35xx_wifi_ap_disable,
 	.iface_status = ti_cc35xx_wifi_status,
 	.reg_domain = ti_cc35xx_wifi_reg_domain,
 };
@@ -391,6 +573,21 @@ static void ti_cc35xx_wifi_scan_results(struct ti_cc35xx_wifi_priv *priv,
 	priv->scan_res_cb = NULL;
 }
 
+static void ti_cc35xx_wifi_update_peer(struct ti_cc35xx_wifi_priv *priv,
+				       WlanEvent_t *ev)
+{
+	struct wifi_ap_sta_info info = { .link_mode = WIFI_4,
+					 .mac_length = WIFI_MAC_ADDR_LEN, };
+
+	if (ev->Id == WLAN_EVENT_ADD_PEER) {
+		memcpy(info.mac, ev->Data.AddPeer.Mac, WIFI_MAC_ADDR_LEN);
+		wifi_mgmt_raise_ap_sta_connected_event(priv->iface, &info);
+	} else {
+		memcpy(info.mac, ev->Data.RemovePeer.Mac, WIFI_MAC_ADDR_LEN);
+		wifi_mgmt_raise_ap_sta_disconnected_event(priv->iface, &info);
+	}
+}
+
 static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 {
 	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(wlan0));
@@ -432,6 +629,11 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 		break;
 	case WLAN_EVENT_SCAN_RESULT:
 		ti_cc35xx_wifi_scan_results(priv, event);
+		break;
+	case WLAN_EVENT_ADD_PEER:
+	/* Fall-through. */
+	case WLAN_EVENT_REMOVE_PEER:
+		ti_cc35xx_wifi_update_peer(priv, event);
 		break;
 	case WLAN_EVENT_CONNECTING:
 		k_timer_stop(&priv->connect_timer);

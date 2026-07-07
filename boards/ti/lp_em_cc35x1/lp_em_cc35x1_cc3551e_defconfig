@@ -16,3 +16,7 @@ CONFIG_SERIAL=y
 
 CONFIG_CONSOLE=y
 CONFIG_UART_CONSOLE=y
+
+# Required for BLE operation. Explicitly disable this config option here, as
+# some BLE samples enable it by default.
+CONFIG_BT_HCI_ACL_FLOW_CONTROL=n

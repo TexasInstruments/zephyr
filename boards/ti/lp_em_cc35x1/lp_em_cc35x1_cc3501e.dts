@@ -6,3 +6,9 @@
 /dts-v1/;
 
 #include "lp_em_cc35x1_common.dtsi"
+
+/ {
+	chosen {
+		zephyr,bt-hci = &hci0;
+	};
+};

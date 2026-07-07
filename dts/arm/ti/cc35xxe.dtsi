@@ -215,6 +215,11 @@
 			reg = <0x408a0000 DT_SIZE_K(64)>;
 			interrupts = <EXP_NAB_HOST 3>;
 			status = "disabled";
+
+			hci0: hci0 {
+				compatible = "ti,cc35xx-bt-hci";
+				status = "disabled";
+			};
 		};
 
 		uart0: uart@41240000 {
@@ -240,8 +245,8 @@
 			reg = <0x41260000 0x8000>;
 			interrupts = <EXP_GPT0 0>;
 			clocks = <&gptimerclk>;
-			max-top-value = <0xFFFFFFFF>;
-			clk-prescale = <0xFF>;
+			max-top-value = <0xffffffff>;
+			clk-prescale = <0xff>;
 			status = "okay";
 
 			pwm0: pwm0 {
@@ -249,11 +254,13 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
 			pwm1: pwm1 {
 				compatible = "ti,cc35xx-lgpt-pwm";
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
 			pwm2: pwm2 {
 				compatible = "ti,cc35xx-lgpt-pwm";
 				#pwm-cells = <3>;
@@ -266,8 +273,8 @@
 			reg = <0x41268000 0x8000>;
 			interrupts = <EXP_GPT1 0>;
 			clocks = <&gptimerclk>;
-			max-top-value = <0xFFFFFFFF>;
-			clk-prescale = <0xFF>;
+			max-top-value = <0xffffffff>;
+			clk-prescale = <0xff>;
 			status = "okay";
 
 			pwm3: pwm0 {
@@ -275,11 +282,13 @@
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
 			pwm4: pwm1 {
 				compatible = "ti,cc35xx-lgpt-pwm";
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
+
 			pwm5: pwm2 {
 				compatible = "ti,cc35xx-lgpt-pwm";
 				#pwm-cells = <3>;
@@ -336,6 +345,7 @@
 				reg = <0>;
 				status = "disabled";
 			};
+
 			crypto: crypto@1 {
 				compatible = "ti,cc35xx-hsm-crypto";
 				reg = <1>;
@@ -353,17 +363,15 @@
 				#gpio-cells = <2>;
 				gpio-map-mask = <0xffffffe0 0xffffffc0>;
 				gpio-map-pass-thru = <0x1f 0x3f>;
-				gpio-map = <
-					0x00 0x0 &gpio0_31 0x0 0x0
-					0x20 0x0 &gpio32_63 0x0 0x0
-				>;
+				gpio-map = <0x00 0x0 &gpio0_31 0x0 0x0
+					    0x20 0x0 &gpio32_63 0x0 0x0>;
 
 				gpio0_31: gpio0_31 {
 					compatible = "ti,cc35xx-gpio-port";
 					status = "okay";
 					gpio-controller;
 					#gpio-cells = <2>;
-					gpio-index-offset = <(0*32)>;
+					gpio-index-offset = <(0 * 32)>;
 					interrupts = <EXP_GPIO 1>;
 					ngpios = <32>;
 				};
@@ -373,7 +381,7 @@
 					status = "okay";
 					gpio-controller;
 					#gpio-cells = <2>;
-					gpio-index-offset = <(1*32)>;
+					gpio-index-offset = <(1 * 32)>;
 					interrupts = <EXP_GPIO 1>;
 					ngpios = <12>;
 				};

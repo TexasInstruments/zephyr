@@ -6,11 +6,18 @@
 
 #include <zephyr/linker/linker-tool.h>
 
-/* The last 256 bytes of DMEM are designated as shared memory between
+/*
+ * The first 3504 bytes of DRAM are designated as shared memory between
  * application and RF cores.
  */
-SECTION_PROLOGUE(.connectivity_shared_status_section, 0x2803ff00 (NOLOAD),)
+SECTION_PROLOGUE(.connectivity_shared_status_section, 0x28000000 (NOLOAD),)
 {
 	gFwStatusInfo = .;
 	. = ALIGN(256);
-} GROUP_NOLOAD_LINK_IN(RAMABLE_REGION, RAMABLE_REGION)
+} GROUP_NOLOAD_LINK_IN(DMEM_SHARED, DMEM_SHARED)
+
+SECTION_PROLOGUE(.boot_report_shared_section, 0x28000100 (NOLOAD),)
+{
+	_Boot_report_address = .;
+	. = ALIGN(3248);
+} GROUP_NOLOAD_LINK_IN(DMEM_SHARED, DMEM_SHARED)

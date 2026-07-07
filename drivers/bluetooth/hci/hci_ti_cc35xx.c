@@ -149,7 +149,7 @@ static int hci_cc35xx_evt_recv(uint8_t *data, uint16_t len)
 
 static int hci_cc35xx_init(const struct device *dev)
 {
-	BleIf_OpenTransport(BLE_IF_TRANSPORT_SHARED);
+	BleIf_OpenTransport();
 	BleIf_EventCbRegister(hci_cc35xx_evt_recv);
 
 	return 0;

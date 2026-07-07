@@ -689,7 +689,7 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 #else
 #define SPI_CC35XX_DMA_CHANNEL(n, dir, ch_dir, src_burst, dst_burst)
 
-#define SPI_CC35XX_DMA_INIT_FUNC(dev) do { } while (0)
+#define SPI_CC35XX_DMA_INIT_FUNC(dev) 0
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 
 #define SPI_CC35XX_INIT_FUNC(n)                                                                    \
@@ -710,8 +710,10 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), spi_cc35xx_isr,             \
 			    DEVICE_DT_INST_GET(n), 0);                                             \
 		irq_enable(cfg->irq_num);                                                          \
-		SPI_CC35XX_DMA_INIT_FUNC(dev);                                                     \
-                                                                                                   \
+		err = SPI_CC35XX_DMA_INIT_FUNC(dev);                                               \
+		if (err < 0)                                                                       \
+			return err;                                                                \
+	                                                                                                   \
 		return 0;                                                                          \
 	}
 

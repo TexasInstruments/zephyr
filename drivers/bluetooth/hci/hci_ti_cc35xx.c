@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <zephyr/bluetooth/buf.h>
+#include <zephyr/bluetooth/hci_types.h>
 #include <zephyr/drivers/bluetooth.h>
 #include <zephyr/logging/log.h>
 #include <ble_if.h>
@@ -36,6 +38,8 @@ static int hci_cc35xx_open(const struct device *dev, bt_hci_recv_t recv)
 {
 	struct hci_cc35xx_priv *priv = dev->data;
 
+	BleIf_VendorSpecificEventFormat(VENDOR_SPECIFIC_FORMAT_NIMBLE);
+
 	priv->recv = recv;
 
 	return BleIf_EnableBLE();
@@ -53,8 +57,9 @@ static int hci_cc35xx_close(const struct device *dev)
 static int hci_cc35xx_send(const struct device *dev, struct net_buf *buf)
 {
 	int ret;
+	uint8_t type = bt_buf_type_from_h4(net_buf_pull_u8(buf), BT_BUF_OUT);
 
-	switch (bt_buf_get_type(buf)) {
+	switch (type) {
 	case BT_BUF_ACL_OUT:
 		net_buf_push_u8(buf, BT_HCI_H4_ACL);
 		break;
@@ -87,8 +92,9 @@ static bool hci_cc35xx_is_evt_discardable(uint8_t *data)
 {
 	struct bt_hci_evt_hdr *evt = (void *)data;
 
-	if (evt->evt != BT_HCI_EVT_LE_META_EVENT || !evt->len)
+	if (evt->evt != BT_HCI_EVT_LE_META_EVENT || !evt->len) {
 		return false;
+	}
 
 	switch (data[BT_HCI_EVT_HDR_SIZE]) {
 	case BT_HCI_EVT_LE_ADVERTISING_REPORT:
@@ -105,8 +111,14 @@ static int hci_cc35xx_evt_recv(uint8_t *data, uint16_t len)
 	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(hci0));
 	struct hci_cc35xx_priv *priv = dev->data;
 	struct net_buf *buf;
-	uint8_t pkt_type = data[0];
+	uint8_t pkt_type;
 	bool discardable;
+
+	if (len == 0) {
+		return -EINVAL;
+	}
+
+	pkt_type = data[0];
 
 	/* Skip over the HCI packet indicator byte. */
 	data++;
@@ -115,7 +127,7 @@ static int hci_cc35xx_evt_recv(uint8_t *data, uint16_t len)
 	switch (pkt_type) {
 	case BT_HCI_H4_EVT:
 		if (len < BT_HCI_EVT_HDR_SIZE) {
-			LOG_ERR("Event header is missing\n");
+			LOG_ERR("Event header is missing");
 			return -EINVAL;
 		}
 
@@ -124,10 +136,15 @@ static int hci_cc35xx_evt_recv(uint8_t *data, uint16_t len)
 				     discardable ? K_NO_WAIT : K_FOREVER);
 		break;
 	case BT_HCI_H4_ACL:
+		if (len < BT_HCI_ACL_HDR_SIZE) {
+			LOG_ERR("ACL header is missing");
+			return -EINVAL;
+		}
+
 		buf = bt_buf_get_rx(BT_BUF_ACL_IN, K_FOREVER);
 		break;
 	default:
-		LOG_ERR("Unknown HCI packet type: %d\n", pkt_type);
+		LOG_ERR("Unknown HCI packet type: %d", pkt_type);
 		return -ENOTSUP;
 	}
 
@@ -136,7 +153,7 @@ static int hci_cc35xx_evt_recv(uint8_t *data, uint16_t len)
 	}
 
 	if (len > net_buf_tailroom(buf)) {
-		LOG_ERR("Not enough space in RX buffer\n");
+		LOG_ERR("Not enough space in RX buffer");
 		net_buf_unref(buf);
 		return -EINVAL;
 	}

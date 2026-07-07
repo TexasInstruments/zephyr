@@ -275,8 +275,8 @@ static int ti_cc35xx_wifi_ap_enable(const struct device *dev,
 		.TransmitQOnTxComplete = 0,
 		.TxSendPaceTimeoutMsec = 16,
 	};
-	int ret, key_len;
-	const char *key;
+	int ret, key_len = 0;
+	const char *key = NULL;
 
 	if (priv->status.state != TI_CC35XX_INACTIVE || priv->scan_res_cb) {
 		return -EBUSY;
@@ -313,6 +313,20 @@ static int ti_cc35xx_wifi_ap_enable(const struct device *dev,
 		key_len = params->psk_length;
 		if (!key_len) {
 			LOG_ERR("Must specify PSK for WPA2 security\n");
+			return -ENOTSUP;
+		}
+		break;
+	case WIFI_SECURITY_TYPE_SAE:
+		role_params.secParams.Type = WLAN_SEC_TYPE_WPA3;
+		if (params->sae_password) {
+			key = params->sae_password;
+			key_len = params->sae_password_length;
+		} else {
+			key = params->psk;
+			key_len = params->psk_length;
+		}
+		if (!key_len) {
+			LOG_ERR("Must specify passphrase for WPA3 SAE security\n");
 			return -ENOTSUP;
 		}
 		break;

@@ -201,13 +201,11 @@ static int ti_cc35xx_wifi_connect(const struct device *dev,
 	 * Instead, set up a timer with requested timeout value, or a default
 	 * timeout value if not specified by caller.
 	 */
-	if (params->timeout < 0) {
-		timeout = K_FOREVER;
-	} else {
+	if (params->timeout >= 0) {
 		timeout = params->timeout ? K_MSEC(params->timeout * MSEC_PER_SEC) :
 					    K_MSEC(TI_CC35XX_CONNECT_TIMEOUT_MS);
+		k_timer_start(&priv->connect_timer, timeout, K_NO_WAIT);
 	}
-	k_timer_start(&priv->connect_timer, timeout, K_NO_WAIT);
 
 	return 0;
 }
@@ -641,6 +639,27 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 	case WLAN_EVENT_ASSOCIATED:
 		/* Nothing to be done. */
 		break;
+	case WLAN_EVENT_AUTHENTICATION_REJECTED:
+		LOG_WRN("Authentication rejected (status %u)",
+			event->Data.AuthStatusCode);
+		break;
+	case WLAN_EVENT_ASSOCIATION_REJECTED:
+		LOG_WRN("Association rejected (status %u)",
+			event->Data.AssocStatusCode);
+		break;
+	case WLAN_EVENT_GENERAL_ERROR:
+		/* Scan timeout (no results found) — signal end of scan */
+		if (priv->scan_res_cb) {
+			priv->scan_res_cb(priv->iface, 0, NULL);
+			priv->scan_res_cb = NULL;
+		}
+		break;
+	case WLAN_EVENT_ERROR:
+		LOG_ERR("ERROR module=%d err=%d sev=%d\n",
+			event->Data.error.module,
+			event->Data.error.error_num,
+			event->Data.error.severity);
+		break;
 
 	default:
 		LOG_ERR("Unhandled event: %d\n", event->Id);
@@ -671,7 +690,7 @@ static int ti_cc35xx_wifi_init(const struct device *dev)
 		.TransmitQOnTxComplete = 0,
 		.TxSendPaceTimeoutMsec = 16,
 	};
-	RoleUpApCmd_t role_params = {};
+	RoleUpStaCmd_t role_params = {};
 	uint8_t band = BAND_SEL_BOTH;
 	uint32_t pwr_mode;
 	int ret;
@@ -708,6 +727,7 @@ static int ti_cc35xx_wifi_init(const struct device *dev)
 
 	k_sleep(K_SECONDS(2));
 
+	k_mutex_init(&priv->dom_lock);
 	memcpy(priv->status.domain, "00I", 3);
 	ti_cc35xx_wifi_get_domain(priv, role_params.countryDomain);
 	ret = Wlan_RoleUp(WLAN_ROLE_STA, &role_params, WLAN_WAIT_FOREVER);
@@ -717,7 +737,6 @@ static int ti_cc35xx_wifi_init(const struct device *dev)
 
 	priv->status.state = TI_CC35XX_INACTIVE;
 
-	k_mutex_init(&priv->dom_lock);
 	k_timer_init(&priv->connect_timer, ti_cc35xx_wifi_connect_timeout,
 		     NULL);
 

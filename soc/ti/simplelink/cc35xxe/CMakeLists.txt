@@ -11,7 +11,7 @@ set(SOC_LINKER_SCRIPT ${ZEPHYR_BASE}/include/zephyr/arch/arm/cortex_m/scripts/li
 zephyr_linker_sources(RAMFUNC_SECTION SORT_KEY 0 ramfunc_linker.ld)
 
 # Add custom linker section to support shared memory with the RF core.
-zephyr_linker_sources_ifdef(CONFIG_WIFI_TI_CC35XX
+zephyr_linker_sources(
   SECTIONS
   wlan.ld
 )

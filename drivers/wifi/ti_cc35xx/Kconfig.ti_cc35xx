@@ -43,4 +43,8 @@ config WIFI_TI_CC35XX_NVS_INIT_PRIORITY
 	  SYS_INIT priority for the WiFi NVS init.
 	  Must be lower than the WiFi driver init priority (80).
 
+config WIFI_TI_CC3XXX_NVS_INIT_PRIORITY
+	int
+	default WIFI_TI_CC35XX_NVS_INIT_PRIORITY
+
 endif # WIFI_TI_CC35XX

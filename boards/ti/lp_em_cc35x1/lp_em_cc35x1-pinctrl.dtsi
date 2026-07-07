@@ -12,43 +12,52 @@
 			pinmux = <P17_UART0_TX>, <P18_UART0_RX>;
 		};
 	};
+
 	uart1_default: uart1_default {
 		group1 {
 			pinmux = <P5_UART1_TX>, <P6_UART1_RX>;
 		};
 	};
 
+	uart2_default: uart2_default {
+		group1 {
+			pinmux = <P16_UART2_TX>, <P19_UART2_RX>;
+		};
+	};
+
 	spi0_slave: spi0_slave {
 		group1 {
 			pinmux = <P27_SPI0_CLK>,
-				<(TI_CC35XX_PINCTRL_DIR_OUT | P28_SPI0_MISO)>,
-				<(TI_CC35XX_PINCTRL_DIR_IN  | P29_SPI0_MOSI)>,
-				<(TI_CC35XX_PINCTRL_DIR_IN  | P26_SPI0_CS1)>;
+				 <(TI_CC35XX_PINCTRL_DIR_OUT | P28_SPI0_MISO)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P29_SPI0_MOSI)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P26_SPI0_CS1)>;
 		};
 	};
+
 	spi0_master: spi0_master {
 		group1 {
 			pinmux = <P27_SPI0_CLK>,
-				<(TI_CC35XX_PINCTRL_DIR_IN  | P28_SPI0_MISO)>,
-				<(TI_CC35XX_PINCTRL_DIR_OUT | P29_SPI0_MOSI)>,
-				<(TI_CC35XX_PINCTRL_DIR_OUT | P26_SPI0_CS1)>;
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P28_SPI0_MISO)>,
+				 <(TI_CC35XX_PINCTRL_DIR_OUT | P29_SPI0_MOSI)>,
+				 <(TI_CC35XX_PINCTRL_DIR_OUT | P26_SPI0_CS1)>;
 		};
 	};
 
 	spi1_slave: spi1_slave {
 		group1 {
 			pinmux = <P14_SPI1_CLK>,
-				<(TI_CC35XX_PINCTRL_DIR_OUT | P15_SPI1_MISO)>,
-				<(TI_CC35XX_PINCTRL_DIR_IN  | P13_SPI1_MOSI)>,
-				<(TI_CC35XX_PINCTRL_DIR_IN  | P12_SPI1_CS1)>;
+				 <(TI_CC35XX_PINCTRL_DIR_OUT | P15_SPI1_MISO)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P13_SPI1_MOSI)>,
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P12_SPI1_CS1)>;
 		};
 	};
+
 	spi1_master: spi1_master {
 		group1 {
 			pinmux = <P14_SPI1_CLK>,
-				<(TI_CC35XX_PINCTRL_DIR_IN  | P15_SPI1_MISO)>,
-				<(TI_CC35XX_PINCTRL_DIR_OUT | P13_SPI1_MOSI)>,
-				<(TI_CC35XX_PINCTRL_DIR_OUT | P12_SPI1_CS1)>;
+				 <(TI_CC35XX_PINCTRL_DIR_IN | P15_SPI1_MISO)>,
+				 <(TI_CC35XX_PINCTRL_DIR_OUT | P13_SPI1_MOSI)>,
+				 <(TI_CC35XX_PINCTRL_DIR_OUT | P12_SPI1_CS1)>;
 		};
 	};
 
@@ -63,11 +72,13 @@
 			pinmux = <P3_GPT1_0>;
 		};
 	};
+
 	pwm4_default: lgpt1_chan1_default {
 		group1 {
 			pinmux = <P30_GPT1_1>;
 		};
 	};
+
 	pwm5_default: lgpt1_chan2_default {
 		group1 {
 			pinmux = <P33_GPT1_2>;

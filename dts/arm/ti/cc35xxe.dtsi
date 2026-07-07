@@ -210,6 +210,13 @@
 			zephyr,memory-region = "EXTFLASH";
 		};
 
+		wlan0: hif@408a0000 {
+			compatible = "ti,cc35xx-wlan";
+			reg = <0x408a0000 DT_SIZE_K(64)>;
+			interrupts = <EXP_NAB_HOST 3>;
+			status = "disabled";
+		};
+
 		uart0: uart@41240000 {
 			compatible = "ti,cc35xx-uart";
 			current-speed = <115200>;

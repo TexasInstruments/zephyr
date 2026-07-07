@@ -11,4 +11,4 @@ properties:
   bt-hci-name:
     default: "TI CC35XX BT HCI"
   bt-hci-bus:
-    default: "BT_HCI_BUS_VIRTUAL"
+    default: "virtual"

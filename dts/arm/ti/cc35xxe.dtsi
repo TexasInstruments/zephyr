@@ -109,10 +109,17 @@
 			zephyr,memory-region = "DTCM";
 		};
 
-		dmem_ns: dmem_ns@28000000 {
+		dmem_shared: dmem@28000000 {
 			status = "disabled";
 			compatible = "zephyr,memory-region", "mmio-sram";
-			reg = <0x28000000 DT_SIZE_K(256)>;
+			reg = <0x28000000 0xdb0>;
+			zephyr,memory-region = "DMEM_SHARED";
+		};
+
+		dmem_ns: dmem_ns@28000db0 {
+			status = "disabled";
+			compatible = "zephyr,memory-region", "mmio-sram";
+			reg = <0x28000db0 0x7f250>;
 			zephyr,memory-region = "DMEM_NS";
 		};
 
@@ -199,25 +206,28 @@
 			};
 		};
 
-		flash0: flash@a0000000 {
+		flash0: flash@14000000 {
 			compatible = "ti,cc35xx-nv-flash";
-			reg = <0xa0000000 0x00033000>, <0x0 0x00033000>;
+			reg = <0x14000000 0x2fb000>, <0x105000 0x2fb000>;
 			erase-block-size = <DT_SIZE_K(4)>;
 			write-block-size = <4>;
+			status = "disabled";
 		};
 
-		flash1: flash@10000000 {
+		flash1: flash@a0000000 {
 			compatible = "ti,cc35xx-nv-flash";
-			reg = <0x10000000 0x001e7000>, <0x00033000 0x001e7000>;
+			reg = <0xa0000000 0xda000>, <0x0 0xda000>;
 			erase-block-size = <DT_SIZE_K(4)>;
 			write-block-size = <4>;
+			status = "disabled";
 		};
 
-		flash2: flash@a0050000 {
+		flash2: flash@a00da000 {
 			compatible = "ti,cc35xx-nv-flash";
-			reg = <0xa0050000 0x001ea000>, <0x0021a000 0x001ea000>;
+			reg = <0xa00da000 0x2b000>, <0xda000 0x2b000>;
 			erase-block-size = <DT_SIZE_K(4)>;
 			write-block-size = <4>;
+			status = "disabled";
 		};
 	};
 };

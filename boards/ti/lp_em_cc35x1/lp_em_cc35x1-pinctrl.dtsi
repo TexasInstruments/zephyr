@@ -18,6 +18,12 @@
 		};
 	};
 
+	uart2_default: uart2_default {
+		group1 {
+			pinmux = <P16_UART2_TX>, <P19_UART2_RX>;
+		};
+	};
+
 	spi0_slave: spi0_slave {
 		group1 {
 			pinmux = <P27_SPI0_CLK>,

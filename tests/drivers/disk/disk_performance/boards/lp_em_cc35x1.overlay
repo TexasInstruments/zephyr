@@ -4,16 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/ {
-	aliases {
-		led0 = &red_led;
-	};
-
-	chosen {
-		zephyr,canbus = &can0;
-	};
-};
-
-&can0 {
+&sdhc {
 	status = "okay";
 };

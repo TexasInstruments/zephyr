@@ -19,10 +19,6 @@
 	model = "TI CC35X1E LaunchPad";
 	compatible = "ti,launchpad-cc35x1e";
 
-	zephyr,user {
-		io-channels = <&adc0 4>, <&adc0 5>;
-	};
-
 	chosen {
 		zephyr,sram = &dmem_ns;
 		zephyr,flash = &extflash;
@@ -68,8 +64,8 @@
 	};
 
 	aliases {
-		led1 = &red_led;
-		led2 = &blue_led;
+		led0 = &red_led;
+		led1 = &blue_led;
 		pwm-led0 = &green_pwm;
 		ambient-temp0 = &tmp1075_temperature;
 		sw0 = &user_switch_1;
@@ -114,7 +110,7 @@
 };
 
 &spi0 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&spi0_master>;
 	pinctrl-names = "default";
 	cs-gpios = <&gpios 26 GPIO_ACTIVE_LOW>;
@@ -124,7 +120,7 @@
 };
 
 &spi1 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&spi1_slave>;
 	pinctrl-names = "default";
 	dmas = <&dma 8 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_SPI_1)>,
@@ -190,7 +186,7 @@
 };
 
 &i2c1 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&i2c1_default>;
 	pinctrl-names = "default";
 
@@ -198,18 +194,16 @@
 		compatible = "lm75";
 		friendly-name = "texas_temperature_tmp1075";
 		reg = <0x48>;
-		status = "okay";
 	};
 
 	bma4xx_accelerometer: bma4xx@18 {
 		compatible = "bosch,bma4xx";
 		reg = <0x18>;
-		status = "okay";
 	};
 };
 
 &adc0 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&adc0_default>;
 	pinctrl-names = "default";
 	dmas = <&dma 6 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_ADC)>;
@@ -252,13 +246,13 @@
 
 &timer1 {
 	clk-prescale = <0x1>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pwm4 {
 	pinctrl-0 = <&pwm4_default>;
 	pinctrl-names = "default";
-	status = "okay";
+	status = "disabled";
 };
 
 &wdt0 {
@@ -278,7 +272,7 @@
 };
 
 &i2s0 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&i2s_default>;
 	pinctrl-names = "default";
 	clock-source = <TI_CC35XX_I2S_CLK_SRC_SOC_PLL_CLK>;
@@ -287,13 +281,13 @@
 };
 
 &can0 {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&can_default>;
 	pinctrl-names = "default";
 };
 
 &sdhc {
-	status = "okay";
+	status = "disabled";
 	pinctrl-0 = <&sdhc_mmc_default>;
 	pinctrl-names = "default";
 	max-bus-freq = <DT_FREQ_M(40)>;
@@ -303,6 +297,5 @@
 	sdmmc {
 		compatible = "zephyr,sdmmc-disk";
 		disk-name = "SD";
-		status = "okay";
 	};
 };

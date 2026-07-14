@@ -24,10 +24,6 @@ if BT_ESL_OTS
 config BT_OTS_SECONDARY_SVC
     default n
 
-# RX ACL Buffer Size: must be large enough for MPS + L2CAP header
-config BT_BUF_ACL_RX_SIZE
-    default 69
-
 # Default L2CAP MTU
 config BT_L2CAP_TX_MTU
     default 69

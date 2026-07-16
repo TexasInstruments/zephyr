@@ -10,6 +10,7 @@
 #include <zephyr/dt-bindings/adc/adc.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <zephyr/dt-bindings/dma/ti-cc35xx-dma.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
 #include <zephyr/dt-bindings/i2s/ti-cc35xx-i2s.h>
 #include "boosterpack_connector.dtsi"
 #include "lp_em_cc35x1-pinctrl.dtsi"
@@ -33,10 +34,12 @@
 
 	leds {
 		compatible = "gpio-leds";
+
 		red_led: red_led {
 			gpios = <&gpios 34 GPIO_ACTIVE_HIGH>;
 			label = "RED USER LED";
 		};
+
 		blue_led: blue_led {
 			gpios = <&gpios 35 GPIO_ACTIVE_HIGH>;
 			label = "BLUE USER LED";
@@ -45,6 +48,7 @@
 
 	pwmleds {
 		compatible = "pwm-leds";
+
 		green_pwm: pwm_led_0 {
 			pwms = <&pwm4 1 1000 PWM_POLARITY_NORMAL>;
 			label = "Green PWM LED";
@@ -53,13 +57,17 @@
 
 	buttons {
 		compatible = "gpio-keys";
+
 		user_switch_1: user_sw_1 {
 			gpios = <&gpios 2 GPIO_ACTIVE_LOW>;
 			label = "User SW1";
+			zephyr,code = <INPUT_KEY_0>;
 		};
-		user_switch_2: user_sw_2{
+
+		user_switch_2: user_sw_2 {
 			gpios = <&gpios 36 GPIO_ACTIVE_LOW>;
 			label = "User SW2";
+			zephyr,code = <INPUT_KEY_1>;
 		};
 	};
 
@@ -231,7 +239,7 @@
 	pinctrl-0 = <&uart0_default>;
 	pinctrl-names = "default";
 	dmas = <&dma 0 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_0)>,
-			<&dma 1 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_0)>;
+	       <&dma 1 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_0)>;
 	dma-names = "rx", "tx";
 };
 
@@ -240,7 +248,7 @@
 	pinctrl-0 = <&uart1_default>;
 	pinctrl-names = "default";
 	dmas = <&dma 2 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_1)>,
-			<&dma 3 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_1)>;
+	       <&dma 3 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_UARTLIN_1)>;
 	dma-names = "rx", "tx";
 };
 

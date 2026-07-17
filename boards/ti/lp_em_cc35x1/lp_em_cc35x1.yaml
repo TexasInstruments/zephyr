@@ -11,6 +11,7 @@ supported:
   - adc
   - can
   - counter
+  - dma
   - entropy
   - gpio
   - i2s
@@ -19,5 +20,6 @@ supported:
   - rtc
   - sdhc
   - serial
+  - spi
   - watchdog
 vendor: ti

@@ -17,6 +17,8 @@ LOG_MODULE_REGISTER(spi_cc35xx, CONFIG_SPI_LOG_LEVEL);
 #include <zephyr/pm/policy.h>
 #include <zephyr/sys/util.h>
 
+#include <string.h>
+
 #include <driverlib/spi.h>
 #include <ti/devices/cc35xx/inc/hw_spi.h>
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
@@ -37,6 +39,17 @@ LOG_MODULE_REGISTER(spi_cc35xx, CONFIG_SPI_LOG_LEVEL);
 #define SPI_CC35XX_DFS		(SPI_CC35XX_DATA_WIDTH >> 3)
 
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
+
+#define SPI_CC35XX_DMA_MAX_TRANSFER_SIZE 0x3FFFU
+#define SPI_CC35XX_SRAM_START CONFIG_SRAM_BASE_ADDRESS
+#define SPI_CC35XX_SRAM_END (SPI_CC35XX_SRAM_START + (CONFIG_SRAM_SIZE * 1024UL))
+#define SPI_CC35XX_DMA_BUFFER_IN_SRAM(buf, len)                                                   \
+	({                                                                                         \
+		uintptr_t addr = POINTER_TO_UINT(buf);                                              \
+		uintptr_t end = addr + (len);                                                       \
+                                                                                                   \
+		(end >= addr) && (addr >= SPI_CC35XX_SRAM_START) && (end <= SPI_CC35XX_SRAM_END);   \
+	})
 
 static uint32_t dummy_tx = IDLE_CHAR;
 static uint32_t dummy_rx;
@@ -73,6 +86,7 @@ struct spi_cc35xx_data {
 	struct spi_cc35xx_dma_stream dma_rx;
 	struct spi_cc35xx_dma_stream dma_tx;
 	uint8_t dma_status_flags;
+	uint8_t tx_scratch_buf[CONFIG_SPI_CC35XX_DMA_SCRATCH_BUFFER_SIZE];
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 	size_t rxleft;
 };
@@ -334,6 +348,12 @@ static int spi_cc35xx_transceive(const struct device *dev,
 	}
 
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
+	if (spi_context_total_tx_len(ctx) > SPI_CC35XX_DMA_MAX_TRANSFER_SIZE ||
+	    spi_context_total_rx_len(ctx) > SPI_CC35XX_DMA_MAX_TRANSFER_SIZE) {
+		ret = -EINVAL;
+		goto ctx_release;
+	}
+
 #ifdef CONFIG_SPI_SLAVE
 	if (!spi_context_is_slave(ctx)) {
 		spi_context_cs_control(ctx, true);
@@ -505,7 +525,9 @@ static void spi_cc35xx_isr(const struct device *dev)
 
 		if (!spi_context_rx_buf_on(ctx) && !spi_context_tx_buf_on(ctx)) {
 			/* nothing left to rx or tx, we're done! */
-			spi_context_cs_control(&data->ctx, false);
+			if (!(ctx->config->operation & SPI_HOLD_ON_CS)) {
+				spi_context_cs_control(&data->ctx, false);
+			}
 			spi_cc35xx_dma_stop(dev);
 			spi_context_complete(&data->ctx, dev, 0);
 
@@ -568,6 +590,16 @@ static int spi_cc35xx_dma_load_tx(const struct device *dev, const uint8_t *tx_da
 	data->dma_tx.blk_cfg.dest_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
 	data->dma_tx.blk_cfg.block_size = buf_size;
 	if (spi_context_tx_buf_on(ctx)) {
+		if (!SPI_CC35XX_DMA_BUFFER_IN_SRAM(tx_data, buf_size)) {
+			if (buf_size > sizeof(data->tx_scratch_buf)) {
+				LOG_ERR("%s: TX DMA buffer must be in SRAM", dev->name);
+				return -ENOTSUP;
+			}
+
+			memcpy(data->tx_scratch_buf, tx_data, buf_size);
+			tx_data = data->tx_scratch_buf;
+		}
+
 		data->dma_tx.blk_cfg.source_address = (uint32_t)tx_data;
 		data->dma_tx.blk_cfg.source_addr_adj = DMA_ADDR_ADJ_INCREMENT;
 	} else {

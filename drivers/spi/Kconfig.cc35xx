@@ -18,4 +18,12 @@ config SPI_CC35XX_DMA_DRIVEN
 	help
 	  Enables DMA for SPI transfers.
 
+config SPI_CC35XX_DMA_SCRATCH_BUFFER_SIZE
+	int "CC35XX SPI DMA scratch buffer size"
+	default 256
+	depends on SPI_CC35XX_DMA_DRIVEN
+	help
+	  Size of the per-instance SRAM scratch buffer used when TX data
+	  for a DMA transfer is not directly accessible by the DMA engine.
+
 endif # SPI_CC35XX

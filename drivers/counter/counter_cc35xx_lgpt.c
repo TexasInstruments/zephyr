@@ -56,11 +56,10 @@ static void counter_cc35xx_gptimer_isr(const struct device *dev)
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
 	struct counter_cc35xx_gptimer_data *data = dev->data;
 	uint32_t counter = sys_read32(config->base + GPTIMER_O_CNTR);
-	uint32_t reg_ris = sys_read32(config->base + GPTIMER_O_RIS);
 	uint32_t reg_mis = sys_read32(config->base + GPTIMER_O_MIS);
 	int i;
 
-	sys_write32(reg_ris, config->base + GPTIMER_O_ICLR);
+	sys_write32(reg_mis, config->base + GPTIMER_O_ICLR);
 
 	if ((reg_mis & GPTIMER_MIS_TGT) && data->target_cfg.callback) {
 		data->target_cfg.callback(dev, data->target_cfg.user_data);
@@ -191,7 +190,7 @@ static int counter_cc35xx_gptimer_set_top_value(const struct device *dev,
 		sys_write32(GPTIMER_IMCLR_TGT_CLR, config->base + GPTIMER_O_IMCLR);
 	}
 
-	sys_write32(cfg->ticks, config->base + GPTIMER_O_TGTNC);
+	sys_write32(cfg->ticks, config->base + GPTIMER_O_TGT);
 
 	data->target_cfg.flags = cfg->flags;
 	data->target_cfg.ticks = cfg->ticks;
@@ -249,7 +248,7 @@ static const struct counter_driver_api cc35xx_counter_api = {
 	{											\
 		const struct counter_cc35xx_gptimer_config *config = dev->config;		\
 		sys_write32(GPTIMER_CLKCFG_ENABLE, config->base + GPTIMER_O_CLKCFG);		\
-		sys_write32(GPTIMER_CTL_CMPDIR_BOTH | GPTIMER_EMU_HALT_EN,			\
+		sys_write32(GPTIMER_CTL_CMPDIR_BOTH | GPTIMER_CTL_INTP_LATE | GPTIMER_EMU_HALT_EN, \
 			    config->base + GPTIMER_O_CTL);					\
 		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),			\
 			    counter_cc35xx_gptimer_isr, DEVICE_DT_INST_GET(inst), 0);		\

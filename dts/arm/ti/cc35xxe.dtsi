@@ -235,7 +235,7 @@
 			clocks = <&gptimerclk>;
 			max-top-value = <0xFFFFFFFF>;
 			clk-prescale = <0xFF>;
-			status = "disabled";
+			status = "okay";
 
 			pwm0: pwm0 {
 				compatible = "ti,cc35xx-lgpt-pwm";
@@ -261,7 +261,7 @@
 			clocks = <&gptimerclk>;
 			max-top-value = <0xFFFFFFFF>;
 			clk-prescale = <0xFF>;
-			status = "disabled";
+			status = "okay";
 
 			pwm3: pwm0 {
 				compatible = "ti,cc35xx-lgpt-pwm";

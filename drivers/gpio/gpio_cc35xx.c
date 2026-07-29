@@ -447,14 +447,9 @@ static int cc35xx_gpio_pin_configure(const struct device *dev, gpio_pin_t pin, g
 		}
 	} else if (flags & GPIO_INPUT) {
 		if (flags & GPIO_PULL_DOWN) {
-		/*
-		 * The Pull up / Pull down definitions in HAL
-		 * are reversed with regards to HW implementation
-		 * so we adjust for that when configuring the pin.
-		 */
-			config |= GPIO_CFG_IN_PU;
-		} else if (flags & GPIO_PULL_UP) {
 			config |= GPIO_CFG_IN_PD;
+		} else if (flags & GPIO_PULL_UP) {
+			config |= GPIO_CFG_IN_PU;
 		} else {
 			config |= GPIO_CFG_IN_NOPULL;
 		}

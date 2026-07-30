@@ -132,6 +132,7 @@ static int i2c_cc35xx_prime_transfer(const struct device *dev, uint8_t *buf, uin
 							  : I2C_CONTROLLER_ADDR_MODE_7_BIT;
 	uint32_t enable_interrupt =
 		I2C_CONTROLLER_INT_ARB_LOST | I2C_CONTROLLER_INT_STOP | I2C_CONTROLLER_INT_NACK;
+	int st;
 
 	data->buf = buf;
 	data->buflen = len;
@@ -167,7 +168,7 @@ static int i2c_cc35xx_prime_transfer(const struct device *dev, uint8_t *buf, uin
 	 * controller FSM to progress before the event IRQ takes over.
 	 */
 	k_busy_wait(500);
-	int st = k_sem_take(&data->i2c_msg_done, K_MSEC(100));
+	st = k_sem_take(&data->i2c_msg_done, K_MSEC(100));
 	if (st) {
 		return -ETIMEDOUT;
 	}

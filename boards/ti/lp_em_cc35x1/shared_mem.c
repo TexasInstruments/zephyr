@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Conclusive Engineering Sp. z o.o.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #include <zephyr/kernel.h>
 #include <zephyr/multi_heap/shared_multi_heap.h>
 

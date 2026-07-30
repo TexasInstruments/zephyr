@@ -12,7 +12,7 @@
 #include <ble_transport.h>
 
 /* Needs to happen after CC35xx Wi-Fi driver init. */
-#define HCI_CC35XX_INIT_PRIORITY	81
+#define HCI_CC35XX_INIT_PRIORITY 81
 
 #define DT_DRV_COMPAT ti_cc35xx_bt_hci
 
@@ -22,8 +22,7 @@ struct hci_cc35xx_priv {
 	bt_hci_recv_t recv;
 };
 
-static int hci_cc35xx_setup(const struct device *dev,
-			    const struct bt_hci_setup_params *params)
+static int hci_cc35xx_setup(const struct device *dev, const struct bt_hci_setup_params *params)
 {
 	const bt_addr_t *addr = &params->public_addr;
 
@@ -81,7 +80,7 @@ out:
 	return ret;
 }
 
-static const struct bt_hci_driver_api drv = {
+static DEVICE_API(bt_hci, drv) = {
 	.setup = hci_cc35xx_setup,
 	.open = hci_cc35xx_open,
 	.close = hci_cc35xx_close,
@@ -132,8 +131,7 @@ static int hci_cc35xx_evt_recv(uint8_t *data, uint16_t len)
 		}
 
 		discardable = hci_cc35xx_is_evt_discardable(data);
-		buf = bt_buf_get_evt(data[0], discardable,
-				     discardable ? K_NO_WAIT : K_FOREVER);
+		buf = bt_buf_get_evt(data[0], discardable, discardable ? K_NO_WAIT : K_FOREVER);
 		break;
 	case BT_HCI_H4_ACL:
 		if (len < BT_HCI_ACL_HDR_SIZE) {
@@ -172,11 +170,9 @@ static int hci_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-#define	HCI_DEVICE_INIT(inst) \
-	static struct hci_cc35xx_priv hci_data_##inst = {		     \
-	};								     \
-	DEVICE_DT_INST_DEFINE(inst, hci_cc35xx_init, NULL, &hci_data_##inst, \
-			      NULL, POST_KERNEL, HCI_CC35XX_INIT_PRIORITY,   \
-			      &drv)
+#define HCI_DEVICE_INIT(inst)                                                                      \
+	static struct hci_cc35xx_priv hci_data_##inst = {};                                        \
+	DEVICE_DT_INST_DEFINE(inst, hci_cc35xx_init, NULL, &hci_data_##inst, NULL, POST_KERNEL,    \
+			      HCI_CC35XX_INIT_PRIORITY, &drv)
 
 HCI_DEVICE_INIT(0)

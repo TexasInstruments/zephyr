@@ -728,7 +728,7 @@ static int cc35xx_gpio_init(const struct device *dev)
 	return 0;
 }
 
-static const struct gpio_driver_api cc35xx_gpio_drv_api = {
+static DEVICE_API(gpio, cc35xx_gpio_drv_api) = {
 	.pin_configure = cc35xx_gpio_pin_configure,
 #ifdef CONFIG_GPIO_GET_CONFIG
 	.pin_get_config = cc35xx_gpio_pin_get_config,

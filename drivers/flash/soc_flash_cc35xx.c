@@ -15,8 +15,8 @@
 #include <ti/drivers/xmem/XMEMWFF3.h>
 #include <driverlib/cpu.h>
 
-#define DT_DRV_COMPAT        ti_cc35xx_nv_flash
-#define CC35XX_ERASE_TIMEOUT 200
+#define DT_DRV_COMPAT           ti_cc35xx_nv_flash
+#define CC35XX_ERASE_TIMEOUT    200
 #define CC35XX_FLASH_WRITE_SIZE 256
 
 struct flash_cc35xx_config {

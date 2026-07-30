@@ -30,40 +30,39 @@
 
 #include <string.h>
 
-#define SYSTEMINFO_TOKEN_WORD0		0x0F030000
-#define CRYPTO_OFFICER_ID		0x4F5A3647
-#define OUTPUT_TOKEN_ERROR		0x80000000
-#define HSM_TRNG_RAW_KEY_ENC		0x5244
-#define HSM_O_UNLOCK_CPUID0_CPUID1	0xFFFFFCFC
-#define HSM_O_CPUID0_MB1_MB2_UNLOCK	0xFFFFFF77
+#define SYSTEMINFO_TOKEN_WORD0      0x0F030000
+#define CRYPTO_OFFICER_ID           0x4F5A3647
+#define OUTPUT_TOKEN_ERROR          0x80000000
+#define HSM_TRNG_RAW_KEY_ENC        0x5244
+#define HSM_O_UNLOCK_CPUID0_CPUID1  0xFFFFFCFC
+#define HSM_O_CPUID0_MB1_MB2_UNLOCK 0xFFFFFF77
 
-#define HSMCRYPTO_BASE			HSM_BASE
-#define HSMCRYPTO_O_MBSTA		HSM_O_MBXSTA
-#define HSMCRYPTO_MBSTA_MB1IN_M		HSM_MBXSTA_INFULL1
-#define HSMCRYPTO_MBSTA_MB1IN_FULL	HSM_MBXSTA_INFULL1
-#define HSMCRYPTO_O_MB1IN		HSM_O_EIP130_072_MAILBOX1_IN
-#define HSMCRYPTO_O_MBCTL		HSM_O_MBXCTL
-#define HSMCRYPTO_MBCTL_MB1IN_FULL	HSM_MBXCTL_INFULL1
-#define HSMCRYPTO_MBCTL_MB1LNK_LNK	HSM_MBXCTL_LINK1
-#define HSMCRYPTO_O_MBLNKID		HSM_O_MBXLINKID
-#define HSMCRYPTO_O_MBLCKOUT		HSM_O_MBXLCKOUT
-#define HSMCRYPTO_MBSTA_MB1OUT_M	HSM_MBXSTA_OUTFULL1
-#define HSMCRYPTO_MBSTA_MB1OUT_FULL	HSM_MBXSTA_OUTFULL1
-#define HSMCRYPTO_O_MB1OUT		HSM_O_EIP130_072_MAILBOX1_IN
-#define HSMCRYPTO_MBCTL_MB1OUT_EMTY	HSM_MBXCTL_OUTEMP1
+#define HSMCRYPTO_BASE              HSM_BASE
+#define HSMCRYPTO_O_MBSTA           HSM_O_MBXSTA
+#define HSMCRYPTO_MBSTA_MB1IN_M     HSM_MBXSTA_INFULL1
+#define HSMCRYPTO_MBSTA_MB1IN_FULL  HSM_MBXSTA_INFULL1
+#define HSMCRYPTO_O_MB1IN           HSM_O_EIP130_072_MAILBOX1_IN
+#define HSMCRYPTO_O_MBCTL           HSM_O_MBXCTL
+#define HSMCRYPTO_MBCTL_MB1IN_FULL  HSM_MBXCTL_INFULL1
+#define HSMCRYPTO_MBCTL_MB1LNK_LNK  HSM_MBXCTL_LINK1
+#define HSMCRYPTO_O_MBLNKID         HSM_O_MBXLINKID
+#define HSMCRYPTO_O_MBLCKOUT        HSM_O_MBXLCKOUT
+#define HSMCRYPTO_MBSTA_MB1OUT_M    HSM_MBXSTA_OUTFULL1
+#define HSMCRYPTO_MBSTA_MB1OUT_FULL HSM_MBXSTA_OUTFULL1
+#define HSMCRYPTO_O_MB1OUT          HSM_O_EIP130_072_MAILBOX1_IN
+#define HSMCRYPTO_MBCTL_MB1OUT_EMTY HSM_MBXCTL_OUTEMP1
 
-#define HSM_RAW_RNG_BLOCK_SIZE		(256U)
+#define HSM_RAW_RNG_BLOCK_SIZE (256U)
 
-#define TI_CC35XX_HSM_CLK_MEM_CTRL_MSK	(HSM_NON_SEC_CLK_MEM_CTRL_MEM_CLK_GO_M |	\
-					HSM_NON_SEC_CLK_MEM_CTRL_MEM_SLV_CLK_GO_M |	\
-					HSM_NON_SEC_CLK_MEM_CTRL_MEM_CTR_CLK_GO_M |	\
-					HSM_NON_SEC_CLK_MEM_CTRL_MEM_CLK_GO_M3_M |	\
-					HSM_NON_SEC_CLK_MEM_CTRL_MEM_SLV_CLK_GO_M3_M |	\
-					HSM_NON_SEC_CLK_MEM_CTRL_MEM_CTR_CLK_GO_M3_M)
+#define TI_CC35XX_HSM_CLK_MEM_CTRL_MSK                                                             \
+	(HSM_NON_SEC_CLK_MEM_CTRL_MEM_CLK_GO_M | HSM_NON_SEC_CLK_MEM_CTRL_MEM_SLV_CLK_GO_M |       \
+	 HSM_NON_SEC_CLK_MEM_CTRL_MEM_CTR_CLK_GO_M | HSM_NON_SEC_CLK_MEM_CTRL_MEM_CLK_GO_M3_M |    \
+	 HSM_NON_SEC_CLK_MEM_CTRL_MEM_SLV_CLK_GO_M3_M |                                            \
+	 HSM_NON_SEC_CLK_MEM_CTRL_MEM_CTR_CLK_GO_M3_M)
 
-#define HSM_OPERATION_SEM_TIMEOUT_MS	1000
+#define HSM_OPERATION_SEM_TIMEOUT_MS 1000
 
-#define HSM_TRNG_RESCHEDULE_DELAY_MS	100
+#define HSM_TRNG_RESCHEDULE_DELAY_MS 100
 
 const AESECB_Params AESECB_defaultParams = {
 	.returnBehavior = AESECB_RETURN_BEHAVIOR_POLLING,
@@ -119,9 +118,9 @@ static int hsm_ti_cc35xx_init_clock(void)
 	sys_write32(hsm_reg_value, hsm_reg_addr);
 
 	hsm_reg_addr = HSM_SEC_BASE + HSM_SEC_O_CLKCTL;
-	hsm_reg_value = sys_read32(hsm_reg_addr) & ~(HSM_SEC_CLKCTL_CLKGO_M |
-						     HSM_SEC_CLKCTL_HIFCLKGO_M |
-						     HSM_SEC_CLKCTL_CNTCLKGO_M);
+	hsm_reg_value =
+		sys_read32(hsm_reg_addr) &
+		~(HSM_SEC_CLKCTL_CLKGO_M | HSM_SEC_CLKCTL_HIFCLKGO_M | HSM_SEC_CLKCTL_CNTCLKGO_M);
 	sys_write32(hsm_reg_value, hsm_reg_addr);
 
 	/* Initialize HSM Clock */
@@ -131,8 +130,7 @@ static int hsm_ti_cc35xx_init_clock(void)
 
 	hsm_reg_addr = HSM_SEC_BASE + HSM_SEC_O_CLKCTL;
 	hsm_reg_value = sys_read32(hsm_reg_addr) | HSM_SEC_CLKCTL_CLKGO_EN |
-						   HSM_SEC_CLKCTL_HIFCLKGO_EN |
-						   HSM_SEC_CLKCTL_CNTCLKGO_EN;
+			HSM_SEC_CLKCTL_HIFCLKGO_EN | HSM_SEC_CLKCTL_CNTCLKGO_EN;
 	sys_write32(hsm_reg_value, hsm_reg_addr);
 
 	irq_unlock(key);
@@ -282,9 +280,8 @@ static int hsm_ti_cc35xx_get_entropy(const struct device *dev, uint8_t *buf, uin
 	return 0;
 }
 
-static int hsm_ti_cc35xx_do_crypto_aes_ecb(struct hsm_ti_cc35xx_data *data,
-					   enum cipher_op op_type, struct cipher_ctx *ctx,
-					   struct cipher_pkt *pkt)
+static int hsm_ti_cc35xx_do_crypto_aes_ecb(struct hsm_ti_cc35xx_data *data, enum cipher_op op_type,
+					   struct cipher_ctx *ctx, struct cipher_pkt *pkt)
 {
 	int result;
 	AESECB_Handle aesecb_handler = NULL;
@@ -333,9 +330,8 @@ static int hsm_ti_cc35xx_do_crypto_aes_ecb(struct hsm_ti_cc35xx_data *data,
 	return result == AESECB_STATUS_SUCCESS ? 0 : -EIO;
 }
 
-static int hsm_ti_cc35xx_do_crypto_aes_ctr(struct hsm_ti_cc35xx_data *data,
-					   enum cipher_op op_type, struct cipher_ctx *ctx,
-					   struct cipher_pkt *pkt)
+static int hsm_ti_cc35xx_do_crypto_aes_ctr(struct hsm_ti_cc35xx_data *data, enum cipher_op op_type,
+					   struct cipher_ctx *ctx, struct cipher_pkt *pkt)
 {
 	int result;
 	struct hsm_ti_cc35xx_driver_session *session;
@@ -389,9 +385,8 @@ static int hsm_ti_cc35xx_do_crypto_aes_ctr(struct hsm_ti_cc35xx_data *data,
 	return result == AESCTR_STATUS_SUCCESS ? 0 : -EIO;
 }
 
-static int hsm_ti_cc35xx_do_crypto_aes_ccm(struct hsm_ti_cc35xx_data *data,
-					   enum cipher_op op_type, struct cipher_ctx *ctx,
-					   struct cipher_aead_pkt *pkt)
+static int hsm_ti_cc35xx_do_crypto_aes_ccm(struct hsm_ti_cc35xx_data *data, enum cipher_op op_type,
+					   struct cipher_ctx *ctx, struct cipher_aead_pkt *pkt)
 {
 	int result;
 	struct hsm_ti_cc35xx_driver_session *session;
@@ -600,7 +595,7 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-static struct hsm_ti_cc35xx_driver_api hsm_ti_cc35xx_driver_api = {
+static DEVICE_API(hsm_ti_cc35xx, hsm_ti_cc35xx_driver_api) = {
 	.get_entropy = hsm_ti_cc35xx_get_entropy,
 	.do_crypto = hsm_ti_cc35xx_do_crypto,
 	.get_hw_caps = hsm_ti_cc35xx_get_hw_caps,
@@ -613,5 +608,4 @@ static struct hsm_ti_cc35xx_data hsm_ti_cc35xx_data = {
 };
 
 DEVICE_DT_INST_DEFINE(0, hsm_ti_cc35xx_init, PM_DEVICE_DT_INST_GET(0), &hsm_ti_cc35xx_data, NULL,
-		      PRE_KERNEL_1, CONFIG_TI_CC35XX_HSM_INIT_PRIORITY,
-		      &hsm_ti_cc35xx_driver_api);
+		      PRE_KERNEL_1, CONFIG_TI_CC35XX_HSM_INIT_PRIORITY, &hsm_ti_cc35xx_driver_api);

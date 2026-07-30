@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Conclusive Engineering Sp. z o.o.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef DEVICE_TI_CC35XX_HSM_H_
 #define DEVICE_TI_CC35XX_HSM_H_
 

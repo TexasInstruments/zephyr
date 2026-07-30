@@ -11,22 +11,22 @@
 #include <zephyr/sys/util.h>
 #include <zephyr/sys_clock.h>
 
-#define	TI_CC35XX_DOMAIN_LEN			3
-#define	TI_CC35XX_CONNECT_TIMEOUT_MS		(MSEC_PER_SEC * 10)
-#define	TI_CC35XX_MAX_NUM_STA			4
-#define	TI_CC35XX_MAX_SCAN_RESULTS		30
-#define	TI_CC35XX_BAND_MASK			GENMASK(1, 0)
+#define TI_CC35XX_DOMAIN_LEN         3
+#define TI_CC35XX_CONNECT_TIMEOUT_MS (MSEC_PER_SEC * 10)
+#define TI_CC35XX_MAX_NUM_STA        4
+#define TI_CC35XX_MAX_SCAN_RESULTS   30
+#define TI_CC35XX_BAND_MASK          GENMASK(1, 0)
 
-#define	TI_CC35XX_SEC_TYPE_MASK			GENMASK(3, 0)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_OPEN		(0)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_WEP		BIT(0)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_WPA		BIT(1)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_WPA2		BIT(2)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_WPA3		BIT(3)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_PMF_CAPABLE	BIT(4)
-#define	TI_CC35XX_SEC_TYPE_BITMAP_PMF_REQUIRED	BIT(5)
+#define TI_CC35XX_SEC_TYPE_MASK                GENMASK(3, 0)
+#define TI_CC35XX_SEC_TYPE_BITMAP_OPEN         (0)
+#define TI_CC35XX_SEC_TYPE_BITMAP_WEP          BIT(0)
+#define TI_CC35XX_SEC_TYPE_BITMAP_WPA          BIT(1)
+#define TI_CC35XX_SEC_TYPE_BITMAP_WPA2         BIT(2)
+#define TI_CC35XX_SEC_TYPE_BITMAP_WPA3         BIT(3)
+#define TI_CC35XX_SEC_TYPE_BITMAP_PMF_CAPABLE  BIT(4)
+#define TI_CC35XX_SEC_TYPE_BITMAP_PMF_REQUIRED BIT(5)
 
-#define	DT_DRV_COMPAT	ti_cc35xx_wlan
+#define DT_DRV_COMPAT ti_cc35xx_wlan
 
 LOG_MODULE_REGISTER(DT_DRV_COMPAT, CONFIG_WIFI_LOG_LEVEL);
 
@@ -70,8 +70,7 @@ static void ti_cc35xx_wifi_iface_init(struct net_if *iface)
 	Wlan_Get(WLAN_GET_MACADDRESS, &mac);
 	memcpy(priv->mac_addr_ap, mac.pMacAddress, WIFI_MAC_ADDR_LEN);
 
-	net_if_set_link_addr(iface, priv->mac_addr_sta, WIFI_MAC_ADDR_LEN,
-			     NET_LINK_ETHERNET);
+	net_if_set_link_addr(iface, priv->mac_addr_sta, WIFI_MAC_ADDR_LEN, NET_LINK_ETHERNET);
 
 	net_if_dormant_on(iface);
 	net_if_carrier_off(iface);
@@ -98,8 +97,7 @@ static int ti_cc35xx_wifi_send(const struct device *dev, struct net_pkt *pkt)
 		goto out;
 	}
 
-	role = priv->status.state == TI_CC35XX_AP_STARTED ? WLAN_ROLE_AP :
-							    WLAN_ROLE_STA;
+	role = priv->status.state == TI_CC35XX_AP_STARTED ? WLAN_ROLE_AP : WLAN_ROLE_STA;
 	ret = Wlan_EtherPacketSend(role, priv->frame_buf, len, 0);
 
 out:
@@ -108,12 +106,13 @@ out:
 	return ret;
 }
 
-static int ti_cc35xx_wifi_scan(const struct device *dev,
-			       struct wifi_scan_params *params,
+static int ti_cc35xx_wifi_scan(const struct device *dev, struct wifi_scan_params *params,
 			       scan_result_cb_t cb)
 {
 	struct ti_cc35xx_wifi_priv *priv = dev->data;
-	scanCommon_t common = { .Band = BAND_SEL_BOTH, };
+	scanCommon_t common = {
+		.Band = BAND_SEL_BOTH,
+	};
 	int scan_count, ret;
 
 	if (priv->status.state == TI_CC35XX_AP_STARTED) {
@@ -121,8 +120,7 @@ static int ti_cc35xx_wifi_scan(const struct device *dev,
 		return -ENOTSUP;
 	}
 
-	if (priv->scan_res_cb ||
-	    priv->status.state == TI_CC35XX_STA_CONNECTING) {
+	if (priv->scan_res_cb || priv->status.state == TI_CC35XX_STA_CONNECTING) {
 		LOG_INF("Scan in progress\n");
 		return -EINPROGRESS;
 	}
@@ -131,18 +129,15 @@ static int ti_cc35xx_wifi_scan(const struct device *dev,
 	if (params->bands & ~TI_CC35XX_BAND_MASK) {
 		return -ENOTSUP;
 	}
-	common.Band = params->bands ? (params->bands & TI_CC35XX_BAND_MASK) - 1 :
-		      BAND_SEL_BOTH;
+	common.Band = params->bands ? (params->bands & TI_CC35XX_BAND_MASK) - 1 : BAND_SEL_BOTH;
 
-	scan_count = params->max_bss_cnt ? params->max_bss_cnt :
-					   TI_CC35XX_MAX_SCAN_RESULTS;
+	scan_count = params->max_bss_cnt ? params->max_bss_cnt : TI_CC35XX_MAX_SCAN_RESULTS;
 	ret = Wlan_Scan(WLAN_ROLE_STA, &common, scan_count);
 
 	return ret;
 }
 
-static int ti_cc35xx_wifi_connect(const struct device *dev,
-				  struct wifi_connect_req_params *params)
+static int ti_cc35xx_wifi_connect(const struct device *dev, struct wifi_connect_req_params *params)
 {
 	struct ti_cc35xx_wifi_priv *priv = dev->data;
 	int ret, type, key_len = 0;
@@ -189,8 +184,7 @@ static int ti_cc35xx_wifi_connect(const struct device *dev,
 
 	priv->status.security = params->security;
 	priv->status.state = TI_CC35XX_STA_CONNECTING;
-	ret = Wlan_Connect(params->ssid, params->ssid_length, NULL, type, key,
-			    key_len, 0);
+	ret = Wlan_Connect(params->ssid, params->ssid_length, NULL, type, key, key_len, 0);
 	if (ret) {
 		priv->status.state = TI_CC35XX_INACTIVE;
 		return ret;
@@ -202,8 +196,8 @@ static int ti_cc35xx_wifi_connect(const struct device *dev,
 	 * timeout value if not specified by caller.
 	 */
 	if (params->timeout >= 0) {
-		timeout = params->timeout ? K_MSEC(params->timeout * MSEC_PER_SEC) :
-					    K_MSEC(TI_CC35XX_CONNECT_TIMEOUT_MS);
+		timeout = params->timeout ? K_MSEC(params->timeout * MSEC_PER_SEC)
+					  : K_MSEC(TI_CC35XX_CONNECT_TIMEOUT_MS);
 		k_timer_start(&priv->connect_timer, timeout, K_NO_WAIT);
 	}
 
@@ -222,8 +216,7 @@ static int ti_cc35xx_wifi_disconnect(const struct device *dev)
 	return Wlan_Disconnect(WLAN_ROLE_STA, NULL);
 }
 
-static void ti_cc35xx_wifi_receive(WlanRole_e role_id, uint8_t *input,
-				   uint32_t len)
+static void ti_cc35xx_wifi_receive(WlanRole_e role_id, uint8_t *input, uint32_t len)
 {
 	const struct device *dev = DEVICE_DT_GET(DT_NODELABEL(wlan0));
 	struct ti_cc35xx_wifi_priv *priv = dev->data;
@@ -232,8 +225,7 @@ static void ti_cc35xx_wifi_receive(WlanRole_e role_id, uint8_t *input,
 
 	ARG_UNUSED(role_id);
 
-	pkt = net_pkt_rx_alloc_with_buffer(priv->iface, len, AF_UNSPEC, 0,
-					   K_NO_WAIT);
+	pkt = net_pkt_rx_alloc_with_buffer(priv->iface, len, AF_UNSPEC, 0, K_NO_WAIT);
 	if (!pkt) {
 		LOG_ERR("Failed to allocate RX pkt\n");
 		return;
@@ -257,8 +249,7 @@ err:
 	net_pkt_unref(pkt);
 }
 
-static void ti_cc35xx_wifi_get_domain(struct ti_cc35xx_wifi_priv *priv,
-				      uint8_t *domain)
+static void ti_cc35xx_wifi_get_domain(struct ti_cc35xx_wifi_priv *priv, uint8_t *domain)
 {
 	k_mutex_lock(&priv->dom_lock, K_FOREVER);
 	memcpy(domain, priv->status.domain, TI_CC35XX_DOMAIN_LEN);
@@ -349,8 +340,7 @@ static int ti_cc35xx_wifi_ap_enable(const struct device *dev,
 
 	ti_cc35xx_wifi_get_domain(priv, role_params.countryDomain);
 
-	role_params.sta_limit = MIN(CONFIG_WIFI_MGMT_AP_MAX_NUM_STA,
-				    TI_CC35XX_MAX_NUM_STA);
+	role_params.sta_limit = MIN(CONFIG_WIFI_MGMT_AP_MAX_NUM_STA, TI_CC35XX_MAX_NUM_STA);
 	role_params.hidden = 0; /* Unsupported in Zephyr. */
 	role_params.tx_pow = 0;
 	role_params.channel = params->channel;
@@ -378,11 +368,9 @@ static int ti_cc35xx_wifi_ap_enable(const struct device *dev,
 	memcpy(priv->status.bssid, params->bssid, sizeof(priv->status.bssid));
 
 	priv->status.security = params->security;
-	Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_AP,
-					     ti_cc35xx_wifi_receive);
+	Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_AP, ti_cc35xx_wifi_receive);
 	priv->status.state = TI_CC35XX_AP_STARTED;
-	net_if_set_link_addr(priv->iface, priv->mac_addr_ap, WIFI_MAC_ADDR_LEN,
-			     NET_LINK_ETHERNET);
+	net_if_set_link_addr(priv->iface, priv->mac_addr_ap, WIFI_MAC_ADDR_LEN, NET_LINK_ETHERNET);
 
 	net_if_dormant_off(priv->iface);
 	net_if_carrier_on(priv->iface);
@@ -414,8 +402,7 @@ static int ti_cc35xx_wifi_ap_disable(const struct device *dev)
 	wifi_mgmt_raise_ap_disable_result_event(priv->iface, 0);
 	net_if_dormant_on(priv->iface);
 	net_if_carrier_off(priv->iface);
-	net_if_set_link_addr(priv->iface, priv->mac_addr_sta, WIFI_MAC_ADDR_LEN,
-			     NET_LINK_ETHERNET);
+	net_if_set_link_addr(priv->iface, priv->mac_addr_sta, WIFI_MAC_ADDR_LEN, NET_LINK_ETHERNET);
 	Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_AP, NULL);
 	memset(priv->status.ssid, 0, sizeof(priv->status.ssid));
 	memset(priv->status.bssid, 0, sizeof(priv->status.bssid));
@@ -431,8 +418,7 @@ static int ti_cc35xx_wifi_ap_disable(const struct device *dev)
 	return 0;
 }
 
-static int ti_cc35xx_wifi_status(const struct device *dev,
-				 struct wifi_iface_status *status)
+static int ti_cc35xx_wifi_status(const struct device *dev, struct wifi_iface_status *status)
 {
 	struct ti_cc35xx_wifi_priv *priv = dev->data;
 	WlanBeaconRssi_t rssi;
@@ -474,8 +460,7 @@ static int ti_cc35xx_wifi_status(const struct device *dev,
 	Wlan_Get(WLAN_GET_ROLE_CHANNEL_NUMBER, &chan);
 	status->channel = chan.channelNum;
 
-	status->band = chan.channelNum < 32 ? WIFI_FREQ_BAND_2_4_GHZ :
-					      WIFI_FREQ_BAND_5_GHZ;
+	status->band = chan.channelNum < 32 ? WIFI_FREQ_BAND_2_4_GHZ : WIFI_FREQ_BAND_5_GHZ;
 
 	Wlan_Get(WLAN_GET_RSSI, &rssi);
 	status->rssi = rssi.rssi_data;
@@ -483,16 +468,14 @@ static int ti_cc35xx_wifi_status(const struct device *dev,
 	return 0;
 }
 
-static int ti_cc35xx_wifi_reg_domain(const struct device *dev,
-				     struct wifi_reg_domain *reg_domain)
+static int ti_cc35xx_wifi_reg_domain(const struct device *dev, struct wifi_reg_domain *reg_domain)
 {
 	struct ti_cc35xx_wifi_priv *priv = dev->data;
 	int ret = 0;
 
 	k_mutex_lock(&priv->dom_lock, K_FOREVER);
 	if (reg_domain->oper == WIFI_MGMT_GET) {
-		memcpy(reg_domain->country_code, priv->status.domain,
-		       WIFI_COUNTRY_CODE_LEN);
+		memcpy(reg_domain->country_code, priv->status.domain, WIFI_COUNTRY_CODE_LEN);
 	} else {
 		/* Can't update reg domain while AP is running. */
 		if (priv->status.state == TI_CC35XX_AP_STARTED) {
@@ -500,8 +483,7 @@ static int ti_cc35xx_wifi_reg_domain(const struct device *dev,
 			goto out;
 		}
 
-		memcpy(priv->status.domain, reg_domain->country_code,
-		       WIFI_COUNTRY_CODE_LEN);
+		memcpy(priv->status.domain, reg_domain->country_code, WIFI_COUNTRY_CODE_LEN);
 		priv->status.domain[2] = 'I'; /* Indoor only. */
 	}
 
@@ -527,8 +509,7 @@ static const struct net_wifi_mgmt_offload ti_cc35xx_wifi_mgmt_offload_ops = {
 	.wifi_mgmt_api = &ti_cc35xx_wifi_mgmt_ops,
 };
 
-static void ti_cc35xx_wifi_scan_results(struct ti_cc35xx_wifi_priv *priv,
-					WlanEvent_t *ev)
+static void ti_cc35xx_wifi_scan_results(struct ti_cc35xx_wifi_priv *priv, WlanEvent_t *ev)
 {
 	struct wifi_scan_result tmp;
 	WlanNetworkEntry_t *entry;
@@ -545,8 +526,7 @@ static void ti_cc35xx_wifi_scan_results(struct ti_cc35xx_wifi_priv *priv,
 		memcpy(tmp.mac, entry->Bssid, WIFI_MAC_ADDR_LEN);
 		tmp.mac_length = WIFI_MAC_ADDR_LEN;
 		tmp.rssi = entry->Rssi;
-		tmp.band = tmp.channel < 32 ? WIFI_FREQ_BAND_2_4_GHZ :
-					      WIFI_FREQ_BAND_5_GHZ;
+		tmp.band = tmp.channel < 32 ? WIFI_FREQ_BAND_2_4_GHZ : WIFI_FREQ_BAND_5_GHZ;
 
 		sec_info = WLAN_SCAN_RESULT_SEC_TYPE_BITMAP(entry->SecurityInfo);
 		switch (sec_info & TI_CC35XX_SEC_TYPE_MASK) {
@@ -585,11 +565,12 @@ static void ti_cc35xx_wifi_scan_results(struct ti_cc35xx_wifi_priv *priv,
 	priv->scan_res_cb = NULL;
 }
 
-static void ti_cc35xx_wifi_update_peer(struct ti_cc35xx_wifi_priv *priv,
-				       WlanEvent_t *ev)
+static void ti_cc35xx_wifi_update_peer(struct ti_cc35xx_wifi_priv *priv, WlanEvent_t *ev)
 {
-	struct wifi_ap_sta_info info = { .link_mode = WIFI_4,
-					 .mac_length = WIFI_MAC_ADDR_LEN, };
+	struct wifi_ap_sta_info info = {
+		.link_mode = WIFI_4,
+		.mac_length = WIFI_MAC_ADDR_LEN,
+	};
 
 	if (ev->Id == WLAN_EVENT_ADD_PEER) {
 		memcpy(info.mac, ev->Data.AddPeer.Mac, WIFI_MAC_ADDR_LEN);
@@ -615,11 +596,9 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 		net_if_carrier_on(iface);
 		strncpy(priv->status.ssid, event->Data.Connect.SsidName,
 			event->Data.Connect.SsidLen);
-		strncpy(priv->status.bssid, event->Data.Connect.Bssid,
-			sizeof(priv->status.bssid));
+		strncpy(priv->status.bssid, event->Data.Connect.Bssid, sizeof(priv->status.bssid));
 
-		Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_STA,
-						     ti_cc35xx_wifi_receive);
+		Wlan_EtherPacketRecvRegisterCallback(WLAN_ROLE_STA, ti_cc35xx_wifi_receive);
 		priv->status.state = TI_CC35XX_STA_CONNECTED;
 		break;
 	case WLAN_EVENT_DISCONNECT:
@@ -654,12 +633,10 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 		/* Nothing to be done. */
 		break;
 	case WLAN_EVENT_AUTHENTICATION_REJECTED:
-		LOG_WRN("Authentication rejected (status %u)",
-			event->Data.AuthStatusCode);
+		LOG_WRN("Authentication rejected (status %u)", event->Data.AuthStatusCode);
 		break;
 	case WLAN_EVENT_ASSOCIATION_REJECTED:
-		LOG_WRN("Association rejected (status %u)",
-			event->Data.AssocStatusCode);
+		LOG_WRN("Association rejected (status %u)", event->Data.AssocStatusCode);
 		break;
 	case WLAN_EVENT_GENERAL_ERROR:
 		/* Scan timeout (no results found) — signal end of scan */
@@ -669,10 +646,8 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 		}
 		break;
 	case WLAN_EVENT_ERROR:
-		LOG_ERR("ERROR module=%d err=%d sev=%d\n",
-			event->Data.error.module,
-			event->Data.error.error_num,
-			event->Data.error.severity);
+		LOG_ERR("ERROR module=%d err=%d sev=%d\n", event->Data.error.module,
+			event->Data.error.error_num, event->Data.error.severity);
 		break;
 
 	default:
@@ -683,15 +658,14 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 
 static void ti_cc35xx_wifi_connect_timeout(struct k_timer *timer)
 {
-	struct ti_cc35xx_wifi_priv *priv = CONTAINER_OF(timer,
-							struct ti_cc35xx_wifi_priv,
-							connect_timer);
+	struct ti_cc35xx_wifi_priv *priv =
+		CONTAINER_OF(timer, struct ti_cc35xx_wifi_priv, connect_timer);
 
-	if (priv->status.state != TI_CC35XX_STA_CONNECTING)
+	if (priv->status.state != TI_CC35XX_STA_CONNECTING) {
 		return;
+	}
 
-	wifi_mgmt_raise_connect_result_event(priv->iface,
-					     WIFI_STATUS_CONN_TIMEOUT);
+	wifi_mgmt_raise_connect_result_event(priv->iface, WIFI_STATUS_CONN_TIMEOUT);
 	Wlan_Disconnect(WLAN_ROLE_STA, NULL);
 }
 
@@ -717,11 +691,8 @@ static int ti_cc35xx_wifi_init(const struct device *dev)
 	k_sleep(K_SECONDS(1));
 
 	Wlan_Get(WLAN_GET_FWVERSION, &fw_version);
-	LOG_INF("FW %d.%d, api: %d, build: %d\n",
-	       fw_version.major_version,
-	       fw_version.minor_version,
-	       fw_version.api_version,
-	       fw_version.build_version);
+	LOG_INF("FW %d.%d, api: %d, build: %d\n", fw_version.major_version,
+		fw_version.minor_version, fw_version.api_version, fw_version.build_version);
 
 	pwr_mode = POWER_MANAGEMENT_ALWAYS_ACTIVE_MODE;
 	ret = Wlan_Set(WLAN_SET_POWER_MANAGEMENT, &pwr_mode);
@@ -751,16 +722,13 @@ static int ti_cc35xx_wifi_init(const struct device *dev)
 
 	priv->status.state = TI_CC35XX_INACTIVE;
 
-	k_timer_init(&priv->connect_timer, ti_cc35xx_wifi_connect_timeout,
-		     NULL);
+	k_timer_init(&priv->connect_timer, ti_cc35xx_wifi_connect_timeout, NULL);
 
 	return 0;
 }
 
-ETH_NET_DEVICE_DT_INST_DEFINE(0, ti_cc35xx_wifi_init, NULL,
-			      &ti_cc35xx_wifi_priv, NULL,
-			      CONFIG_WIFI_INIT_PRIORITY,
-			      &ti_cc35xx_wifi_mgmt_offload_ops,
+ETH_NET_DEVICE_DT_INST_DEFINE(0, ti_cc35xx_wifi_init, NULL, &ti_cc35xx_wifi_priv, NULL,
+			      CONFIG_WIFI_INIT_PRIORITY, &ti_cc35xx_wifi_mgmt_offload_ops,
 			      CONFIG_WIFI_TI_CC35XX_MTU);
 
 #ifdef CONFIG_NET_CONNECTION_MANAGER_CONNECTIVITY_WIFI_MGMT

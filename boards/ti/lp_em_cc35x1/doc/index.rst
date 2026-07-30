@@ -44,7 +44,7 @@ The LP_EM_CC35X1 requires an external debug probe such as the LP-XDS110 or
 LP-XDS110ET.
 
 Currently there is no debug support in Zephyr for the LP_EM_CC35X1. Binaries can be flashed
-with standard `west flash` command.
+with the standard ``west flash`` command.
 
 References
 **********

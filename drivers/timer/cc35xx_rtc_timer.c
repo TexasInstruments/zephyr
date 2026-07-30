@@ -116,15 +116,19 @@ void sys_clock_idle_exit(void)
 
 void rtc_isr(const void *arg)
 {
+	k_spinlock_key_t key;
+	uint32_t current_rtc_count;
+	uint32_t elapsed_ticks;
+
 	ARG_UNUSED(arg);
 
 	/* Clear CH0 interrupt — RTC requires explicit clear unlike SYSTIM */
 	sys_write32(RTC_ICLR_EV0_CLR, CC35XX_RTC_BASE + RTC_O_ICLR);
 
-	k_spinlock_key_t key = k_spin_lock(&lock);
+	key = k_spin_lock(&lock);
 	/* Get current value as early as possible */
-	uint32_t current_rtc_count = sys_read32(CC35XX_RTC_BASE + RTC_O_TIME1U);
-	uint32_t elapsed_ticks = sys_clock_elapsed_ticks(current_rtc_count, last_rtc_count);
+	current_rtc_count = sys_read32(CC35XX_RTC_BASE + RTC_O_TIME1U);
+	elapsed_ticks = sys_clock_elapsed_ticks(current_rtc_count, last_rtc_count);
 	last_rtc_count = current_rtc_count;
 	k_spin_unlock(&lock, key);
 	sys_clock_announce(elapsed_ticks);

@@ -10,9 +10,9 @@
 #include <zephyr/kernel.h>
 #include <zephyr/ztest.h>
 
-#define SPI_MODE (SPI_WORD_SET(8) | SPI_LINES_SINGLE | SPI_TRANSFER_LSB)
-#define SPIM_OP	 (SPI_OP_MODE_MASTER | SPI_MODE)
-#define SPIS_OP	 (SPI_OP_MODE_SLAVE | SPI_MODE)
+#define SPI_MODE      (SPI_WORD_SET(8) | SPI_LINES_SINGLE | SPI_TRANSFER_LSB)
+#define SPIM_OP       (SPI_OP_MODE_MASTER | SPI_MODE)
+#define SPIS_OP       (SPI_OP_MODE_SLAVE | SPI_MODE)
 #define TEST_BUF_SIZE 4096
 
 static struct spi_dt_spec spim = SPI_DT_SPEC_GET(DT_NODELABEL(dut_spi_dt), SPIM_OP);

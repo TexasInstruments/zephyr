@@ -266,7 +266,7 @@ static int crypto_ti_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-static struct crypto_driver_api crypto_ti_cc35xx_driver_api = {
+static DEVICE_API(crypto, crypto_ti_cc35xx_driver_api) = {
 	.cipher_begin_session = crypto_ti_cc35xx_session_setup,
 	.cipher_free_session = crypto_ti_cc35xx_session_free,
 	.query_hw_caps = crypto_ti_cc35xx_query_caps,

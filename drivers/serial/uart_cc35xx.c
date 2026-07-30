@@ -34,8 +34,8 @@ LOG_MODULE_REGISTER(uart_cc35xx);
  * Helper macro: computes the absolute register address for a given UART
  * register offset, using the base address stored in the device config.
  */
-#define UART_CC35XX_REG_GET(data, reg) ((((struct uart_cc35xx_dev_config *) \
-					(data->dev->config))->base) + reg)
+#define UART_CC35XX_REG_GET(data, reg)                                                             \
+	((((struct uart_cc35xx_dev_config *)(data->dev->config))->base) + reg)
 
 /* Size of HAL internal buffers for DMA operations */
 #define CC35XX_UART_RX_BUF 32
@@ -47,11 +47,11 @@ LOG_MODULE_REGISTER(uart_cc35xx);
  * block configuration, and optional software timeout machinery.
  */
 struct uart_cc35xx_dma_stream {
-	const struct device *dev_dma;      /* DMA controller device */
-	uint32_t dma_channel;              /* DMA channel number */
-	struct dma_config dma_cfg;         /* DMA transfer configuration */
-	struct dma_block_config blk_cfg;   /* Single-block DMA descriptor */
-	int32_t timeout;                   /* Transfer timeout in microseconds; */
+	const struct device *dev_dma;         /* DMA controller device */
+	uint32_t dma_channel;                 /* DMA channel number */
+	struct dma_config dma_cfg;            /* DMA transfer configuration */
+	struct dma_block_config blk_cfg;      /* Single-block DMA descriptor */
+	int32_t timeout;                      /* Transfer timeout in microseconds; */
 	struct k_work_delayable timeout_work; /* Delayed work item used to fire the timeout */
 };
 #endif /* CONFIG_UART_ASYNC_API */
@@ -61,12 +61,12 @@ struct uart_cc35xx_dma_stream {
  * One instance is created per UART node in the devicetree.
  */
 struct uart_cc35xx_dev_config {
-	unsigned long base;                /* UART peripheral base address */
-	uint32_t sys_clk_freq;             /* Source clock frequency in Hz (from DT clocks node) */
+	unsigned long base;    /* UART peripheral base address */
+	uint32_t sys_clk_freq; /* Source clock frequency in Hz (from DT clocks node) */
 	const struct pinctrl_dev_config *pcfg; /* Pin-control configuration (TX/RX/CTS/RTS mux) */
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 	uart_irq_config_func_t irq_config_func; /* Board-level IRQ connect + enable function */
-#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+#endif                                          /* CONFIG_UART_INTERRUPT_DRIVEN */
 };
 
 /*
@@ -74,52 +74,50 @@ struct uart_cc35xx_dev_config {
  * One instance per UART node in the devicetree.
  */
 struct uart_cc35xx_dev_data {
-	const struct device *dev;          /* Back-pointer to the Zephyr device struct */
-	uint32_t baud_rate;                /* Current baud rate */
-	bool flow_ctrl;                    /* true = RTS/CTS hardware flow control enabled */
-	int id;                            /* Instance index (from DT) */
-	struct k_spinlock lock;            /* Spinlock protecting shared state */
+	const struct device *dev; /* Back-pointer to the Zephyr device struct */
+	uint32_t baud_rate;       /* Current baud rate */
+	bool flow_ctrl;           /* true = RTS/CTS hardware flow control enabled */
+	int id;                   /* Instance index (from DT) */
+	struct k_spinlock lock;   /* Spinlock protecting shared state */
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 	uart_irq_callback_user_data_t callback; /* Upper-layer IRQ callback */
 	void *user_data;                        /* Opaque pointer passed to callback */
-#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
+#endif                                          /* CONFIG_UART_INTERRUPT_DRIVEN */
 #ifdef CONFIG_UART_USE_RUNTIME_CONFIGURE
-	struct uart_config uart_config;    /* Cached copy of the current UART configuration */
-#endif /* CONFIG_UART_USE_RUNTIME_CONFIGURE */
+	struct uart_config uart_config; /* Cached copy of the current UART configuration */
+#endif                                  /* CONFIG_UART_USE_RUNTIME_CONFIGURE */
 #ifdef CONFIG_UART_ASYNC_API
 	struct uart_cc35xx_dma_stream dma_rx; /* RX DMA stream state */
 	struct uart_cc35xx_dma_stream dma_tx; /* TX DMA stream state */
-	uint8_t fifo_state;               /* Reserved for future FIFO level tracking */
+	uint8_t fifo_state;                   /* Reserved for future FIFO level tracking */
 
-	uart_callback_t async_callback;   /* Upper-layer async event callback */
-	void *async_user_data;            /* Opaque pointer passed to async_callback */
+	uart_callback_t async_callback; /* Upper-layer async event callback */
+	void *async_user_data;          /* Opaque pointer passed to async_callback */
 
 	/* RX buffer management */
-	uint8_t *rx_buf;                  /* Active RX buffer provided by the user */
-	size_t rx_buflen;                 /* Length of rx_buf in bytes */
-	size_t rx_dma_block_size;         /* Number of bytes of the current DMA block */
-	size_t rx_buf_filled;             /* Bytes already written into rx_buf*/
-	size_t rx_processed;              /* Bytes already reported to the user via UART_RX_RDY */
-	uint8_t *rx_next_buf;             /* Next RX buffer queued by the user (via rx_buf_rsp) */
-	size_t rx_next_buflen;            /* Length of rx_next_buf in bytes */
+	uint8_t *rx_buf;          /* Active RX buffer provided by the user */
+	size_t rx_buflen;         /* Length of rx_buf in bytes */
+	size_t rx_dma_block_size; /* Number of bytes of the current DMA block */
+	size_t rx_buf_filled;     /* Bytes already written into rx_buf*/
+	size_t rx_processed;      /* Bytes already reported to the user via UART_RX_RDY */
+	uint8_t *rx_next_buf;     /* Next RX buffer queued by the user (via rx_buf_rsp) */
+	size_t rx_next_buflen;    /* Length of rx_next_buf in bytes */
 
 	/* TX buffer management */
-	const uint8_t *tx_buf;            /* Active TX buffer provided by the user */
-	size_t tx_buflen;                 /* Length of tx_buf in bytes */
-#endif /* CONFIG_UART_ASYNC_API */
+	const uint8_t *tx_buf; /* Active TX buffer provided by the user */
+	size_t tx_buflen;      /* Length of tx_buf in bytes */
+#endif                         /* CONFIG_UART_ASYNC_API */
 };
-
 
 #ifdef CONFIG_UART_ASYNC_API
 
-static int uart_cc35xx_async_tx(const struct device *dev,
-	const uint8_t *tx_data, size_t buf_size, int32_t timeout);
+static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data, size_t buf_size,
+				int32_t timeout);
 static int uart_cc35xx_async_tx_abort(const struct device *dev);
-static int  uart_cc35xx_async_rx_disable_dma(struct uart_cc35xx_dev_data *data);
-static int  uart_cc35xx_async_rx_enable_dma(struct uart_cc35xx_dev_data *data);
-static int  uart_cc35xx_async_tx_disable_dma(struct uart_cc35xx_dev_data *data);
+static int uart_cc35xx_async_rx_disable_dma(struct uart_cc35xx_dev_data *data);
+static int uart_cc35xx_async_rx_enable_dma(struct uart_cc35xx_dev_data *data);
+static int uart_cc35xx_async_tx_disable_dma(struct uart_cc35xx_dev_data *data);
 #endif /* CONFIG_UART_ASYNC_API */
-
 
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 static int uart_cc35xx_fifo_fill(const struct device *dev, const uint8_t *tx_data, int size)
@@ -310,8 +308,8 @@ static void uart_cc35xx_irq_callback_set(const struct device *dev, uart_irq_call
  * Returns true if the current buffer is "done" (full or last), false if
  * more data is still expected.
  */
-static bool uart_cc35xx_notify_rx_processed(struct uart_cc35xx_dev_data *data,
-					    size_t processed, bool last)
+static bool uart_cc35xx_notify_rx_processed(struct uart_cc35xx_dev_data *data, size_t processed,
+					    bool last)
 {
 	struct uart_event evt;
 
@@ -420,8 +418,8 @@ static void uart_cc35xx_dma_rx_callback(struct uart_cc35xx_dev_data *data, int s
 		}
 
 		/* Drain any bytes still sitting in the HW FIFO */
-		data_len += uart_cc35xx_fifo_read(data->dev, data->rx_buf +
-			    data_len, data->rx_buflen - data_len);
+		data_len += uart_cc35xx_fifo_read(data->dev, data->rx_buf + data_len,
+						  data->rx_buflen - data_len);
 	} else {
 		/* DMA block fully completed – the entire buffer was filled */
 		data_len = data->rx_buflen;
@@ -515,7 +513,7 @@ static void uart_cc35xx_isr(const struct device *dev)
 	/* Handle line / framing errors */
 	if ((status & (UART_INT_BE | UART_INT_PE | UART_INT_FE))) {
 		errStatus = UARTGetRxError(config->base);
-		event	=  __builtin_clz(errStatus & UARTLIN_RSRECR_OE_M);
+		event = __builtin_clz(errStatus & UARTLIN_RSRECR_OE_M);
 		LOG_ERR("Error Status 0x%08x event 0x%08x", errStatus, event);
 		if (errStatus) {
 			UARTClearRxError(config->base);
@@ -615,8 +613,9 @@ static int uart_cc35xx_tx_halt(struct uart_cc35xx_dev_data *data)
 	unsigned int key;
 	int ret;
 
-	if (data->tx_buflen == 0)
+	if (data->tx_buflen == 0) {
 		return -EINVAL;
+	}
 
 	key = irq_lock();
 	uart_cc35xx_async_tx_disable_dma(data);
@@ -665,8 +664,8 @@ static int uart_cc35xx_async_tx_abort(const struct device *dev)
  *
  * Returns -EBUSY if a transfer is already in progress.
  */
-static int uart_cc35xx_async_tx(const struct device *dev,
-	const uint8_t *tx_data, size_t buf_size, int32_t timeout)
+static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data, size_t buf_size,
+				int32_t timeout)
 {
 	struct uart_cc35xx_dev_data *data = dev->data;
 	const struct uart_cc35xx_dev_config *config = dev->config;
@@ -819,8 +818,8 @@ static int uart_cc35xx_async_rx_enable_dma(struct uart_cc35xx_dev_data *data)
  *
  * Returns -EBUSY if reception is already active.
  */
-static int uart_cc35xx_async_rx_enable(const struct device *dev,
-	uint8_t *rx_buf, size_t buf_size, int32_t timeout)
+static int uart_cc35xx_async_rx_enable(const struct device *dev, uint8_t *rx_buf, size_t buf_size,
+				       int32_t timeout)
 {
 	struct uart_cc35xx_dev_data *data = dev->data;
 
@@ -868,7 +867,7 @@ unlock:
  * the UART DMA RX trigger, and masks / clears the RXDMADONE and RT
  * interrupts.
  */
-static int  uart_cc35xx_async_rx_disable_dma(struct uart_cc35xx_dev_data *data)
+static int uart_cc35xx_async_rx_disable_dma(struct uart_cc35xx_dev_data *data)
 {
 	const struct uart_cc35xx_dev_config *config = data->dev->config;
 	int ret;
@@ -913,8 +912,8 @@ static int uart_cc35xx_async_rx_disable(const struct device *dev)
 	/* Report any data that was received but not yet notified */
 	ret = dma_get_status(data->dma_rx.dev_dma, data->dma_rx.dma_channel, &dma_stat);
 	if (ret == 0) {
-		rx_processed = data->rx_buf_filled + (data->rx_dma_block_size -
-			       dma_stat.pending_length);
+		rx_processed =
+			data->rx_buf_filled + (data->rx_dma_block_size - dma_stat.pending_length);
 
 		uart_cc35xx_notify_rx_processed(data, rx_processed, true);
 	}
@@ -969,8 +968,8 @@ static void uart_cc35xx_async_tx_timeout(struct k_work *work)
 	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
 	struct uart_cc35xx_dma_stream *tx_stream =
 		CONTAINER_OF(dwork, struct uart_cc35xx_dma_stream, timeout_work);
-	struct uart_cc35xx_dev_data *data = CONTAINER_OF(tx_stream,
-					    struct uart_cc35xx_dev_data, dma_tx);
+	struct uart_cc35xx_dev_data *data =
+		CONTAINER_OF(tx_stream, struct uart_cc35xx_dev_data, dma_tx);
 
 	uart_cc35xx_tx_halt(data);
 }
@@ -988,8 +987,8 @@ static void uart_cc35xx_async_rx_timeout(struct k_work *work)
 	struct k_work_delayable *dwork = k_work_delayable_from_work(work);
 	struct uart_cc35xx_dma_stream *rx_stream =
 		CONTAINER_OF(dwork, struct uart_cc35xx_dma_stream, timeout_work);
-	struct uart_cc35xx_dev_data *data = CONTAINER_OF(rx_stream,
-					    struct uart_cc35xx_dev_data, dma_rx);
+	struct uart_cc35xx_dev_data *data =
+		CONTAINER_OF(rx_stream, struct uart_cc35xx_dev_data, dma_rx);
 	struct dma_status dma_stat;
 	int ret, rx_processed;
 	unsigned int key;
@@ -1001,8 +1000,8 @@ static void uart_cc35xx_async_rx_timeout(struct k_work *work)
 	/* Compute total bytes received: previously filled + current DMA progress */
 	ret = dma_get_status(data->dma_rx.dev_dma, data->dma_rx.dma_channel, &dma_stat);
 	if (ret == 0) {
-		rx_processed = data->rx_buf_filled + (data->rx_dma_block_size -
-			       dma_stat.pending_length);
+		rx_processed =
+			data->rx_buf_filled + (data->rx_dma_block_size - dma_stat.pending_length);
 
 	} else {
 		/* Fall back to the last known fill position on DMA status error */
@@ -1046,7 +1045,6 @@ static void uart_cc35xx_async_rx_timeout(struct k_work *work)
 
 			uart_cc35xx_async_rx_enable_dma(data);
 		}
-
 	}
 
 	irq_unlock(key);
@@ -1089,8 +1087,7 @@ static int uart_cc35xx_async_callback_set(const struct device *dev, uart_callbac
  *
  * Returns -ENOTSUP for unsupported settings, -EINVAL for invalid values.
  */
-static int uart_cc35xx_configure(const struct device *dev,
-				 const struct uart_config *cfg)
+static int uart_cc35xx_configure(const struct device *dev, const struct uart_config *cfg)
 {
 	const struct uart_cc35xx_dev_config *config = dev->config;
 	struct uart_cc35xx_dev_data *data = dev->data;
@@ -1184,8 +1181,7 @@ static int uart_cc35xx_configure(const struct device *dev,
  * Copies the cached uart_config struct (updated by uart_cc35xx_configure)
  * into the caller-supplied struct.
  */
-static int uart_cc35xx_config_get(const struct device *dev,
-				  struct uart_config *cfg)
+static int uart_cc35xx_config_get(const struct device *dev, struct uart_config *cfg)
 {
 	struct uart_cc35xx_dev_data *data = dev->data;
 
@@ -1270,7 +1266,7 @@ static int uart_cc35xx_init(const struct device *dev)
  * function pointers implemented above.  Sections are conditionally
  * compiled to match the enabled Kconfig options.
  */
-static const struct uart_driver_api uart_cc35xx_driver_api = {
+static DEVICE_API(uart, uart_cc35xx_driver_api) = {
 	.poll_in = uart_cc35xx_poll_in,
 	.poll_out = uart_cc35xx_poll_out,
 
@@ -1303,7 +1299,7 @@ static const struct uart_driver_api uart_cc35xx_driver_api = {
 	.rx_enable = uart_cc35xx_async_rx_enable,
 	.rx_disable = uart_cc35xx_async_rx_disable,
 	.rx_buf_rsp = uart_cc35xx_async_rx_buf_rsp,
- #endif /* CONFIG_UART_ASYNC_API */
+#endif /* CONFIG_UART_ASYNC_API */
 };
 
 #ifdef CONFIG_UART_ASYNC_API
@@ -1329,8 +1325,8 @@ static const struct uart_driver_api uart_cc35xx_driver_api = {
 #define UART_CC35XX_DMA_CHANNEL(index, dir, ch_dir, src_burst, dst_burst)
 #endif /* CONFIG_UART_ASYNC_API */
 
-#define UART_CC35XX_DEVICE(index)                                                                  \
-	PINCTRL_DT_INST_DEFINE(index);                                                             \
+#define UART_CC35XX_DEVICE(index)                                                                    \
+	PINCTRL_DT_INST_DEFINE(index);                                                               \
 	IF_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN, (                                                 \
 	static void uart_cc35xx_cfg_func_##index(const struct device *dev)                         \
 	{                                                                                          \
@@ -1341,21 +1337,20 @@ static const struct uart_driver_api uart_cc35xx_driver_api = {
 			    0);                                                                    \
 			irq_enable(DT_INST_IRQN(index)))                                           \
 		);                                                                                 \
-	}));                                                                                       \
-	static const struct uart_cc35xx_dev_config uart_cc35xx_dev_cfg_##index = {                 \
-		.base = DT_INST_REG_ADDR(index),                                                   \
-		.sys_clk_freq = DT_INST_PROP_BY_PHANDLE(index, clocks, clock_frequency),           \
-		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                                     \
+	})); \
+	static const struct uart_cc35xx_dev_config uart_cc35xx_dev_cfg_##index = {                   \
+		.base = DT_INST_REG_ADDR(index),                                                     \
+		.sys_clk_freq = DT_INST_PROP_BY_PHANDLE(index, clocks, clock_frequency),             \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index),                                       \
 		IF_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN,                                           \
-		    (.irq_config_func = uart_cc35xx_cfg_func_##index,)) };                         \
-	static struct uart_cc35xx_dev_data uart_cc35xx_dev_data_##index = {                        \
-		.baud_rate = DT_INST_PROP(index, current_speed),                                   \
-		.id = index,                                                                       \
-		UART_CC35XX_DMA_CHANNEL(index, tx, MEMORY_TO_PERIPHERAL, 1, 1)                     \
-		UART_CC35XX_DMA_CHANNEL(index, rx, PERIPHERAL_TO_MEMORY, 1, 1)                     \
-	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(index, uart_cc35xx_init, NULL, &uart_cc35xx_dev_data_##index,        \
-			      &uart_cc35xx_dev_cfg_##index, PRE_KERNEL_1,                          \
+		    (.irq_config_func = uart_cc35xx_cfg_func_##index,)) };                      \
+	static struct uart_cc35xx_dev_data uart_cc35xx_dev_data_##index = {                          \
+		.baud_rate = DT_INST_PROP(index, current_speed),                                     \
+		.id = index,                                                                         \
+		UART_CC35XX_DMA_CHANNEL(index, tx, MEMORY_TO_PERIPHERAL, 1, 1)                       \
+			UART_CC35XX_DMA_CHANNEL(index, rx, PERIPHERAL_TO_MEMORY, 1, 1)};             \
+	DEVICE_DT_INST_DEFINE(index, uart_cc35xx_init, NULL, &uart_cc35xx_dev_data_##index,          \
+			      &uart_cc35xx_dev_cfg_##index, PRE_KERNEL_1,                            \
 			      CONFIG_SERIAL_INIT_PRIORITY, (void *)&uart_cc35xx_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(UART_CC35XX_DEVICE);

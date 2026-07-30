@@ -15,25 +15,22 @@
 struct ti_cc35xx_i2s_stream;
 struct ti_cc35xx_i2s_transaction;
 
-typedef void (*ti_cc35xx_i2s_set_pointer_cb)(const struct device *dev,
-	      void *next_pointer);
+typedef void (*ti_cc35xx_i2s_set_pointer_cb)(const struct device *dev, void *next_pointer);
 
-typedef void (*ti_cc35xx_i2s_set_stamp_trigger_cb)(const struct device *dev,
-	      uint32_t value);
+typedef void (*ti_cc35xx_i2s_set_stamp_trigger_cb)(const struct device *dev, uint32_t value);
 
 typedef void (*ti_cc35xx_i2s_stop_stream_cb)(const struct device *dev,
-		  struct ti_cc35xx_i2s_stream *stream);
+					     struct ti_cc35xx_i2s_stream *stream);
 
 typedef struct ti_cc35xx_i2s_transfer *(*ti_cc35xx_i2s_peek_next_trasnfer_cb)(
-		  struct ti_cc35xx_i2s_stream *stream);
+	struct ti_cc35xx_i2s_stream *stream);
 
 typedef struct ti_cc35xx_i2s_transfer *(*ti_cc35xx_i2s_alloc_transfer_cb)(
-					struct ti_cc35xx_i2s_stream *stream);
+	struct ti_cc35xx_i2s_stream *stream);
 
-typedef void (*ti_cc35xx_i2s_purge_queue_cb)(
-		  struct ti_cc35xx_i2s_stream *stream);
+typedef void (*ti_cc35xx_i2s_purge_queue_cb)(struct ti_cc35xx_i2s_stream *stream);
 
-#define TI_CC35XX_I2S_DUAL_PHASE_CHANNEL_MAX 2
+#define TI_CC35XX_I2S_DUAL_PHASE_CHANNEL_MAX   2
 #define TI_CC35XX_I2S_SINGLE_PHASE_CHANNEL_MAX 8
 
 enum TI_CC35XX_I2S_CHANNEL_COUNT {

@@ -128,10 +128,10 @@ static int i2c_cc35xx_prime_transfer(const struct device *dev, uint8_t *buf, uin
 	bool is_start = flags & I2C_MSG_RESTART;
 	uint32_t cmd = 0;
 	uint32_t direction = is_read ? I2C_CONTROLLER_DIR_RECEIVE : I2C_CONTROLLER_DIR_TRANSMIT;
-	uint32_t addr_mode = flags & I2C_MSG_ADDR_10_BITS ?
-		I2C_CONTROLLER_ADDR_MODE_10_BIT : I2C_CONTROLLER_ADDR_MODE_7_BIT;
-	uint32_t enable_interrupt = I2C_CONTROLLER_INT_ARB_LOST |
-		I2C_CONTROLLER_INT_STOP | I2C_CONTROLLER_INT_NACK;
+	uint32_t addr_mode = flags & I2C_MSG_ADDR_10_BITS ? I2C_CONTROLLER_ADDR_MODE_10_BIT
+							  : I2C_CONTROLLER_ADDR_MODE_7_BIT;
+	uint32_t enable_interrupt =
+		I2C_CONTROLLER_INT_ARB_LOST | I2C_CONTROLLER_INT_STOP | I2C_CONTROLLER_INT_NACK;
 
 	data->buf = buf;
 	data->buflen = len;
@@ -140,23 +140,21 @@ static int i2c_cc35xx_prime_transfer(const struct device *dev, uint8_t *buf, uin
 	data->flags = flags;
 
 	if (is_read) {
-		cmd = is_start ? I2C_CONTROLLER_CMD_BURST_RECEIVE_START :
-			I2C_CONTROLLER_CMD_BURST_RECEIVE_CONT;
+		cmd = is_start ? I2C_CONTROLLER_CMD_BURST_RECEIVE_START
+			       : I2C_CONTROLLER_CMD_BURST_RECEIVE_CONT;
 	} else {
-		cmd = is_start ? I2C_CONTROLLER_CMD_BURST_SEND_START :
-			I2C_CONTROLLER_CMD_BURST_SEND_CONT;
+		cmd = is_start ? I2C_CONTROLLER_CMD_BURST_SEND_START
+			       : I2C_CONTROLLER_CMD_BURST_SEND_CONT;
 	}
 	if (is_start && len == 0) {
 		cmd = I2C_CONTROLLER_CMD_SINGLE_SEND;
 	}
 
 	if (is_read) {
-		enable_interrupt |= I2C_CONTROLLER_INT_RX_FIFO_TRIGGER |
-			I2C_CONTROLLER_INT_RX_DONE;
+		enable_interrupt |= I2C_CONTROLLER_INT_RX_FIFO_TRIGGER | I2C_CONTROLLER_INT_RX_DONE;
 	} else {
 		i2c_cc35xx_fifo_put(dev);
-		enable_interrupt |= I2C_CONTROLLER_INT_TX_FIFO_TRIGGER |
-			I2C_CONTROLLER_INT_TX_DONE;
+		enable_interrupt |= I2C_CONTROLLER_INT_TX_FIFO_TRIGGER | I2C_CONTROLLER_INT_TX_DONE;
 	}
 
 	I2CEnableInt(config->base, enable_interrupt);
@@ -177,8 +175,8 @@ static int i2c_cc35xx_prime_transfer(const struct device *dev, uint8_t *buf, uin
 	return data->bus_error ? -EIO : 0;
 }
 
-static int i2c_cc35xx_transfer(const struct device *dev, struct i2c_msg *msgs,
-			       uint8_t num_msgs, uint16_t addr)
+static int i2c_cc35xx_transfer(const struct device *dev, struct i2c_msg *msgs, uint8_t num_msgs,
+			       uint16_t addr)
 {
 	struct i2c_cc35xx_data *data = dev->data;
 	const struct i2c_cc35xx_config *config = dev->config;
@@ -193,7 +191,7 @@ static int i2c_cc35xx_transfer(const struct device *dev, struct i2c_msg *msgs,
 	k_sem_reset(&data->i2c_msg_done);
 
 	I2CFlushFifos(config->base);
-	I2CClearInt(config->base, I2C_INT_ALL);  /* 10ms match swuart print delay */
+	I2CClearInt(config->base, I2C_INT_ALL); /* 10ms match swuart print delay */
 
 	for (int i = 0; i < num_msgs; i++) {
 		msg = msgs + i;
@@ -236,15 +234,14 @@ static void i2c_cc35xx_isr(const struct device *dev)
 	uint32_t int_status;
 	uint32_t tx_fifo_int = I2C_CONTROLLER_INT_TX_FIFO_TRIGGER;
 	uint32_t rx_fifo_int = I2C_CONTROLLER_INT_RX_FIFO_TRIGGER;
-	uint32_t finish_int = I2C_CONTROLLER_INT_STOP | I2C_CONTROLLER_INT_TX_DONE |
-		I2C_CONTROLLER_INT_RX_DONE;
+	uint32_t finish_int =
+		I2C_CONTROLLER_INT_STOP | I2C_CONTROLLER_INT_TX_DONE | I2C_CONTROLLER_INT_RX_DONE;
 	uint32_t i2c_error = I2CControllerGetError(config->base);
 
 	if (i2c_error) {
 		if (!(i2c_error & I2C_CONTROLLER_ERR_ARB_LOST)) {
-			I2CControllerSetCommand(config->base,
-				I2C_CONTROLLER_CMD_BURST_FINISH,
-				I2C_CONTROLLER_TRANSACTION_LENGTH_NONE);
+			I2CControllerSetCommand(config->base, I2C_CONTROLLER_CMD_BURST_FINISH,
+						I2C_CONTROLLER_TRANSACTION_LENGTH_NONE);
 		}
 		data->bus_error = 1;
 		I2CDisableInt(config->base, I2C_INT_ALL);
@@ -278,8 +275,8 @@ static void i2c_cc35xx_isr(const struct device *dev)
 			I2CClearInt(config->base, I2C_INT_ALL);
 			if (data->flags & I2C_MSG_STOP) {
 				I2CControllerSetCommand(config->base,
-					I2C_CONTROLLER_CMD_BURST_FINISH,
-					I2C_CONTROLLER_TRANSACTION_LENGTH_NONE);
+							I2C_CONTROLLER_CMD_BURST_FINISH,
+							I2C_CONTROLLER_TRANSACTION_LENGTH_NONE);
 			}
 
 			k_sem_give(&data->i2c_msg_done);
@@ -287,7 +284,7 @@ static void i2c_cc35xx_isr(const struct device *dev)
 			__ASSERT(false, "Unhandled I2C Interrupt");
 			data->bus_error = 1;
 			I2CControllerSetCommand(config->base, I2C_CONTROLLER_CMD_BURST_FINISH,
-				I2C_CONTROLLER_TRANSACTION_LENGTH_NONE);
+						I2C_CONTROLLER_TRANSACTION_LENGTH_NONE);
 			I2CDisableInt(config->base, I2C_INT_ALL);
 			I2CClearInt(config->base, I2C_INT_ALL);
 
@@ -324,7 +321,7 @@ static int i2c_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-static const struct i2c_driver_api i2c_cc35xx_driver_api = {
+static DEVICE_API(i2c, i2c_cc35xx_driver_api) = {
 	.configure = i2c_cc35xx_configure,
 	.transfer = i2c_cc35xx_transfer,
 };

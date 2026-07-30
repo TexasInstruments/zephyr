@@ -21,16 +21,16 @@ LOG_MODULE_REGISTER(ti_cc35xx_sdhc, CONFIG_SDHC_LOG_LEVEL);
 
 #define NODE_LABEL sdhc
 
-#define TI_CC35XX_SDHC_IRQ_NUM DT_INST_IRQN(0)
+#define TI_CC35XX_SDHC_IRQ_NUM  DT_INST_IRQN(0)
 #define TI_CC35XX_SDHC_IRQ_PRIO DT_INST_IRQ(0, priority)
-#define TI_CC35XX_SDHC_ISR_ARG DEVICE_DT_GET(DT_INST(0, DT_DRV_COMPAT))
+#define TI_CC35XX_SDHC_ISR_ARG  DEVICE_DT_GET(DT_INST(0, DT_DRV_COMPAT))
 
-#define TI_CC35XX_SDHC_CARD_BUSY 1
+#define TI_CC35XX_SDHC_CARD_BUSY     1
 #define TI_CC35XX_SDHC_CARD_NOT_BUSY 0
 
 #define TI_CC35XX_SDHC_WAIT_STATUS_TIMEOUT_MS 100
 
-#define TI_CC35XX_SDHC_CMD_READ true
+#define TI_CC35XX_SDHC_CMD_READ  true
 #define TI_CC35XX_SDHC_CMD_WRITE false
 
 struct ti_cc35xx_sdhc_config {
@@ -62,8 +62,7 @@ struct ti_cc35xx_sdhc_cmd_config {
 	bool crc_check_en;
 };
 
-static int ti_cc35xx_sdhc_get_host_props(const struct device *dev,
-					 struct sdhc_host_props *props)
+static int ti_cc35xx_sdhc_get_host_props(const struct device *dev, struct sdhc_host_props *props)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 
@@ -80,8 +79,8 @@ static int ti_cc35xx_sdhc_get_host_props(const struct device *dev,
 	return 0;
 }
 
-static inline int wait_for_status(const struct device *dev, uint32_t offset,
-				  uint32_t flag, uint32_t *out, bool can_sleep)
+static inline int wait_for_status(const struct device *dev, uint32_t offset, uint32_t flag,
+				  uint32_t *out, bool can_sleep)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	uint32_t timeout_ms = TI_CC35XX_SDHC_WAIT_STATUS_TIMEOUT_MS;
@@ -137,21 +136,17 @@ static inline void set_capabilities(const struct device *dev)
 static inline void set_bus_voltage(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
 
-	val &= ~(TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_M <<
-		 TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_L);
-	val |= (TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_V33 <<
-		TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_L);
+	val &= ~(TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_M << TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_L);
+	val |= (TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_V33 << TI_CC35XX_SDHC_REG_HOSTCTL_BUSVSEL_L);
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
 }
 
 static inline int enable_bus_power(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
 
 	val |= TI_CC35XX_SDHC_REG_HOSTCTL_BUSPOWR;
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
@@ -162,15 +157,13 @@ static inline int enable_bus_power(const struct device *dev)
 static inline void disable_bus_power(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
 
 	val &= ~TI_CC35XX_SDHC_REG_HOSTCTL_BUSPOWR;
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_HOSTCTL_ADDR);
 }
 
-static inline int set_bus_power(const struct device *dev,
-				enum sdhc_power state)
+static inline int set_bus_power(const struct device *dev, enum sdhc_power state)
 {
 	struct ti_cc35xx_sdhc_data *data = dev->data;
 	struct sdhc_io *host_io = &data->host_io;
@@ -193,11 +186,9 @@ static inline int set_bus_power(const struct device *dev,
 static inline void set_clock_divider(const struct device *dev, uint32_t divider)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 
-	val &= ~(TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_M <<
-		 TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_L);
+	val &= ~(TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_M << TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_L);
 	val |= (divider << TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_L);
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 }
@@ -205,11 +196,9 @@ static inline void set_clock_divider(const struct device *dev, uint32_t divider)
 static inline void set_data_timeout(const struct device *dev, uint32_t timeout)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 
-	val &= ~(TI_CC35XX_SDHC_REG_SYSCTRL_DATATIME_M <<
-		 TI_CC35XX_SDHC_REG_SYSCTRL_DATATIME_L);
+	val &= ~(TI_CC35XX_SDHC_REG_SYSCTRL_DATATIME_M << TI_CC35XX_SDHC_REG_SYSCTRL_DATATIME_L);
 	val |= (timeout << TI_CC35XX_SDHC_REG_SYSCTRL_DATATIME_L);
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 }
@@ -218,8 +207,7 @@ static int enable_sd_clocks(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	int ret;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 
 	val |= TI_CC35XX_SDHC_REG_SYSCTRL_INTCLKEN;
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
@@ -238,11 +226,9 @@ static int enable_sd_clocks(const struct device *dev)
 static inline void disable_sd_clocks(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 
-	val &= ~(TI_CC35XX_SDHC_REG_SYSCTRL_INTCLKEN |
-		 TI_CC35XX_SDHC_REG_SYSCTRL_CLKEN);
+	val &= ~(TI_CC35XX_SDHC_REG_SYSCTRL_INTCLKEN | TI_CC35XX_SDHC_REG_SYSCTRL_CLKEN);
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
 }
 
@@ -253,12 +239,12 @@ static int set_clock(const struct device *dev, uint32_t clk_hz)
 	struct sdhc_io *host_io = &data->host_io;
 	uint32_t base_clk_hz = config->f_base;
 	/* The divider is round up so we don't exceed the target freqnuency. */
-	uint32_t divider = MIN(DIV_ROUND_UP(base_clk_hz, clk_hz),
-			       TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_MAX);
+	uint32_t divider =
+		MIN(DIV_ROUND_UP(base_clk_hz, clk_hz), TI_CC35XX_SDHC_REG_SYSCTRL_CLKDIV_MAX);
 	int ret;
 
-	LOG_DBG("Clock divider for SD Clk: %d Hz is %d (actual clock is %d Hz)",
-		clk_hz, divider, base_clk_hz / divider);
+	LOG_DBG("Clock divider for SD Clk: %d Hz is %d (actual clock is %d Hz)", clk_hz, divider,
+		base_clk_hz / divider);
 
 	disable_sd_clocks(dev);
 	set_clock_divider(dev, divider);
@@ -272,8 +258,7 @@ static int set_clock(const struct device *dev, uint32_t clk_hz)
 	return 0;
 }
 
-static int poll_completion_ev(const struct device *dev, uint8_t event,
-			      uint32_t timeout_ms)
+static int poll_completion_ev(const struct device *dev, uint8_t event, uint32_t timeout_ms)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	int ret = -EAGAIN;
@@ -281,11 +266,9 @@ static int poll_completion_ev(const struct device *dev, uint8_t event,
 	uint32_t val = 0;
 
 	while (retry > 0) {
-		val = sys_read32(config->reg_base +
-				 TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+		val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 		if (val & event) {
-			sys_write32(event, config->reg_base +
-				    TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+			sys_write32(event, config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 			ret = 0;
 			break;
 		}
@@ -301,8 +284,7 @@ static int poll_completion_ev(const struct device *dev, uint8_t event,
 	return ret;
 }
 
-static int await_completion_ev(const struct device *dev, uint8_t event,
-			       uint32_t timeout_ms)
+static int await_completion_ev(const struct device *dev, uint8_t event, uint32_t timeout_ms)
 {
 	struct ti_cc35xx_sdhc_data *data = dev->data;
 	int ret;
@@ -316,8 +298,7 @@ static int await_completion_ev(const struct device *dev, uint8_t event,
 	}
 
 	LOG_DBG("Awaiting for SDHC events");
-	events = k_event_wait(&data->irq_event, event | TI_CC35XX_EV_ERR, false,
-			      wait_time);
+	events = k_event_wait(&data->irq_event, event | TI_CC35XX_EV_ERR, false, wait_time);
 
 	if (events & event) {
 		LOG_DBG("Completion event received");
@@ -335,8 +316,7 @@ static int await_completion_ev(const struct device *dev, uint8_t event,
 	return ret;
 }
 
-static inline int wait_transfer_complete(const struct device *dev,
-					 uint32_t timeout_ms)
+static inline int wait_transfer_complete(const struct device *dev, uint32_t timeout_ms)
 {
 	if (IS_ENABLED(CONFIG_SDHC_TI_CC35XX_INTERRUPT_ENABLE)) {
 		return await_completion_ev(dev, TI_CC35XX_EV_TRCMP, timeout_ms);
@@ -345,15 +325,12 @@ static inline int wait_transfer_complete(const struct device *dev,
 	}
 }
 
-static inline int wait_command_complete(const struct device *dev,
-					uint32_t timeout_ms)
+static inline int wait_command_complete(const struct device *dev, uint32_t timeout_ms)
 {
 	if (IS_ENABLED(CONFIG_SDHC_TI_CC35XX_INTERRUPT_ENABLE)) {
-		return await_completion_ev(dev, TI_CC35XX_EV_CMDCMPL,
-					   timeout_ms);
+		return await_completion_ev(dev, TI_CC35XX_EV_CMDCMPL, timeout_ms);
 	} else {
-		return poll_completion_ev(dev, TI_CC35XX_EV_CMDCMPL,
-					  timeout_ms);
+		return poll_completion_ev(dev, TI_CC35XX_EV_CMDCMPL, timeout_ms);
 	}
 }
 
@@ -366,9 +343,8 @@ static int write_data_port(const struct device *dev, struct sdhc_data *sdhc)
 	uint32_t val;
 	int ret;
 
-	ret = wait_for_status(dev, TI_CC35XX_SDHC_REG_PSTAT_ADDR,
-			      TI_CC35XX_SDHC_REG_PSTAT_BUFWREN, &val,
-			      true);
+	ret = wait_for_status(dev, TI_CC35XX_SDHC_REG_PSTAT_ADDR, TI_CC35XX_SDHC_REG_PSTAT_BUFWREN,
+			      &val, true);
 	if (ret < 0) {
 		return ret;
 	}
@@ -376,8 +352,8 @@ static int write_data_port(const struct device *dev, struct sdhc_data *sdhc)
 	while (1) {
 		if (val & TI_CC35XX_SDHC_REG_PSTAT_DATCMDINH) {
 			for (i = block_size >> 2; i != 0; i--) {
-				sys_write32(*data++, config->reg_base +
-					    TI_CC35XX_SDHC_REG_DATABUF_ADDR);
+				sys_write32(*data++,
+					    config->reg_base + TI_CC35XX_SDHC_REG_DATABUF_ADDR);
 			}
 		}
 
@@ -386,8 +362,7 @@ static int write_data_port(const struct device *dev, struct sdhc_data *sdhc)
 		}
 
 		ret = wait_for_status(dev, TI_CC35XX_SDHC_REG_PSTAT_ADDR,
-				      TI_CC35XX_SDHC_REG_PSTAT_BUFWREN, &val,
-				      false);
+				      TI_CC35XX_SDHC_REG_PSTAT_BUFWREN, &val, false);
 		if (ret < 0) {
 			return ret;
 		}
@@ -407,8 +382,7 @@ static int read_data_port(const struct device *dev, struct sdhc_data *sdhc)
 
 	while (block_cnt--) {
 		ret = wait_for_status(dev, TI_CC35XX_SDHC_REG_PSTAT_ADDR,
-				      TI_CC35XX_SDHC_REG_PSTAT_BUFRD, &val,
-				      false);
+				      TI_CC35XX_SDHC_REG_PSTAT_BUFRD, &val, false);
 		if (ret < 0) {
 			return ret;
 		}
@@ -454,8 +428,7 @@ static enum ti_cc35xx_sdhc_response_type decode_resp_type(enum sd_rsp_type type)
 	return resp_type;
 }
 
-static void update_cmd_response(const struct device *dev,
-				struct sdhc_command *sdhc_cmd)
+static void update_cmd_response(const struct device *dev, struct sdhc_command *sdhc_cmd)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	uint32_t resp10, resp32, resp54, resp76;
@@ -468,12 +441,9 @@ static void update_cmd_response(const struct device *dev,
 	sdhc_cmd->response[0] = resp10;
 
 	if (sdhc_cmd->response_type == SD_RSP_TYPE_R2) {
-		resp32 = sys_read32(config->reg_base +
-				    TI_CC35XX_SDHC_REG_RSP32_ADDR);
-		resp54 = sys_read32(config->reg_base +
-				    TI_CC35XX_SDHC_REG_RSP54_ADDR);
-		resp76 = sys_read32(config->reg_base +
-				    TI_CC35XX_SDHC_REG_RSP76_ADDR);
+		resp32 = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_RSP32_ADDR);
+		resp54 = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_RSP54_ADDR);
+		resp76 = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_RSP76_ADDR);
 
 		sdhc_cmd->response[1] = resp32;
 		sdhc_cmd->response[2] = resp54;
@@ -481,8 +451,7 @@ static void update_cmd_response(const struct device *dev,
 	}
 }
 
-static void init_transfer(const struct device *dev, struct sdhc_data *data,
-			  bool read)
+static void init_transfer(const struct device *dev, struct sdhc_data *data, bool read)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	uint32_t val;
@@ -490,29 +459,24 @@ static void init_transfer(const struct device *dev, struct sdhc_data *data,
 
 	/* Set number of bytes in block */
 	val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_BLKCFG_ADDR);
-	val &= ~(TI_CC35XX_SDHC_REG_BLKCFG_BLKLEN_M <<
-		 TI_CC35XX_SDHC_REG_BLKCFG_BLKLEN_L);
+	val &= ~(TI_CC35XX_SDHC_REG_BLKCFG_BLKLEN_M << TI_CC35XX_SDHC_REG_BLKCFG_BLKLEN_L);
 	val |= data->block_size << TI_CC35XX_SDHC_REG_BLKCFG_BLKLEN_L;
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_BLKCFG_ADDR);
 
 	/* Set number of blocks for current transfer */
 	val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_BLKCFG_ADDR);
-	val &= ~(TI_CC35XX_SDHC_REG_BLKCFG_BLKCNT_M <<
-		 TI_CC35XX_SDHC_REG_BLKCFG_BLKCNT_L);
+	val &= ~(TI_CC35XX_SDHC_REG_BLKCFG_BLKCNT_M << TI_CC35XX_SDHC_REG_BLKCFG_BLKCNT_L);
 	val |= (data->blocks << TI_CC35XX_SDHC_REG_BLKCFG_BLKCNT_L);
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_BLKCFG_ADDR);
 
 	/* Enable/disable block count and Auto CMD12 */
 	val16 = sys_read16(config->reg_base + TI_CC35XX_SDHC_REG_SDCMD_ADDR);
-	val16 &= ~(TI_CC35XX_SDHC_REG_SDCMD_BLKCNT |
-		   TI_CC35XX_SDHC_REG_SDCMD_BLKSEL);
-	val16 &= ~(TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_M <<
-		   TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_L);
+	val16 &= ~(TI_CC35XX_SDHC_REG_SDCMD_BLKCNT | TI_CC35XX_SDHC_REG_SDCMD_BLKSEL);
+	val16 &= ~(TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_M << TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_L);
 	if (data->blocks > 1) {
-		val16 |= TI_CC35XX_SDHC_REG_SDCMD_BLKCNT |
-			 TI_CC35XX_SDHC_REG_SDCMD_BLKSEL;
-		val16 |= (TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_CMD12EN <<
-			  TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_L);
+		val16 |= TI_CC35XX_SDHC_REG_SDCMD_BLKCNT | TI_CC35XX_SDHC_REG_SDCMD_BLKSEL;
+		val16 |= (TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_CMD12EN
+			  << TI_CC35XX_SDHC_REG_SDCMD_AUTOCMD_L);
 	}
 
 	/* Set transfer direction */
@@ -528,8 +492,7 @@ static void init_transfer(const struct device *dev, struct sdhc_data *data,
 	sys_write16(val16, config->reg_base + TI_CC35XX_SDHC_REG_SDCMD_ADDR);
 }
 
-static int send_cmd(const struct device *dev,
-		    const struct ti_cc35xx_sdhc_cmd_config *cmd_config)
+static int send_cmd(const struct device *dev, const struct ti_cc35xx_sdhc_cmd_config *cmd_config)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	struct ti_cc35xx_sdhc_data *data = dev->data;
@@ -562,8 +525,7 @@ static int send_cmd(const struct device *dev,
 
 	k_event_clear(&data->irq_event, TI_CC35XX_EV_CMDCMPL);
 
-	sys_write32(sdhc_cmd->arg, config->reg_base +
-		    TI_CC35XX_SDHC_REG_CMDARG_ADDR);
+	sys_write32(sdhc_cmd->arg, config->reg_base + TI_CC35XX_SDHC_REG_CMDARG_ADDR);
 
 	cmd_reg = cmd_config->cmd_idx << TI_CC35XX_SDHC_REG_SDCMD_CMDIDX_L |
 		  cmd_config->cmd_type << TI_CC35XX_SDHC_REG_SDCMD_CMDTYPE_L |
@@ -621,21 +583,19 @@ static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 	struct sdhc_io *host_io = &data->host_io;
 	int ret;
 
-	LOG_DBG("SDMMC I/O: DW %d, Clk %d Hz, card power state %s, voltage %s",
-		ios->bus_width, ios->clock,
-		ios->power_mode == SDHC_POWER_ON ? "ON" : "OFF",
+	LOG_DBG("SDMMC I/O: DW %d, Clk %d Hz, card power state %s, voltage %s", ios->bus_width,
+		ios->clock, ios->power_mode == SDHC_POWER_ON ? "ON" : "OFF",
 		ios->signal_voltage == SD_VOL_1_8_V ? "1.8V" : "3.3V");
 
 	if (ios->clock) {
-		if (ios->clock > config->props.f_max ||
-		    ios->clock < config->props.f_min) {
+		if (ios->clock > config->props.f_max || ios->clock < config->props.f_min) {
 			LOG_ERR("Invalid argument for clock freq: %d. "
-				"Supported max:%d and min:%d", ios->clock,
-				config->props.f_max, config->props.f_min);
+				"Supported max:%d and min:%d",
+				ios->clock, config->props.f_max, config->props.f_min);
 			return -EINVAL;
 		} else if (host_io->clock != ios->clock) {
-			LOG_DBG("Changing SD clock from: %d Hz to %d Hz",
-				host_io->clock, ios->clock);
+			LOG_DBG("Changing SD clock from: %d Hz to %d Hz", host_io->clock,
+				ios->clock);
 			ret = set_clock(dev, ios->clock);
 			if (ret < 0) {
 				LOG_ERR("Failed to configure clocks");
@@ -645,13 +605,10 @@ static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 	}
 
 	if (host_io->power_mode != ios->power_mode) {
-		char *curr_power_mode = host_io->power_mode ==
-			SDHC_POWER_ON ? "ON" : "OFF";
-		char *target_power_mode = ios->power_mode ==
-			SDHC_POWER_ON ? "ON" : "OFF";
+		char *curr_power_mode = host_io->power_mode == SDHC_POWER_ON ? "ON" : "OFF";
+		char *target_power_mode = ios->power_mode == SDHC_POWER_ON ? "ON" : "OFF";
 
-		LOG_DBG("Changing power mode from: %s to %s.", curr_power_mode,
-			target_power_mode);
+		LOG_DBG("Changing power mode from: %s to %s.", curr_power_mode, target_power_mode);
 		ret = set_bus_power(dev, ios->power_mode);
 		if (ret < 0) {
 			LOG_ERR("Failed to enable bus power");
@@ -666,8 +623,8 @@ static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 	return 0;
 }
 
-static int sdhc_transfer(const struct device *dev, struct sdhc_command *cmd,
-			 struct sdhc_data *data, bool read)
+static int sdhc_transfer(const struct device *dev, struct sdhc_command *cmd, struct sdhc_data *data,
+			 bool read)
 {
 	struct ti_cc35xx_sdhc_cmd_config cmd_config = {
 		.sdhc_cmd = cmd,
@@ -681,11 +638,9 @@ static int sdhc_transfer(const struct device *dev, struct sdhc_command *cmd,
 	init_transfer(dev, data, read);
 
 	if (data->blocks > 1) {
-		cmd_config.cmd_idx = read ? SD_READ_MULTIPLE_BLOCK :
-			SD_WRITE_MULTIPLE_BLOCK;
+		cmd_config.cmd_idx = read ? SD_READ_MULTIPLE_BLOCK : SD_WRITE_MULTIPLE_BLOCK;
 	} else {
-		cmd_config.cmd_idx = read ? SD_READ_SINGLE_BLOCK :
-			SD_WRITE_SINGLE_BLOCK;
+		cmd_config.cmd_idx = read ? SD_READ_SINGLE_BLOCK : SD_WRITE_SINGLE_BLOCK;
 	}
 
 	ret = send_cmd(dev, &cmd_config);
@@ -696,9 +651,8 @@ static int sdhc_transfer(const struct device *dev, struct sdhc_command *cmd,
 	return read ? read_data_port(dev, data) : write_data_port(dev, data);
 }
 
-static int send_cmd_data(const struct device *dev, uint32_t cmd_idx,
-			 struct sdhc_command *cmd, struct sdhc_data *data,
-			 bool read)
+static int send_cmd_data(const struct device *dev, uint32_t cmd_idx, struct sdhc_command *cmd,
+			 struct sdhc_data *data, bool read)
 {
 	struct ti_cc35xx_sdhc_cmd_config cmd_config = {
 		.sdhc_cmd = cmd,
@@ -720,15 +674,13 @@ static int send_cmd_data(const struct device *dev, uint32_t cmd_idx,
 	return read ? read_data_port(dev, data) : write_data_port(dev, data);
 }
 
-static int send_cmd_no_data(const struct device *dev, uint32_t cmd_idx,
-			    struct sdhc_command *cmd)
+static int send_cmd_no_data(const struct device *dev, uint32_t cmd_idx, struct sdhc_command *cmd)
 {
 	struct ti_cc35xx_sdhc_cmd_config cmd_config = {
 		.sdhc_cmd = cmd,
 		.cmd_idx = cmd_idx,
 		.cmd_type = SDHC_CMD_NORMAL,
 	};
-
 
 	return send_cmd(dev, &cmd_config);
 }
@@ -737,15 +689,13 @@ static void ti_cc35xx_sdhc_isr(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	struct ti_cc35xx_sdhc_data *data = dev->data;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 
 	k_event_post(&data->irq_event, val);
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 }
 
-static int ti_cc35xx_sdhc_request(const struct device *dev,
-				  struct sdhc_command *cmd,
+static int ti_cc35xx_sdhc_request(const struct device *dev, struct sdhc_command *cmd,
 				  struct sdhc_data *data)
 {
 	int ret;
@@ -764,12 +714,10 @@ static int ti_cc35xx_sdhc_request(const struct device *dev,
 		ret = sdhc_transfer(dev, cmd, data, TI_CC35XX_SDHC_CMD_READ);
 		break;
 	case MMC_SEND_EXT_CSD:
-		ret = send_cmd_data(dev, MMC_SEND_EXT_CSD, cmd, data,
-			TI_CC35XX_SDHC_CMD_READ);
+		ret = send_cmd_data(dev, MMC_SEND_EXT_CSD, cmd, data, TI_CC35XX_SDHC_CMD_READ);
 		break;
 	default:
-		ret = send_cmd_data(dev, cmd->opcode, cmd, data,
-			TI_CC35XX_SDHC_CMD_READ);
+		ret = send_cmd_data(dev, cmd->opcode, cmd, data, TI_CC35XX_SDHC_CMD_READ);
 	}
 
 	return ret;
@@ -783,8 +731,7 @@ static int ti_cc35xx_sdhc_get_card_present(const struct device *dev)
 		return 1;
 	}
 
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_PSTAT_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_PSTAT_ADDR);
 
 	return ((val & TI_CC35XX_SDHC_REG_PSTAT_CDINS) == 0) ? 0 : 1;
 }
@@ -797,11 +744,10 @@ static int ti_cc35xx_sdhc_reset(const struct device *dev)
 static int ti_cc35xx_sdhc_card_busy(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t val = sys_read32(config->reg_base +
-				  TI_CC35XX_SDHC_REG_PSTAT_ADDR);
+	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_PSTAT_ADDR);
 
-	return (val & TI_CC35XX_SDHC_REG_PSTAT_DATALN) ?
-		TI_CC35XX_SDHC_CARD_BUSY : TI_CC35XX_SDHC_CARD_NOT_BUSY;
+	return (val & TI_CC35XX_SDHC_REG_PSTAT_DATALN) ? TI_CC35XX_SDHC_CARD_BUSY
+						       : TI_CC35XX_SDHC_CARD_NOT_BUSY;
 }
 
 static int ti_cc35xx_sdhc_init(const struct device *dev)
@@ -831,16 +777,16 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 	}
 
 	/* Enable signal generation for all interrupts */
-	sys_write32(TI_CC35XX_SDHC_REG_INTSIGEN_ALL, config->reg_base +
-		    TI_CC35XX_SDHC_REG_INTSIGEN_ADDR);
+	sys_write32(TI_CC35XX_SDHC_REG_INTSIGEN_ALL,
+		    config->reg_base + TI_CC35XX_SDHC_REG_INTSIGEN_ADDR);
 
 	/* Enable all interrupts */
-	sys_write32(TI_CC35XX_SDHC_REG_INTENAB_ALL, config->reg_base +
-		    TI_CC35XX_SDHC_REG_INTENAB_ADDR);
+	sys_write32(TI_CC35XX_SDHC_REG_INTENAB_ALL,
+		    config->reg_base + TI_CC35XX_SDHC_REG_INTENAB_ADDR);
 
 	/* Clear all interrupts */
-	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_ALL, config->reg_base +
-		    TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_ALL,
+		    config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 
 	ret = set_clock(dev, KHZ(40));
 	if (ret < 0) {
@@ -861,27 +807,27 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 		return ret;
 	}
 
-	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_CMDCMPL, config->reg_base +
-		    TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_CMDCMPL,
+		    config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 
 	val = sys_read32(config->reg_base + TI_CC35XX_CORE_REG_CONFIG_ADDR);
 	val &= ~TI_CC35XX_CORE_REG_CONFIG_INITSEQ;
 	sys_write32(val, config->reg_base + TI_CC35XX_CORE_REG_CONFIG_ADDR);
 
 	/* Clear all interrupts */
-	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_ALL, config->reg_base +
-		    TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_ALL,
+		    config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 
 	if (IS_ENABLED(CONFIG_SDHC_TI_CC35XX_INTERRUPT_ENABLE)) {
-		IRQ_CONNECT(TI_CC35XX_SDHC_IRQ_NUM, TI_CC35XX_SDHC_IRQ_PRIO,
-			    ti_cc35xx_sdhc_isr, TI_CC35XX_SDHC_ISR_ARG, 0);
+		IRQ_CONNECT(TI_CC35XX_SDHC_IRQ_NUM, TI_CC35XX_SDHC_IRQ_PRIO, ti_cc35xx_sdhc_isr,
+			    TI_CC35XX_SDHC_ISR_ARG, 0);
 		irq_enable(TI_CC35XX_SDHC_IRQ_NUM);
 	}
 
 	return 0;
 }
 
-static const struct sdhc_driver_api sdhc_api = {
+static DEVICE_API(sdhc, sdhc_api) = {
 	.reset = ti_cc35xx_sdhc_reset,
 	.request = ti_cc35xx_sdhc_request,
 	.set_io = ti_cc35xx_sdhc_set_io,
@@ -890,25 +836,20 @@ static const struct sdhc_driver_api sdhc_api = {
 	.get_host_props = ti_cc35xx_sdhc_get_host_props,
 };
 
-#define TI_CC35XX_SDHC_INIT(inst)								\
-	PINCTRL_DT_DEFINE(DT_NODELABEL(NODE_LABEL));						\
-	static struct ti_cc35xx_sdhc_data sdhc_##inst##_data;					\
-	static const struct ti_cc35xx_sdhc_config sdhc_##inst##_config = {			\
-		.pin_cfg = PINCTRL_DT_DEV_CONFIG_GET(DT_NODELABEL(NODE_LABEL)),			\
-		.reg_base = DT_REG_ADDR(DT_NODELABEL(NODE_LABEL)),				\
-		.f_base = DT_INST_PROP(inst, base_bus_freq),					\
-		.card_always_present = DT_INST_PROP_OR(inst, card_always_present, false),	\
-		.props.f_max = DT_INST_PROP_OR(inst, max_bus_freq, MHZ(25)),			\
-		.props.f_min = DT_INST_PROP_OR(inst, min_bus_freq, KHZ(400)),			\
-		.props.power_delay = DT_INST_PROP_OR(inst, power_delay_ms, 500),		\
-	};											\
-	DEVICE_DT_INST_DEFINE(inst,								\
-		&ti_cc35xx_sdhc_init,								\
-		NULL,										\
-		&sdhc_##inst##_data,								\
-		&sdhc_##inst##_config,								\
-		POST_KERNEL,									\
-		CONFIG_SDHC_INIT_PRIORITY,							\
-		&sdhc_api);
+#define TI_CC35XX_SDHC_INIT(inst)                                                                  \
+	PINCTRL_DT_DEFINE(DT_NODELABEL(NODE_LABEL));                                               \
+	static struct ti_cc35xx_sdhc_data sdhc_##inst##_data;                                      \
+	static const struct ti_cc35xx_sdhc_config sdhc_##inst##_config = {                         \
+		.pin_cfg = PINCTRL_DT_DEV_CONFIG_GET(DT_NODELABEL(NODE_LABEL)),                    \
+		.reg_base = DT_REG_ADDR(DT_NODELABEL(NODE_LABEL)),                                 \
+		.f_base = DT_INST_PROP(inst, base_bus_freq),                                       \
+		.card_always_present = DT_INST_PROP_OR(inst, card_always_present, false),          \
+		.props.f_max = DT_INST_PROP_OR(inst, max_bus_freq, MHZ(25)),                       \
+		.props.f_min = DT_INST_PROP_OR(inst, min_bus_freq, KHZ(400)),                      \
+		.props.power_delay = DT_INST_PROP_OR(inst, power_delay_ms, 500),                   \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(inst, &ti_cc35xx_sdhc_init, NULL, &sdhc_##inst##_data,               \
+			      &sdhc_##inst##_config, POST_KERNEL, CONFIG_SDHC_INIT_PRIORITY,       \
+			      &sdhc_api);
 
 DT_INST_FOREACH_STATUS_OKAY(TI_CC35XX_SDHC_INIT)

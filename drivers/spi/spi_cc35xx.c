@@ -32,23 +32,23 @@ LOG_MODULE_REGISTER(spi_cc35xx, CONFIG_SPI_LOG_LEVEL);
 	(SPI_MIS_TX_SET | SPI_MIS_RX_SET | SPI_MIS_RXOVF_SET | SPI_MIS_IDLE_SET |                  \
 	 SPI_MIS_TXEMPTY_SET | SPI_MIS_PER_SET | SPI_MIS_RTOUT_SET | SPI_MIS_DMARX_SET |           \
 	 SPI_MIS_DMATX_SET)
-#define IDLE_CHAR 0x00
+#define IDLE_CHAR              0x00
 #define SPI_SLAVE_BUS_MAX_FREQ 40000000L
 
-#define SPI_CC35XX_DATA_WIDTH	8
-#define SPI_CC35XX_DFS		(SPI_CC35XX_DATA_WIDTH >> 3)
+#define SPI_CC35XX_DATA_WIDTH 8
+#define SPI_CC35XX_DFS        (SPI_CC35XX_DATA_WIDTH >> 3)
 
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
 
 #define SPI_CC35XX_DMA_MAX_TRANSFER_SIZE 0x3FFFU
-#define SPI_CC35XX_SRAM_START CONFIG_SRAM_BASE_ADDRESS
-#define SPI_CC35XX_SRAM_END (SPI_CC35XX_SRAM_START + (CONFIG_SRAM_SIZE * 1024UL))
-#define SPI_CC35XX_DMA_BUFFER_IN_SRAM(buf, len)                                                   \
+#define SPI_CC35XX_SRAM_START            CONFIG_SRAM_BASE_ADDRESS
+#define SPI_CC35XX_SRAM_END              (SPI_CC35XX_SRAM_START + (CONFIG_SRAM_SIZE * 1024UL))
+#define SPI_CC35XX_DMA_BUFFER_IN_SRAM(buf, len)                                                    \
 	({                                                                                         \
-		uintptr_t addr = POINTER_TO_UINT(buf);                                              \
-		uintptr_t end = addr + (len);                                                       \
+		uintptr_t addr = POINTER_TO_UINT(buf);                                             \
+		uintptr_t end = addr + (len);                                                      \
                                                                                                    \
-		(end >= addr) && (addr >= SPI_CC35XX_SRAM_START) && (end <= SPI_CC35XX_SRAM_END);   \
+		(end >= addr) && (addr >= SPI_CC35XX_SRAM_START) && (end <= SPI_CC35XX_SRAM_END);  \
 	})
 
 static uint32_t dummy_tx = IDLE_CHAR;
@@ -94,8 +94,8 @@ struct spi_cc35xx_data {
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
 static int spi_cc35xx_dma_start(const struct device *dev, enum transfer_direction dir);
 static void spi_cc35xx_dma_stop(const struct device *dev);
-static int spi_cc35xx_dma_load_tx(const struct device *dev,
-				  const uint8_t *tx_data, size_t buf_size);
+static int spi_cc35xx_dma_load_tx(const struct device *dev, const uint8_t *tx_data,
+				  size_t buf_size);
 static int spi_cc35xx_dma_load_rx(const struct device *dev, uint8_t *rx_data, size_t buf_size);
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 
@@ -151,7 +151,8 @@ static void spi_cc35xx_flush_fifo(const struct device *dev)
 	const struct spi_cc35xx_config *cfg = dev->config;
 
 	sys_write32(sys_read32(cfg->base + SPI_O_CTL0) | SPI_CTL0_FIFORST_RST_TRIG |
-		SPI_CTL0_IDLEPOCI_IDLE_ONE, cfg->base + SPI_O_CTL0);
+			    SPI_CTL0_IDLEPOCI_IDLE_ONE,
+		    cfg->base + SPI_O_CTL0);
 
 	while (sys_read32(cfg->base + SPI_O_CTL0) & SPI_CTL0_FIFORST) {
 		/* NOP */
@@ -198,18 +199,18 @@ static int spi_cc35xx_configure(const struct device *dev, const struct spi_confi
 
 	prot = is_master ? SPI_CTL0_FRF_MOTOROLA_3WIRE : SPI_CTL0_FRF_MOTOROLA_4WIRE;
 	freq = is_master ? config->frequency : SPI_SLAVE_BUS_MAX_FREQ;
-	prot |= SPI_MODE_GET(config->operation) & SPI_MODE_CPOL ?
-		SPI_CTL0_SPO_HIGH : SPI_CTL0_SPO_LOW;
-	prot |= SPI_MODE_GET(config->operation) & SPI_MODE_CPHA ?
-		SPI_CTL0_SPH_SECOND : SPI_CTL0_SPH_FIRST;
+	prot |= SPI_MODE_GET(config->operation) & SPI_MODE_CPOL ? SPI_CTL0_SPO_HIGH
+								: SPI_CTL0_SPO_LOW;
+	prot |= SPI_MODE_GET(config->operation) & SPI_MODE_CPHA ? SPI_CTL0_SPH_SECOND
+								: SPI_CTL0_SPH_FIRST;
 
 	SPIConfigSetExpClk(cfg->base, cfg->sys_clk_freq, prot, mode, freq, 8);
 	sys_write32(SPI_IFLS_RXSEL_LEVEL_1 | SPI_IFLS_TXSEL_LVL_1_2, cfg->base + SPI_O_IFLS);
 
 	if (config->operation & SPI_TRANSFER_LSB) {
 		sys_write32((sys_read32(cfg->base + SPI_O_CTL1) & ~SPI_CTL1_MSB_M) |
-				SPI_CTL1_MSB_LSB,
-			cfg->base + SPI_O_CTL1);
+				    SPI_CTL1_MSB_LSB,
+			    cfg->base + SPI_O_CTL1);
 	}
 
 	sys_write32(BIT(0), cfg->base + SPI_O_CLKCFG);
@@ -247,8 +248,8 @@ static int spi_cc35xx_dma_transmit_next_packet(const struct device *dev,
 
 	if ((dir == SPI_CC35XX_TRANSFER_DIR_RX) || (dir == SPI_CC35XX_TRANSFER_DIR_BOTH)) {
 		if (dir == SPI_CC35XX_TRANSFER_DIR_RX) {
-			rx_dma_len = ctx->rx_len ? ctx->rx_len :
-						   ctx->tx_len - data->dma_tx.transfer_length;
+			rx_dma_len = ctx->rx_len ? ctx->rx_len
+						 : ctx->tx_len - data->dma_tx.transfer_length;
 			data->dma_rx.transfer_length = ctx->rx_len ? rx_dma_len : 0;
 		} else {
 			rx_dma_len = spi_cc35xx_dma_transfer_size(dev);
@@ -261,8 +262,8 @@ static int spi_cc35xx_dma_transmit_next_packet(const struct device *dev,
 				return ret;
 			}
 		} else {
-			dir = (dir == SPI_CC35XX_TRANSFER_DIR_BOTH) ? SPI_CC35XX_TRANSFER_DIR_TX :
-								      SPI_CC35XX_TRANSFER_DIR_NONE;
+			dir = (dir == SPI_CC35XX_TRANSFER_DIR_BOTH) ? SPI_CC35XX_TRANSFER_DIR_TX
+								    : SPI_CC35XX_TRANSFER_DIR_NONE;
 		}
 
 		data->dma_status_flags &= ~SPI_CC35XX_DMA_RX_TRANSFER_DONE;
@@ -270,8 +271,8 @@ static int spi_cc35xx_dma_transmit_next_packet(const struct device *dev,
 
 	if ((dir == SPI_CC35XX_TRANSFER_DIR_TX) || (dir == SPI_CC35XX_TRANSFER_DIR_BOTH)) {
 		if (dir == SPI_CC35XX_TRANSFER_DIR_TX) {
-			tx_dma_len = ctx->tx_len ? ctx->tx_len :
-						   ctx->rx_len - data->dma_rx.transfer_length;
+			tx_dma_len = ctx->tx_len ? ctx->tx_len
+						 : ctx->rx_len - data->dma_rx.transfer_length;
 			data->dma_tx.transfer_length = ctx->tx_len ? tx_dma_len : 0;
 		} else {
 			tx_dma_len = spi_cc35xx_dma_transfer_size(dev);
@@ -284,8 +285,8 @@ static int spi_cc35xx_dma_transmit_next_packet(const struct device *dev,
 				return ret;
 			}
 		} else {
-			dir = (dir == SPI_CC35XX_TRANSFER_DIR_BOTH) ? SPI_CC35XX_TRANSFER_DIR_RX :
-								      SPI_CC35XX_TRANSFER_DIR_NONE;
+			dir = (dir == SPI_CC35XX_TRANSFER_DIR_BOTH) ? SPI_CC35XX_TRANSFER_DIR_RX
+								    : SPI_CC35XX_TRANSFER_DIR_NONE;
 		}
 
 		data->dma_status_flags &= ~SPI_CC35XX_DMA_TX_TRANSFER_DONE;
@@ -322,11 +323,10 @@ static void spi_cc35xx_slave_transceive(const struct device *dev)
 #endif /* CONFIG_SPI_SLAVE */
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 
-static int spi_cc35xx_transceive(const struct device *dev,
-				 const struct spi_config *config,
+static int spi_cc35xx_transceive(const struct device *dev, const struct spi_config *config,
 				 const struct spi_buf_set *tx_bufs,
-				 const struct spi_buf_set *rx_bufs,
-				 spi_callback_t cb, void *userdata, bool async)
+				 const struct spi_buf_set *rx_bufs, spi_callback_t cb,
+				 void *userdata, bool async)
 {
 	struct spi_cc35xx_data *data = dev->data;
 	struct spi_context *ctx = &data->ctx;
@@ -516,8 +516,8 @@ static void spi_cc35xx_isr(const struct device *dev)
 	}
 #endif /* CONFIG_SPI_SLAVE */
 
-	if (data->dma_status_flags == (SPI_CC35XX_DMA_RX_TRANSFER_DONE |
-					SPI_CC35XX_DMA_TX_TRANSFER_DONE)) {
+	if (data->dma_status_flags ==
+	    (SPI_CC35XX_DMA_RX_TRANSFER_DONE | SPI_CC35XX_DMA_TX_TRANSFER_DONE)) {
 		spi_context_update_rx(&data->ctx, SPI_CC35XX_DFS,
 				      data->ctx.rx_len ? data->dma_rx.transfer_length : 0);
 		spi_context_update_tx(&data->ctx, SPI_CC35XX_DFS,
@@ -537,29 +537,26 @@ static void spi_cc35xx_isr(const struct device *dev)
 		spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_BOTH);
 	}
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
-
 }
 
 #ifdef CONFIG_SPI_ASYNC
-static int spi_cc35xx_transceive_async(const struct device *dev,
-				       const struct spi_config *config,
+static int spi_cc35xx_transceive_async(const struct device *dev, const struct spi_config *config,
 				       const struct spi_buf_set *tx_bufs,
-				       const struct spi_buf_set *rx_bufs,
-				       spi_callback_t cb, void *userdata)
+				       const struct spi_buf_set *rx_bufs, spi_callback_t cb,
+				       void *userdata)
 {
 	return spi_cc35xx_transceive(dev, config, tx_bufs, rx_bufs, cb, userdata, true);
 }
 #endif /* CONFIG_SPI_ASYNC */
 
-static int spi_cc35xx_transceive_sync(const struct device *dev,
-				      const struct spi_config *config,
+static int spi_cc35xx_transceive_sync(const struct device *dev, const struct spi_config *config,
 				      const struct spi_buf_set *tx_bufs,
 				      const struct spi_buf_set *rx_bufs)
 {
 	return spi_cc35xx_transceive(dev, config, tx_bufs, rx_bufs, NULL, NULL, false);
 }
 
-static const struct spi_driver_api spi_cc35xx_driver_api = {
+static DEVICE_API(spi, spi_cc35xx_driver_api) = {
 	.transceive = spi_cc35xx_transceive_sync,
 #ifdef CONFIG_SPI_ASYNC
 	.transceive_async = spi_cc35xx_transceive_async,
@@ -653,7 +650,6 @@ static int spi_cc35xx_dma_start(const struct device *dev, enum transfer_directio
 			return ret;
 		}
 		SPIEnableDMA(cfg->base, SPI_DMACR_TXEN);
-
 	}
 
 	if ((dir == SPI_CC35XX_TRANSFER_DIR_RX) || (dir == SPI_CC35XX_TRANSFER_DIR_BOTH)) {
@@ -697,7 +693,6 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 
 	return 0;
 }
-
 
 #define SPI_CC35XX_DMA_CHANNEL_INIT(n, dir, ch_dir, src_burst, dst_burst)                          \
 	.dev_dma = DEVICE_DT_GET(DT_INST_DMAS_CTLR_BY_NAME(n, dir)),                               \
@@ -745,7 +740,7 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 		err = SPI_CC35XX_DMA_INIT_FUNC(dev);                                               \
 		if (err < 0)                                                                       \
 			return err;                                                                \
-	                                                                                                   \
+                                                                                                   \
 		return 0;                                                                          \
 	}
 
@@ -769,9 +764,8 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 		SPI_CONTEXT_INIT_LOCK(spi_cc35xx_data_##n, ctx),                                   \
 		SPI_CONTEXT_INIT_SYNC(spi_cc35xx_data_##n, ctx),                                   \
 		SPI_CC35XX_DMA_CHANNEL(n, tx, MEMORY_TO_PERIPHERAL, 8, 1)                          \
-		SPI_CC35XX_DMA_CHANNEL(n, rx, PERIPHERAL_TO_MEMORY, 1, 8)                          \
-		SPI_CONTEXT_CS_GPIOS_INITIALIZE(DT_DRV_INST(n), ctx)                               \
-	};                                                                                         \
+			SPI_CC35XX_DMA_CHANNEL(n, rx, PERIPHERAL_TO_MEMORY, 1, 8)                  \
+				SPI_CONTEXT_CS_GPIOS_INITIALIZE(DT_DRV_INST(n), ctx)};             \
 	SPI_CC35XX_DEVICE_INIT(n);
 
 DT_INST_FOREACH_STATUS_OKAY(SPI_CC35XX_INIT)

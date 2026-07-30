@@ -113,7 +113,7 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 	ADCDisableConversion();
 
 	data->dma.blk_cfg.source_address = config->base + ADC_O_FIFODATA;
-	data->dma.blk_cfg.dest_address =  (uint32_t)data->buffer;
+	data->dma.blk_cfg.dest_address = (uint32_t)data->buffer;
 	data->dma.blk_cfg.block_size = sizeof(uint16_t) * data->active_channels;
 
 	sys_write32(ADC_INT_CHAN_MASK, ADC_BASE + ADC_O_INTEVT2CLR);
@@ -214,8 +214,8 @@ static int adc_cc35xx_channel_setup(const struct device *dev,
 	int vref;
 
 	if (ch >= CC35XX_CHAN_COUNT) {
-		LOG_ERR("Channel %d is not available, hardware max channel is %d",
-			ch, CC35XX_CHAN_COUNT);
+		LOG_ERR("Channel %d is not available, hardware max channel is %d", ch,
+			CC35XX_CHAN_COUNT);
 		return -EINVAL;
 	}
 
@@ -389,14 +389,22 @@ static void adc_cc35xx_isr(const struct device *dev)
 static uint32_t adc_cc35xx_sclkdiv_reg_val(int div)
 {
 	switch (div) {
-	case 1: return ADC_CLOCK_DIVIDER_1;
-	case 2: return ADC_CLOCK_DIVIDER_2;
-	case 4: return ADC_CLOCK_DIVIDER_4;
-	case 8: return ADC_CLOCK_DIVIDER_8;
-	case 16: return ADC_CLOCK_DIVIDER_16;
-	case 24: return ADC_CLOCK_DIVIDER_24;
-	case 32: return ADC_CLOCK_DIVIDER_32;
-	case 48: return ADC_CLOCK_DIVIDER_48;
+	case 1:
+		return ADC_CLOCK_DIVIDER_1;
+	case 2:
+		return ADC_CLOCK_DIVIDER_2;
+	case 4:
+		return ADC_CLOCK_DIVIDER_4;
+	case 8:
+		return ADC_CLOCK_DIVIDER_8;
+	case 16:
+		return ADC_CLOCK_DIVIDER_16;
+	case 24:
+		return ADC_CLOCK_DIVIDER_24;
+	case 32:
+		return ADC_CLOCK_DIVIDER_32;
+	case 48:
+		return ADC_CLOCK_DIVIDER_48;
 	default:
 		__ASSERT(0, "Invalid ADC clock divider passed");
 		return ADC_CLOCK_DIVIDER_1;
@@ -443,7 +451,7 @@ static int adc_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-static const struct adc_driver_api cc35xx_driver_api = {
+static DEVICE_API(adc, cc35xx_driver_api) = {
 	.channel_setup = adc_cc35xx_channel_setup,
 	.read = adc_cc35xx_read_sync,
 #ifdef CONFIG_ADC_ASYNC
@@ -485,8 +493,7 @@ static const struct adc_driver_api cc35xx_driver_api = {
 		ADC_CONTEXT_INIT_TIMER(adc_cc35xx_data_##n, ctx),                                  \
 		ADC_CONTEXT_INIT_LOCK(adc_cc35xx_data_##n, ctx),                                   \
 		ADC_CONTEXT_INIT_SYNC(adc_cc35xx_data_##n, ctx),                                   \
-		ADC_CC35XX_DMA_CHANNEL(n, rx, 1, 1)                                                \
-	};                                                                                         \
+		ADC_CC35XX_DMA_CHANNEL(n, rx, 1, 1)};                                              \
 	DEVICE_DT_INST_DEFINE(n, &adc_cc35xx_init, NULL, &adc_cc35xx_data_##n,                     \
 			      &adc_cc35xx_cfg_##n, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY,          \
 			      &cc35xx_driver_api);

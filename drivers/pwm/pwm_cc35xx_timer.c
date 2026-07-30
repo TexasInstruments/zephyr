@@ -17,10 +17,10 @@
 #define LOG_MODULE_NAME pwm_cc35xx_lgpt
 LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_PWM_LOG_LEVEL);
 
-#define GPTIMER_O_CXCC(index)	(GPTIMER_O_C0CC + ((index) * 4))
-#define GPTIMER_O_CXCFG(index)	(GPTIMER_O_C0CFG + ((index) * 4))
-#define TI_CC35XX_CNTR_START	0x01
-#define TI_CC35XX_CNTR_STOP	0x00
+#define GPTIMER_O_CXCC(index)  (GPTIMER_O_C0CC + ((index) * 4))
+#define GPTIMER_O_CXCFG(index) (GPTIMER_O_C0CFG + ((index) * 4))
+#define TI_CC35XX_CNTR_START   0x01
+#define TI_CC35XX_CNTR_STOP    0x00
 
 struct pwm_cc35xx_config {
 	const uint32_t base;
@@ -68,39 +68,39 @@ static int pwm_cc35xx_get_cycles_per_sec(const struct device *dev, uint32_t chan
 	return 0;
 }
 
-static const struct pwm_driver_api pwm_cc35xx_api = {
+static DEVICE_API(pwm, pwm_cc35xx_api) = {
 	.set_cycles = pwm_cc35xx_set_cycles,
 	.get_cycles_per_sec = pwm_cc35xx_get_cycles_per_sec,
 };
 
-#define DT_TIMER(n) DT_INST_PARENT(n)
+#define DT_TIMER(n)           DT_INST_PARENT(n)
 #define DT_TIMER_BASE_ADDR(n) (DT_REG_ADDR(DT_TIMER(n)))
 
-#define PWM_CC35XX_INIT_FUNC(n)									\
-	static int pwm_cc35xx_init_##n(const struct device *dev)				\
-	{											\
-		const struct pwm_cc35xx_config *config = dev->config;				\
-		int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);		\
-		if (ret < 0) {									\
-			LOG_ERR("[ERR] failed to setup PWM pinctrl");				\
-			return ret;								\
-		}										\
-		return 0;									\
+#define PWM_CC35XX_INIT_FUNC(n)                                                                    \
+	static int pwm_cc35xx_init_##n(const struct device *dev)                                   \
+	{                                                                                          \
+		const struct pwm_cc35xx_config *config = dev->config;                              \
+		int ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);                \
+		if (ret < 0) {                                                                     \
+			LOG_ERR("[ERR] failed to setup PWM pinctrl");                              \
+			return ret;                                                                \
+		}                                                                                  \
+		return 0;                                                                          \
 	}
 
-#define PWM_CC35XX_INIT(n)									\
-	PWM_CC35XX_INIT_FUNC(n);								\
-	PINCTRL_DT_INST_DEFINE(n);								\
-	LOG_INSTANCE_REGISTER(LOG_MODULE_NAME, n, CONFIG_PWM_LOG_LEVEL);			\
-												\
-	static const struct pwm_cc35xx_config cc35xx_pwm_config_##n = {				\
-		.base = DT_TIMER_BASE_ADDR(n),							\
-		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),					\
-		.freq = DT_PROP(DT_PATH(gptimer_clock), clock_frequency),			\
-		.prescale = DT_PROP(DT_INST_PARENT(n), clk_prescale),				\
-		.channel = n,									\
-	};											\
-	DEVICE_DT_INST_DEFINE(n, &pwm_cc35xx_init_##n, NULL, NULL, &cc35xx_pwm_config_##n,	\
+#define PWM_CC35XX_INIT(n)                                                                         \
+	PWM_CC35XX_INIT_FUNC(n);                                                                   \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	LOG_INSTANCE_REGISTER(LOG_MODULE_NAME, n, CONFIG_PWM_LOG_LEVEL);                           \
+                                                                                                   \
+	static const struct pwm_cc35xx_config cc35xx_pwm_config_##n = {                            \
+		.base = DT_TIMER_BASE_ADDR(n),                                                     \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+		.freq = DT_PROP(DT_PATH(gptimer_clock), clock_frequency),                          \
+		.prescale = DT_PROP(DT_INST_PARENT(n), clk_prescale),                              \
+		.channel = n,                                                                      \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(n, &pwm_cc35xx_init_##n, NULL, NULL, &cc35xx_pwm_config_##n,         \
 			      POST_KERNEL, CONFIG_PWM_INIT_PRIORITY, &pwm_cc35xx_api);
 
 DT_INST_FOREACH_STATUS_OKAY(PWM_CC35XX_INIT);

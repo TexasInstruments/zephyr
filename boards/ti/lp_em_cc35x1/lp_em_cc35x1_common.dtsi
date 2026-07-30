@@ -207,7 +207,7 @@
 	pinctrl-0 = <&adc0_default>;
 	pinctrl-names = "default";
 	dmas = <&dma 6 CC35XX_DMA_SET_CONFIG(CC35xx_DMA_PERIPH_ADC)>;
-	vref_internal_mv = <1400>;
+	vref-internal-mv = <1400>;
 
 	channel@4 {
 		reg = <0x4>;

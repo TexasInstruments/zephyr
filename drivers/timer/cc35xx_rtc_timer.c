@@ -37,8 +37,8 @@
 
 /* Set RTC interrupt to lowest priority */
 #define RTC_ISR_PRIORITY 3U
-#define CC35XX_RTC_NODE DT_NODELABEL(rtc)
-#define CC35XX_RTC_BASE DT_REG_ADDR(CC35XX_RTC_NODE)
+#define CC35XX_RTC_NODE  DT_NODELABEL(rtc)
+#define CC35XX_RTC_BASE  DT_REG_ADDR(CC35XX_RTC_NODE)
 
 static struct k_spinlock lock;
 
@@ -48,7 +48,6 @@ static uint32_t last_rtc_count;
 static void rtc_isr(const void *arg);
 static int sys_clock_driver_init(void);
 static uint32_t sys_clock_elapsed_ticks(uint32_t current, uint32_t last);
-
 
 /*
  * Set system clock timeout.
@@ -82,8 +81,7 @@ void sys_clock_set_timeout(int32_t ticks, bool idle)
 		/* This should wrap around */
 		sys_write32(last_rtc_count + timeout, CC35XX_RTC_BASE + RTC_O_CH0CC1U);
 	} else {
-		sys_write32(last_rtc_count + RTC_TIMEOUT_MAX,
-			   CC35XX_RTC_BASE + RTC_O_CH0CC1U);
+		sys_write32(last_rtc_count + RTC_TIMEOUT_MAX, CC35XX_RTC_BASE + RTC_O_CH0CC1U);
 	}
 	k_spin_unlock(&lock, key);
 }
@@ -131,7 +129,6 @@ void rtc_isr(const void *arg)
 	k_spin_unlock(&lock, key);
 	sys_clock_announce(elapsed_ticks);
 
-
 	/* Do not re-arm RTC. Zephyr will do so through sys_clock_set_timeout */
 }
 
@@ -170,8 +167,7 @@ static uint32_t sys_clock_elapsed_ticks(uint32_t current, uint32_t last)
 	if (current >= last) {
 		return (current / TICK_PERIOD_SYS) - (last / TICK_PERIOD_SYS);
 	} else {
-		return ((0xFFFFFFFF - last) / TICK_PERIOD_SYS) +
-		(current / TICK_PERIOD_SYS);
+		return ((0xFFFFFFFF - last) / TICK_PERIOD_SYS) + (current / TICK_PERIOD_SYS);
 	}
 }
 

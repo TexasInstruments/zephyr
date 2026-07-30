@@ -22,10 +22,10 @@
 #include <zephyr/logging/log_ctrl.h>
 LOG_MODULE_REGISTER(wdt_cc35xx);
 
-#define LFCLK_FREQ_HZ                     DT_INST_PROP_BY_PHANDLE(0, clocks, clock_frequency)
-#define CC35XX_MAX_RELOAD_TICKS           0x7FFFFF
-#define CC35XX_MIN_RELOAD_TICKS           0x2
-#define CC35XX_WATCHDOG_TICK_FREQ_HZ      (LFCLK_FREQ_HZ >> (HOSTMCU_AON_CFGWDT_THR_S))
+#define LFCLK_FREQ_HZ                DT_INST_PROP_BY_PHANDLE(0, clocks, clock_frequency)
+#define CC35XX_MAX_RELOAD_TICKS      0x7FFFFF
+#define CC35XX_MIN_RELOAD_TICKS      0x2
+#define CC35XX_WATCHDOG_TICK_FREQ_HZ (LFCLK_FREQ_HZ >> (HOSTMCU_AON_CFGWDT_THR_S))
 
 struct wdt_cc35xx_data {
 	uint32_t reload;
@@ -76,8 +76,7 @@ static int wdt_cc35xx_disable(const struct device *dev)
 	return 0;
 }
 
-static int wdt_cc35xx_install_timeout(const struct device *dev,
-				      const struct wdt_timeout_cfg *cfg)
+static int wdt_cc35xx_install_timeout(const struct device *dev, const struct wdt_timeout_cfg *cfg)
 {
 	struct wdt_cc35xx_data *data = dev->data;
 
@@ -116,8 +115,8 @@ static int wdt_cc35xx_init(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 
-	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority),
-		    wdt_cc35xx_isr, DEVICE_DT_INST_GET(0), 0);
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), wdt_cc35xx_isr,
+		    DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
 
 	if (IS_ENABLED(CONFIG_WDT_DISABLE_AT_BOOT)) {
@@ -133,22 +132,19 @@ static int wdt_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-static struct wdt_driver_api wdt_cc35xx_api = {
+static DEVICE_API(wdt, wdt_cc35xx_api) = {
 	.setup = wdt_cc35xx_setup,
 	.disable = wdt_cc35xx_disable,
 	.install_timeout = wdt_cc35xx_install_timeout,
 	.feed = wdt_cc35xx_feed,
 };
 
-#define CC35XX_WDT_INIT(n)							 \
-	static struct wdt_cc35xx_data wdt_cc35xx_data_##n = {			 \
-		.reload = 0,							 \
-	};									 \
-										 \
-	DEVICE_DT_INST_DEFINE(n,						 \
-			      &wdt_cc35xx_init, NULL,				 \
-			      &wdt_cc35xx_data_##n, NULL,			 \
-			      POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT,	 \
-			      &wdt_cc35xx_api);
+#define CC35XX_WDT_INIT(n)                                                                         \
+	static struct wdt_cc35xx_data wdt_cc35xx_data_##n = {                                      \
+		.reload = 0,                                                                       \
+	};                                                                                         \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(n, &wdt_cc35xx_init, NULL, &wdt_cc35xx_data_##n, NULL, POST_KERNEL,  \
+			      CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &wdt_cc35xx_api);
 
 DT_INST_FOREACH_STATUS_OKAY(CC35XX_WDT_INIT);

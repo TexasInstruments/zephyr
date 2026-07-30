@@ -17,18 +17,18 @@
 #include <inc/hw_types.h>
 #include <inc/hw_memmap.h>
 
-#define TI_CC35XX_COUNTER_CHANNELS	4
-#define TI_CC35XX_CXCFG										\
+#define TI_CC35XX_COUNTER_CHANNELS 4
+#define TI_CC35XX_CXCFG                                                                            \
 	(GPTIMER_C0CFG_EDGE_RISE | GPTIMER_C0CFG_INPUT_EV | GPTIMER_C0CFG_CCACT_TGL_ON_CMP_DIS)
-#define TI_CC35XX_CHAN_DISABLE		0
-#define TI_CC35XX_CNTR_START		0x01
-#define TI_CC35XX_CNTR_STOP		0x00
+#define TI_CC35XX_CHAN_DISABLE 0
+#define TI_CC35XX_CNTR_START   0x01
+#define TI_CC35XX_CNTR_STOP    0x00
 
-#define GPTIMER_O_CXCC(index)		(GPTIMER_O_C0CC + ((index) * 4))
-#define GPTIMER_O_CXCFG(index)		(GPTIMER_O_C0CFG + ((index) * 4))
+#define GPTIMER_O_CXCC(index)  (GPTIMER_O_C0CC + ((index) * 4))
+#define GPTIMER_O_CXCFG(index) (GPTIMER_O_C0CFG + ((index) * 4))
 
-#define GPTIMER_IMCLR_CXCC_CLR(index)	(GPTIMER_IMCLR_C0CC_CLR << (index))
-#define GPTIMER_IMSET_CXCC_SET(index)	(GPTIMER_IMSET_C0CC_SET << (index))
+#define GPTIMER_IMCLR_CXCC_CLR(index) (GPTIMER_IMCLR_C0CC_CLR << (index))
+#define GPTIMER_IMSET_CXCC_SET(index) (GPTIMER_IMSET_C0CC_SET << (index))
 
 struct counter_cc35xx_gptimer_config {
 	struct counter_config_info counter_info;
@@ -89,7 +89,7 @@ static uint32_t counter_cc35xx_gptimer_get_freq(const struct device *dev)
 }
 
 static int counter_cc35xx_gptimer_set_alarm(const struct device *dev, uint8_t chan_id,
-					     const struct counter_alarm_cfg *alarm_cfg)
+					    const struct counter_alarm_cfg *alarm_cfg)
 {
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
 	struct counter_cc35xx_gptimer_data *data = dev->data;
@@ -109,7 +109,8 @@ static int counter_cc35xx_gptimer_set_alarm(const struct device *dev, uint8_t ch
 	 * of the counter register.
 	 */
 	if (!(alarm_cfg->flags & COUNTER_ALARM_CFG_ABSOLUTE)) {
-		uint64_t absolute_ticks = (uint64_t)sys_read32(config->base + GPTIMER_O_CNTR) + ticks;
+		uint64_t absolute_ticks =
+			(uint64_t)sys_read32(config->base + GPTIMER_O_CNTR) + ticks;
 
 		if (top != UINT32_MAX) {
 			absolute_ticks %= (uint64_t)top + 1U;
@@ -159,7 +160,7 @@ static uint32_t counter_cc35xx_gptimer_get_top_value(const struct device *dev)
 }
 
 static int counter_cc35xx_gptimer_set_top_value(const struct device *dev,
-						 const struct counter_top_cfg *cfg)
+						const struct counter_top_cfg *cfg)
 {
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
 	struct counter_cc35xx_gptimer_data *data = dev->data;
@@ -229,7 +230,7 @@ static int counter_cc35xx_gptimer_stop(const struct device *dev)
 	return 0;
 }
 
-static const struct counter_driver_api cc35xx_counter_api = {
+static DEVICE_API(counter, cc35xx_counter_api) = {
 	.start = counter_cc35xx_gptimer_start,
 	.stop = counter_cc35xx_gptimer_stop,
 	.get_value = counter_cc35xx_gptimer_get_value,
@@ -243,37 +244,37 @@ static const struct counter_driver_api cc35xx_counter_api = {
 
 #define GPTIMER_CLK_PRESCALE(pres) ((pres) << 8)
 
-#define COUNTER_CC35XX_INIT_FUNC(inst)								\
-	static int counter_cc35xx_init_##inst(const struct device *dev)				\
-	{											\
-		const struct counter_cc35xx_gptimer_config *config = dev->config;		\
-		sys_write32(GPTIMER_CLKCFG_ENABLE, config->base + GPTIMER_O_CLKCFG);		\
+#define COUNTER_CC35XX_INIT_FUNC(inst)                                                             \
+	static int counter_cc35xx_init_##inst(const struct device *dev)                            \
+	{                                                                                          \
+		const struct counter_cc35xx_gptimer_config *config = dev->config;                  \
+		sys_write32(GPTIMER_CLKCFG_ENABLE, config->base + GPTIMER_O_CLKCFG);               \
 		sys_write32(GPTIMER_CTL_CMPDIR_BOTH | GPTIMER_CTL_INTP_LATE | GPTIMER_EMU_HALT_EN, \
-			    config->base + GPTIMER_O_CTL);					\
-		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),			\
-			    counter_cc35xx_gptimer_isr, DEVICE_DT_INST_GET(inst), 0);		\
-		irq_enable(DT_INST_IRQN(inst));							\
-		sys_write32(config->counter_info.max_top_value, config->base + GPTIMER_O_TGT);	\
-		sys_write32(GPTIMER_CLK_PRESCALE(config->prescale),				\
-			    config->base + GPTIMER_O_PRECFG);					\
-		return 0;									\
+			    config->base + GPTIMER_O_CTL);                                         \
+		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),                       \
+			    counter_cc35xx_gptimer_isr, DEVICE_DT_INST_GET(inst), 0);              \
+		irq_enable(DT_INST_IRQN(inst));                                                    \
+		sys_write32(config->counter_info.max_top_value, config->base + GPTIMER_O_TGT);     \
+		sys_write32(GPTIMER_CLK_PRESCALE(config->prescale),                                \
+			    config->base + GPTIMER_O_PRECFG);                                      \
+		return 0;                                                                          \
 	}
 
-#define COUNTER_CC35XX_INIT(inst)								\
-	COUNTER_CC35XX_INIT_FUNC(inst);								\
-	static const struct counter_cc35xx_gptimer_config cc35xx_counter_config_##inst = {	\
-		.counter_info = {								\
-			.max_top_value = DT_INST_PROP(inst, max_top_value),			\
-			.flags = COUNTER_CONFIG_INFO_COUNT_UP,					\
-			.channels = TI_CC35XX_COUNTER_CHANNELS,					\
-		},										\
-		.base = DT_INST_REG_ADDR(inst),							\
-		.prescale = DT_INST_PROP(inst, clk_prescale),					\
-		.freq = DT_INST_PROP_BY_PHANDLE(inst, clocks, clock_frequency)			\
-	};											\
-	static struct counter_cc35xx_gptimer_data cc35xx_counter_data_##inst;			\
-	DEVICE_DT_INST_DEFINE(inst, &counter_cc35xx_init_##inst, NULL,				\
-			      &cc35xx_counter_data_##inst, &cc35xx_counter_config_##inst,	\
+#define COUNTER_CC35XX_INIT(inst)                                                                  \
+	COUNTER_CC35XX_INIT_FUNC(inst);                                                            \
+	static const struct counter_cc35xx_gptimer_config cc35xx_counter_config_##inst = {         \
+		.counter_info =                                                                    \
+			{                                                                          \
+				.max_top_value = DT_INST_PROP(inst, max_top_value),                \
+				.flags = COUNTER_CONFIG_INFO_COUNT_UP,                             \
+				.channels = TI_CC35XX_COUNTER_CHANNELS,                            \
+			},                                                                         \
+		.base = DT_INST_REG_ADDR(inst),                                                    \
+		.prescale = DT_INST_PROP(inst, clk_prescale),                                      \
+		.freq = DT_INST_PROP_BY_PHANDLE(inst, clocks, clock_frequency)};                   \
+	static struct counter_cc35xx_gptimer_data cc35xx_counter_data_##inst;                      \
+	DEVICE_DT_INST_DEFINE(inst, &counter_cc35xx_init_##inst, NULL,                             \
+			      &cc35xx_counter_data_##inst, &cc35xx_counter_config_##inst,          \
 			      POST_KERNEL, CONFIG_COUNTER_INIT_PRIORITY, &cc35xx_counter_api);
 
 DT_INST_FOREACH_STATUS_OKAY(COUNTER_CC35XX_INIT);

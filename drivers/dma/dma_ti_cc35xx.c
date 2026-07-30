@@ -80,13 +80,11 @@ static inline uint32_t dma_cc35xx_pending_length(uint32_t channel)
 
 	/* Wait for the correct value of pending length after aborted transaction */
 	while (timeout--) {
-
 	};
 
-	return (dma_cc35xx_get_channel_status_reg(channel) &
-		HOST_DMA_CH0TSTA_REMAINB_M) >> HOST_DMA_CH0TSTA_REMAINB_S;
+	return (dma_cc35xx_get_channel_status_reg(channel) & HOST_DMA_CH0TSTA_REMAINB_M) >>
+	       HOST_DMA_CH0TSTA_REMAINB_S;
 }
-
 
 static void dma_cc35xx_disable_channel(uint32_t channel)
 {
@@ -112,8 +110,7 @@ static void dma_cc35xx_init_channel(uint32_t channel)
 	sys_write32(DMA_CMD_INIT, addr);
 }
 
-static int dma_cc35xx_config(const struct device *dev, uint32_t channel,
-	struct dma_config *config)
+static int dma_cc35xx_config(const struct device *dev, uint32_t channel, struct dma_config *config)
 {
 	struct dma_cc35xx_data *data = dev->data;
 	struct dma_cc35xx_channel *ch_data;
@@ -133,8 +130,8 @@ static int dma_cc35xx_config(const struct device *dev, uint32_t channel,
 	periph_index = CC35xx_DMA_GET_PERIPH_INDEX(config->dma_slot);
 	dma_config = DMA_CONFIG_CLEAR_AT_JOB_START;
 
-	if (!periph_index && ((config->channel_direction == MEMORY_TO_PERIPHERAL)
-	    || (config->channel_direction == PERIPHERAL_TO_MEMORY))) {
+	if (!periph_index && ((config->channel_direction == MEMORY_TO_PERIPHERAL) ||
+			      (config->channel_direction == PERIPHERAL_TO_MEMORY))) {
 		LOG_ERR("Invalid configuration, peripheral not selected");
 		return -EINVAL;
 	}
@@ -229,8 +226,8 @@ static int dma_cc35xx_stop(const struct device *dev, uint32_t channel)
 	return 0;
 }
 
-static int dma_cc35xx_reload(const struct device *dev, uint32_t channel,
-			     uint32_t src, uint32_t dst, size_t size)
+static int dma_cc35xx_reload(const struct device *dev, uint32_t channel, uint32_t src, uint32_t dst,
+			     size_t size)
 {
 	struct dma_cc35xx_data *data = dev->data;
 	int num_dma_channels = data->ctx.dma_channels;
@@ -292,7 +289,6 @@ static void dma_cc35xx_isr(const struct device *dev)
 	}
 }
 
-
 static void dma_CC35XX_channels_init(struct dma_cc35xx_data *data)
 {
 	int i;
@@ -308,8 +304,8 @@ static int dma_cc35xx_init(const struct device *dev)
 
 	data->channel_control = 0;
 
-	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority),
-		    dma_cc35xx_isr, DEVICE_DT_INST_GET(0), 0);
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), dma_cc35xx_isr,
+		    DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
 	dma_CC35XX_channels_init(data);
 	dma_cc35xx_int_disable(DMA_INT_ALL);
@@ -317,7 +313,7 @@ static int dma_cc35xx_init(const struct device *dev)
 	return 0;
 }
 
-static const struct dma_driver_api dma_cc35xx_driver_api = {
+static DEVICE_API(dma, dma_cc35xx_driver_api) = {
 	.config = dma_cc35xx_config,
 	.reload = dma_cc35xx_reload,
 	.get_status = dma_cc35xx_get_status,
@@ -325,23 +321,22 @@ static const struct dma_driver_api dma_cc35xx_driver_api = {
 	.stop = dma_cc35xx_stop,
 };
 
-#define CC35XX_DMA_INIT(inst)                                                   \
-										\
-	static struct dma_cc35xx_channel                                        \
-		dma_cc35xx##inst##_channels[DT_INST_PROP(inst, dma_channels)];  \
-	ATOMIC_DEFINE(dma_cc35xx_atomic##inst,                                  \
-		      DT_INST_PROP(inst, dma_channels));                        \
-	static struct dma_cc35xx_data dma_cc35xx##inst##_data = {               \
-		.ctx =  {                                                       \
-			.magic = DMA_MAGIC,                                     \
-			.atomic = dma_cc35xx_atomic##inst,                      \
-			.dma_channels = DT_INST_PROP(inst, dma_channels),       \
-		},                                                              \
-		.channels = dma_cc35xx##inst##_channels,                        \
-	};                                                                      \
-	DEVICE_DT_INST_DEFINE(inst, &dma_cc35xx_init, NULL,                     \
-			      &dma_cc35xx##inst##_data,                         \
-			      &dma_cc35xx_config, PRE_KERNEL_1,         \
-			      CONFIG_DMA_INIT_PRIORITY, &dma_cc35xx_driver_api);
+#define CC35XX_DMA_INIT(inst)                                                                      \
+                                                                                                   \
+	static struct dma_cc35xx_channel                                                           \
+		dma_cc35xx##inst##_channels[DT_INST_PROP(inst, dma_channels)];                     \
+	ATOMIC_DEFINE(dma_cc35xx_atomic##inst, DT_INST_PROP(inst, dma_channels));                  \
+	static struct dma_cc35xx_data dma_cc35xx##inst##_data = {                                  \
+		.ctx =                                                                             \
+			{                                                                          \
+				.magic = DMA_MAGIC,                                                \
+				.atomic = dma_cc35xx_atomic##inst,                                 \
+				.dma_channels = DT_INST_PROP(inst, dma_channels),                  \
+			},                                                                         \
+		.channels = dma_cc35xx##inst##_channels,                                           \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(inst, &dma_cc35xx_init, NULL, &dma_cc35xx##inst##_data,              \
+			      &dma_cc35xx_config, PRE_KERNEL_1, CONFIG_DMA_INIT_PRIORITY,          \
+			      &dma_cc35xx_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(CC35XX_DMA_INIT)

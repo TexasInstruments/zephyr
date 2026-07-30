@@ -197,7 +197,7 @@ static void uart_cc35xx_poll_out(const struct device *dev, unsigned char c)
 	}
 }
 
-static const struct uart_driver_api uart_cc35xx_driver_api = {
+static DEVICE_API(uart, uart_cc35xx_driver_api) = {
 	.poll_in = uart_cc35xx_poll_in,
 	.poll_out = uart_cc35xx_poll_out,
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN

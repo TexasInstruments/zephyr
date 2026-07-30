@@ -532,8 +532,8 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 		 */
 		hsm_reg_addr = HSMCRYPTO_BASE + HSMCRYPTO_O_MBSTA;
 		while ((sys_read32(hsm_reg_addr) & HSMCRYPTO_MBSTA_MB1IN_M) ==
-		       HSMCRYPTO_MBSTA_MB1IN_FULL)
-			;
+		       HSMCRYPTO_MBSTA_MB1IN_FULL) {
+		}
 
 		/* Mailbox is empty so we can write the system info token to mbx1_in */
 		for (idx = 0; idx < ARRAY_SIZE(token); idx++) {
@@ -555,8 +555,8 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 		 */
 		hsm_reg_addr = HSMCRYPTO_BASE + HSMCRYPTO_O_MBSTA;
 		while ((sys_read32(hsm_reg_addr) & HSMCRYPTO_MBSTA_MB1OUT_M) !=
-		       HSMCRYPTO_MBSTA_MB1OUT_FULL)
-			;
+		       HSMCRYPTO_MBSTA_MB1OUT_FULL) {
+		}
 
 		/* Check for output token error */
 		hsm_reg_addr = HSMCRYPTO_BASE + HSMCRYPTO_O_MB1OUT;

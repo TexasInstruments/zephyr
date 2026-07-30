@@ -25,7 +25,7 @@
  * modules/hal/ti/simplelink_wifi/source/ti/drivers/gpio/GPIOWFF3.c
  */
 
- /* Missing defines from hw_hostmcu_aon.h */
+/* Missing defines from hw_hostmcu_aon.h */
 #define HOSTMCU_AON_CFGWICSNS_GPIO_AND_EN (1U << 1)
 #define HOSTMCU_AON_CFGWICSNS_GPIO_OR_EN  (1U << 2)
 #define HOSTMCU_AON_CFGWUTP_GPIO_AND_FAST (1U << 1)
@@ -34,18 +34,18 @@
 /* The size of each IO region in IOMUX id 4KB */
 #define IOMUX_IO_REGION_SIZE (4096U)
 
-#define IOMUX_CFG_ADDR(index) \
-	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) \
-	+ (IOMUX_O_GPIO2CFG - IOMUX_O_GPIO2CFG))
-#define IOMUX_PULLCTL_ADDR(index) \
-	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) \
-	+ (IOMUX_O_GPIO2PCTL - IOMUX_O_GPIO2CFG))
-#define IOMUX_CTL_ADDR(index) \
-	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) \
-	+ (IOMUX_O_GPIO2CTL - IOMUX_O_GPIO2CFG))
-#define IOMUX_EVTCTL_ADDR(index) \
-	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) \
-	+ (IOMUX_O_GPIO2ECTL - IOMUX_O_GPIO2CFG))
+#define IOMUX_CFG_ADDR(index)                                                                      \
+	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) +                        \
+	 (IOMUX_O_GPIO2CFG - IOMUX_O_GPIO2CFG))
+#define IOMUX_PULLCTL_ADDR(index)                                                                  \
+	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) +                        \
+	 (IOMUX_O_GPIO2PCTL - IOMUX_O_GPIO2CFG))
+#define IOMUX_CTL_ADDR(index)                                                                      \
+	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) +                        \
+	 (IOMUX_O_GPIO2CTL - IOMUX_O_GPIO2CFG))
+#define IOMUX_EVTCTL_ADDR(index)                                                                   \
+	(IOMUX_BASE + IOMUX_O_SCLKICFG + ((index) * IOMUX_IO_REGION_SIZE) +                        \
+	 (IOMUX_O_GPIO2ECTL - IOMUX_O_GPIO2CFG))
 #define IOMUX_PORTCFG_ADDR(index) (IOMUX_BASE + IOMUX_O_SCLKIPCFG + ((index) << 2))
 
 struct cc35xx_gpio_port_config {
@@ -224,15 +224,15 @@ static void cc35xx_ll_gpio_set_config_and_mux(uint8_t index, uint32_t config, ui
 	cfgRegAddr = IOMUX_CFG_ADDR(index);
 	pullctlRegAddr = IOMUX_PULLCTL_ADDR(index);
 	ctlRegAddr = IOMUX_CTL_ADDR(index);
-	evtctlRegAddr  = IOMUX_EVTCTL_ADDR(index);
+	evtctlRegAddr = IOMUX_EVTCTL_ADDR(index);
 	portcfgRegAddr = IOMUX_PORTCFG_ADDR(index);
 
 	/* Extract register-specific values from compressed pin config */
-	tmpCfgReg        = (config & GPIOWFF3_CFG_CFG_M) >> GPIOWFF3_CFG_CFG_S;
+	tmpCfgReg = (config & GPIOWFF3_CFG_CFG_M) >> GPIOWFF3_CFG_CFG_S;
 	tmpPullctlCfgReg = (config & GPIOWFF3_CFG_PULLCTL_M) >> GPIOWFF3_CFG_PULLCTL_S;
-	tmpctlReg        = (config & GPIOWFF3_CFG_CTL_M) >> GPIOWFF3_CFG_CTL_S;
-	tmpEvtctlReg     = (config & GPIOWFF3_CFG_EVTCTL_M) >> GPIOWFF3_CFG_EVTCTL_S;
-	tmpPortcfgReg    = (mux << IOMUX_GPIO2PCFG_IOSEL_S) & IOMUX_GPIO2PCFG_IOSEL_M;
+	tmpctlReg = (config & GPIOWFF3_CFG_CTL_M) >> GPIOWFF3_CFG_CTL_S;
+	tmpEvtctlReg = (config & GPIOWFF3_CFG_EVTCTL_M) >> GPIOWFF3_CFG_EVTCTL_S;
+	tmpPortcfgReg = (mux << IOMUX_GPIO2PCFG_IOSEL_S) & IOMUX_GPIO2PCFG_IOSEL_M;
 
 	/*
 	 * If the IO is muxed to the analog IP for that IO, then the analog switch
@@ -295,27 +295,27 @@ static void cc35xx_ll_gpio_get_config(uint8_t index, uint32_t *config)
 	uint32_t configValue;
 	uint32_t tmpCfgRegBit;
 
-	cfgRegAddr     = IOMUX_CFG_ADDR(index);
+	cfgRegAddr = IOMUX_CFG_ADDR(index);
 	pullctlRegAddr = IOMUX_PULLCTL_ADDR(index);
-	ctlRegAddr     = IOMUX_CTL_ADDR(index);
-	evtctlRegAddr  = IOMUX_EVTCTL_ADDR(index);
+	ctlRegAddr = IOMUX_CTL_ADDR(index);
+	evtctlRegAddr = IOMUX_EVTCTL_ADDR(index);
 
-	tmpCfgReg        = sys_read32(cfgRegAddr);
+	tmpCfgReg = sys_read32(cfgRegAddr);
 	tmpPullctlCfgReg = sys_read32(pullctlRegAddr);
-	tmpctlReg        = sys_read32(ctlRegAddr);
-	tmpEvtctlReg     = sys_read32(evtctlRegAddr);
+	tmpctlReg = sys_read32(ctlRegAddr);
+	tmpEvtctlReg = sys_read32(evtctlRegAddr);
 
 	configValue = ((tmpCfgReg << GPIOWFF3_CFG_CFG_S) & GPIOWFF3_CFG_CFG_M) |
-		((tmpPullctlCfgReg << GPIOWFF3_CFG_PULLCTL_S) & GPIOWFF3_CFG_PULLCTL_M) |
-		((tmpctlReg << GPIOWFF3_CFG_CTL_S) & GPIOWFF3_CFG_CTL_M) |
-		((tmpEvtctlReg << GPIOWFF3_CFG_EVTCTL_S) & GPIOWFF3_CFG_EVTCTL_M);
+		      ((tmpPullctlCfgReg << GPIOWFF3_CFG_PULLCTL_S) & GPIOWFF3_CFG_PULLCTL_M) |
+		      ((tmpctlReg << GPIOWFF3_CFG_CTL_S) & GPIOWFF3_CFG_CTL_M) |
+		      ((tmpEvtctlReg << GPIOWFF3_CFG_EVTCTL_S) & GPIOWFF3_CFG_EVTCTL_M);
 
 	/* If IMASK bit is set, the interrupt is enabled. */
 	if (index >= 32) {
-		tmpCfgReg    = sys_read32(SOC_AON_BASE + SOC_AON_O_GPIOFNC1S);
+		tmpCfgReg = sys_read32(SOC_AON_BASE + SOC_AON_O_GPIOFNC1S);
 		tmpCfgRegBit = 1 << (index - 32);
 	} else {
-		tmpCfgReg    = sys_read32(SOC_AON_BASE + SOC_AON_O_GPIOFNC0S);
+		tmpCfgReg = sys_read32(SOC_AON_BASE + SOC_AON_O_GPIOFNC0S);
 		tmpCfgRegBit = 1 << index;
 	}
 
@@ -343,7 +343,7 @@ static void cc35xx_ll_gpio_set_interrupt_config(uint8_t index, uint32_t config)
 	key = irq_lock();
 	uint32_t currentRegisterConfig = sys_read32(evtctlRegAddr);
 
-	currentRegisterConfig &=  ~(GPIOWFF3_CFG_EVTCTL_M >> GPIOWFF3_CFG_EVTCTL_S);
+	currentRegisterConfig &= ~(GPIOWFF3_CFG_EVTCTL_M >> GPIOWFF3_CFG_EVTCTL_S);
 	sys_write32((currentRegisterConfig | maskedConfig), evtctlRegAddr);
 	irq_unlock(key);
 
@@ -367,14 +367,14 @@ static int cc35xx_gpio_port_get_raw(const struct device *dev, gpio_port_value_t 
 }
 
 static int cc35xx_gpio_port_set_masked_raw(const struct device *dev, gpio_port_pins_t mask,
-	gpio_port_value_t value)
+					   gpio_port_value_t value)
 {
 	const struct cc35xx_gpio_port_config *const port_cfg = dev->config;
 
 	for (int i = 0; i < port_cfg->ngpios; i++) {
 		if (mask & BIT(i)) {
 			cc35xx_ll_gpio_write(port_cfg->gpio_index_offset + i,
-				(BIT(i) & value) >> i);
+					     (BIT(i) & value) >> i);
 		}
 	}
 	return 0;
@@ -534,7 +534,7 @@ static inline bool cc35xx_config_is_input_pull_down(uint32_t config)
 }
 
 static int cc35xx_gpio_pin_get_config(const struct device *dev, gpio_pin_t pin,
-	gpio_flags_t *out_flags)
+				      gpio_flags_t *out_flags)
 {
 	const struct cc35xx_gpio_port_config *const port_cfg = dev->config;
 	uint32_t config = 0;
@@ -567,7 +567,7 @@ static int cc35xx_gpio_pin_get_config(const struct device *dev, gpio_pin_t pin,
 
 #ifdef CONFIG_GPIO_GET_DIRECTION
 static int cc35xx_gpio_port_get_direction(const struct device *dev, gpio_port_pins_t map,
-	gpio_port_pins_t *inputs, gpio_port_pins_t *outputs)
+					  gpio_port_pins_t *inputs, gpio_port_pins_t *outputs)
 {
 	const struct cc35xx_gpio_port_config *const port_cfg = dev->config;
 	uint32_t config;
@@ -600,7 +600,7 @@ static int cc35xx_gpio_port_get_direction(const struct device *dev, gpio_port_pi
 #endif
 
 static int cc35xx_gpio_pin_interrupt_configure(const struct device *dev, gpio_pin_t pin,
-	enum gpio_int_mode mode, enum gpio_int_trig trig)
+					       enum gpio_int_mode mode, enum gpio_int_trig trig)
 {
 	uint32_t config = 0;
 	const struct cc35xx_gpio_port_config *const port_cfg = dev->config;
@@ -621,7 +621,7 @@ static int cc35xx_gpio_pin_interrupt_configure(const struct device *dev, gpio_pi
 	case GPIO_INT_MODE_EDGE:
 		config |= GPIO_CFG_INT_ENABLE;
 		config |= (trig == GPIO_INT_TRIG_HIGH) ? GPIO_CFG_IN_INT_RISING
-			: GPIO_CFG_IN_INT_FALLING;
+						       : GPIO_CFG_IN_INT_FALLING;
 		break;
 	default:
 		return -ENOTSUP;
@@ -633,7 +633,7 @@ static int cc35xx_gpio_pin_interrupt_configure(const struct device *dev, gpio_pi
 }
 
 static int cc35xx_gpio_manage_callback(const struct device *dev, struct gpio_callback *callback,
-	bool set)
+				       bool set)
 {
 	struct cc35xx_gpio_port_data *port_data = dev->data;
 
@@ -718,8 +718,8 @@ static int cc35xx_gpio_init(const struct device *dev)
 	val |= HOSTMCU_AON_CFGWUTP_GPIO_OR_FAST;
 	sys_write32(val, (HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWUTP));
 
-	IRQ_CONNECT(DT_IRQN(DT_DRV_INST(0)), DT_IRQ(DT_DRV_INST(0), priority),
-			cc35xx_gpio_isr, DEVICE_DT_GET(DT_INST(0, DT_DRV_COMPAT)), 0);
+	IRQ_CONNECT(DT_IRQN(DT_DRV_INST(0)), DT_IRQ(DT_DRV_INST(0), priority), cc35xx_gpio_isr,
+		    DEVICE_DT_GET(DT_INST(0, DT_DRV_COMPAT)), 0);
 
 	irq_enable(DT_IRQN(DT_DRV_INST(0)));
 
@@ -745,19 +745,18 @@ static DEVICE_API(gpio, cc35xx_gpio_drv_api) = {
 	.manage_callback = cc35xx_gpio_manage_callback,
 };
 
-#define CC35XX_GPIO_PORT_DEFINE(inst) \
-	static struct cc35xx_gpio_port_data cc35xx_gpio_port_data_##inst; \
-	static const struct cc35xx_gpio_port_config cc35xx_gpio_port_config_##inst = { \
-		.common = \
-			{ \
-				.port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(inst), \
-			}, \
-		.ngpios = DT_PROP(DT_DRV_INST(inst), ngpios), \
-		.gpio_index_offset = DT_PROP(DT_DRV_INST(inst), gpio_index_offset), \
-	}; \
-	DEVICE_DT_INST_DEFINE(inst, cc35xx_gpio_init, NULL, \
-				  &cc35xx_gpio_port_data_##inst, \
-				  &cc35xx_gpio_port_config_##inst, PRE_KERNEL_1, \
-				  CONFIG_GPIO_INIT_PRIORITY, &cc35xx_gpio_drv_api);
+#define CC35XX_GPIO_PORT_DEFINE(inst)                                                              \
+	static struct cc35xx_gpio_port_data cc35xx_gpio_port_data_##inst;                          \
+	static const struct cc35xx_gpio_port_config cc35xx_gpio_port_config_##inst = {             \
+		.common =                                                                          \
+			{                                                                          \
+				.port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(inst),            \
+			},                                                                         \
+		.ngpios = DT_PROP(DT_DRV_INST(inst), ngpios),                                      \
+		.gpio_index_offset = DT_PROP(DT_DRV_INST(inst), gpio_index_offset),                \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(inst, cc35xx_gpio_init, NULL, &cc35xx_gpio_port_data_##inst,         \
+			      &cc35xx_gpio_port_config_##inst, PRE_KERNEL_1,                       \
+			      CONFIG_GPIO_INIT_PRIORITY, &cc35xx_gpio_drv_api);
 
 DT_INST_FOREACH_STATUS_OKAY(CC35XX_GPIO_PORT_DEFINE)

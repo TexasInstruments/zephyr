@@ -177,15 +177,15 @@ static int rtc_ti_cc35xx_get_time(const struct device *dev, struct rtc_time *tim
 	return 0;
 }
 
-static const struct rtc_driver_api rtc_ti_cc35xx_driver_api = {
+static DEVICE_API(rtc, rtc_ti_cc35xx_driver_api) = {
 	.set_time = rtc_ti_cc35xx_set_time,
 	.get_time = rtc_ti_cc35xx_get_time,
 };
 
-#define RTC_TI_CC35XX_DEVICE(id)                                                                  \
-	static struct rtc_ti_cc35xx_data rtc_ti_cc35xx_data_##id;                                \
+#define RTC_TI_CC35XX_DEVICE(id)                                                                   \
+	static struct rtc_ti_cc35xx_data rtc_ti_cc35xx_data_##id;                                  \
                                                                                                    \
-	DEVICE_DT_INST_DEFINE(id, rtc_ti_cc35xx_init, NULL, &rtc_ti_cc35xx_data_##id, NULL,      \
+	DEVICE_DT_INST_DEFINE(id, rtc_ti_cc35xx_init, NULL, &rtc_ti_cc35xx_data_##id, NULL,        \
 			      POST_KERNEL, CONFIG_RTC_INIT_PRIORITY, &rtc_ti_cc35xx_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(RTC_TI_CC35XX_DEVICE);

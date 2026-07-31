@@ -47,4 +47,47 @@ config WIFI_TI_CC3XXX_NVS_INIT_PRIORITY
 	int
 	default WIFI_TI_CC35XX_NVS_INIT_PRIORITY
 
+choice WIFI_TI_CC35XX_MBEDTLS_PLATFORM
+	prompt "CC35XX Wi-Fi mbedTLS platform"
+	default WIFI_TI_CC35XX_USE_ZEPHYR_MBEDTLS
+	help
+	  Select the mbedTLS implementation used by the CC35XX Wi-Fi host stack.
+
+config WIFI_TI_CC35XX_USE_ZEPHYR_MBEDTLS
+	bool "Use Zephyr mbedTLS for CC35XX Wi-Fi crypto"
+	select ENTROPY_CC35XX_RNG
+	select MBEDTLS
+	select MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+	select MBEDTLS_MD_C
+	select MBEDTLS_PSA_CRYPTO_C if !BUILD_WITH_TFM
+	select PSA_WANT_ALG_CBC_NO_PADDING
+	select PSA_WANT_ALG_CTR
+	select PSA_WANT_ALG_ECDH
+	select PSA_WANT_ALG_ECB_NO_PADDING
+	select PSA_WANT_ALG_FFDH
+	select PSA_WANT_ALG_HMAC
+	select PSA_WANT_ALG_MD5
+	select PSA_WANT_ALG_SHA_1
+	select PSA_WANT_ALG_SHA_256
+	select PSA_WANT_ALG_SHA_384
+	select PSA_WANT_ALG_SHA_512
+	select PSA_WANT_ECC_SECP_R1_256
+	select PSA_WANT_KEY_TYPE_AES
+	select PSA_WANT_KEY_TYPE_DH_KEY_PAIR_GENERATE
+	select PSA_WANT_KEY_TYPE_DH_PUBLIC_KEY
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_DERIVE
+	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
+	select PSA_WANT_KEY_TYPE_HMAC
+	help
+	  Build the CC35XX Wi-Fi host crypto glue against Zephyr mbedTLS.
+
+config WIFI_TI_CC35XX_USE_TI_MBEDTLS
+	bool "Use TI SDK mbedTLS for CC35XX Wi-Fi crypto"
+	help
+	  Build the CC35XX Wi-Fi host crypto glue against the mbedTLS
+	  implementation bundled with the TI SimpleLink SDK. This cannot be
+	  combined with Zephyr mbedTLS or PSA Crypto in the same image.
+
+endchoice
+
 endif # WIFI_TI_CC35XX

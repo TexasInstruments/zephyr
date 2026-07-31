@@ -64,6 +64,7 @@
 
 #define HSM_TRNG_RESCHEDULE_DELAY_MS 100
 
+#if defined(CONFIG_CRYPTO_TI_CC35XX)
 const AESECB_Params AESECB_defaultParams = {
 	.returnBehavior = AESECB_RETURN_BEHAVIOR_POLLING,
 	.callbackFxn = NULL,
@@ -84,6 +85,7 @@ const AESCCM_Params AESCCM_defaultParams = {
 	.timeout = SemaphoreP_WAIT_FOREVER,
 	.custom = NULL,
 };
+#endif
 
 struct entropy_ctx {
 	int ret;
@@ -280,6 +282,7 @@ static int hsm_ti_cc35xx_get_entropy(const struct device *dev, uint8_t *buf, uin
 	return 0;
 }
 
+#if defined(CONFIG_CRYPTO_TI_CC35XX)
 static int hsm_ti_cc35xx_do_crypto_aes_ecb(struct hsm_ti_cc35xx_data *data, enum cipher_op op_type,
 					   struct cipher_ctx *ctx, struct cipher_pkt *pkt)
 {
@@ -496,6 +499,7 @@ static int hsm_ti_cc35xx_do_crypto(const struct device *dev, enum cipher_algo al
 
 	return result;
 }
+#endif
 
 static int hsm_ti_cc35xx_init(const struct device *dev)
 {
@@ -597,7 +601,9 @@ static int hsm_ti_cc35xx_init(const struct device *dev)
 
 static DEVICE_API(hsm_ti_cc35xx, hsm_ti_cc35xx_driver_api) = {
 	.get_entropy = hsm_ti_cc35xx_get_entropy,
+#if defined(CONFIG_CRYPTO_TI_CC35XX)
 	.do_crypto = hsm_ti_cc35xx_do_crypto,
+#endif
 	.get_hw_caps = hsm_ti_cc35xx_get_hw_caps,
 };
 

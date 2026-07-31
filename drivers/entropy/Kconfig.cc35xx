@@ -5,7 +5,7 @@
 
 config ENTROPY_CC35XX_RNG
 	bool "TI SimpleLink CC35xxE Hardware Security Module (HSM) Entropy submodule"
-	default y
+	default n
 	depends on DT_HAS_TI_CC35XX_HSM_TRNG_ENABLED
 	select TI_CC35XX_HSM
 	select ENTROPY_HAS_DRIVER

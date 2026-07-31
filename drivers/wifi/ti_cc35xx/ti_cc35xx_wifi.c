@@ -164,6 +164,8 @@ static int ti_cc35xx_wifi_connect(const struct device *dev, struct wifi_connect_
 		key_len = params->psk_length;
 		break;
 	case WIFI_SECURITY_TYPE_SAE:
+	case WIFI_SECURITY_TYPE_SAE_H2E:
+	case WIFI_SECURITY_TYPE_SAE_AUTO:
 		type = WLAN_SEC_TYPE_WPA3;
 		/*
 		 * wifi shell has no standard way of passing a SAE password.
@@ -308,6 +310,8 @@ static int ti_cc35xx_wifi_ap_enable(const struct device *dev,
 		}
 		break;
 	case WIFI_SECURITY_TYPE_SAE:
+	case WIFI_SECURITY_TYPE_SAE_H2E:
+	case WIFI_SECURITY_TYPE_SAE_AUTO:
 		role_params.secParams.Type = WLAN_SEC_TYPE_WPA3;
 		if (params->sae_password) {
 			key = params->sae_password;

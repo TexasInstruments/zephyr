@@ -83,11 +83,25 @@ config WIFI_TI_CC35XX_USE_ZEPHYR_MBEDTLS
 
 config WIFI_TI_CC35XX_USE_TI_MBEDTLS
 	bool "Use TI SDK mbedTLS for CC35XX Wi-Fi crypto"
+	select TI_CC35XX_HSM
+	select TI_CC35XX_HSM_ITS
 	help
 	  Build the CC35XX Wi-Fi host crypto glue against the mbedTLS
 	  implementation bundled with the TI SimpleLink SDK. This cannot be
 	  combined with Zephyr mbedTLS or PSA Crypto in the same image.
 
 endchoice
+
+config TI_CC35XX_HSM_ITS
+	bool
+	help
+	  Build the TI internal trusted storage adapter required by the TI SDK
+	  mbedTLS backend.
+
+config TI_CC35XX_HSM_PSA_ADAPTER
+	bool
+	select TI_CC35XX_HSM_ITS
+	help
+	  Build the TI HSM PSA adapter and its internal trusted storage backend.
 
 endif # WIFI_TI_CC35XX

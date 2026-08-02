@@ -636,6 +636,9 @@ static void ti_cc35xx_wifi_event_handler(WlanEvent_t *event)
 	case WLAN_EVENT_ASSOCIATED:
 		/* Nothing to be done. */
 		break;
+	case WLAN_EVENT_BLE_ENABLED:
+		/* Nothing to be done. */
+		break;
 	case WLAN_EVENT_AUTHENTICATION_REJECTED:
 		LOG_WRN("Authentication rejected (status %u)", event->Data.AuthStatusCode);
 		break;

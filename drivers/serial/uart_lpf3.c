@@ -46,7 +46,7 @@
  * can generate a burst request based on the FIFO trigger level (1/2 full),
  * the burst length is set to half the FIFO size.
  */
-#define UART_LPF3_BURST_LEN 4
+#define UART_LPF3_BURST_LEN             4
 #endif
 
 struct uart_lpf3_config {
@@ -103,7 +103,7 @@ struct uart_lpf3_data {
 };
 
 static inline void uart_lpf3_pm_policy_state_lock_get(struct uart_lpf3_data *data,
-						       enum uart_lpf3_pm_locks pm_lock_type)
+						      enum uart_lpf3_pm_locks pm_lock_type)
 {
 #ifdef CONFIG_PM_DEVICE
 	if (!atomic_test_and_set_bit(data->pm_lock, pm_lock_type)) {
@@ -114,7 +114,7 @@ static inline void uart_lpf3_pm_policy_state_lock_get(struct uart_lpf3_data *dat
 }
 
 static inline void uart_lpf3_pm_policy_state_lock_put(struct uart_lpf3_data *data,
-						       enum uart_lpf3_pm_locks pm_lock_type)
+						      enum uart_lpf3_pm_locks pm_lock_type)
 {
 #ifdef CONFIG_PM_DEVICE
 	if (atomic_test_and_clear_bit(data->pm_lock, pm_lock_type)) {
@@ -434,9 +434,17 @@ static int uart_lpf3_irq_update(const struct device *dev)
 }
 
 static void uart_lpf3_irq_callback_set(const struct device *dev, uart_irq_callback_user_data_t cb,
-					void *user_data)
+				       void *user_data)
 {
 	struct uart_lpf3_data *data = dev->data;
+#if defined(CONFIG_UART_EXCLUSIVE_API_CALLBACKS) &&                                                \
+	(defined(UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_LPF3_DMA_DRIVEN))
+	/* Exclusive callbacks: registering the interrupt-driven callback clears
+	 * any previously registered async callback.
+	 */
+	data->async_callback = NULL;
+	data->async_user_data = NULL;
+#endif
 
 	data->callback = cb;
 	data->user_data = user_data;
@@ -450,14 +458,18 @@ static int uart_lpf3_async_callback_set(const struct device *dev, uart_callback_
 					void *user_data)
 {
 	struct uart_lpf3_data *data = dev->data;
+#if defined(CONFIG_UART_EXCLUSIVE_API_CALLBACKS) &&                                                \
+	(defined(UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_LPF3_DMA_DRIVEN))
+	/* Exclusive callbacks: registering the async callback clears any
+	 * previously registered interrupt-driven callback so the ISR does not
+	 * invoke a stale handler while the DMA path is active.
+	 */
+	data->callback = NULL;
+	data->user_data = NULL;
+#endif
 
-#if defined(CONFIG_UART_EXCLUSIVE_API_CALLBACKS)
-	data->async_callback = NULL;
-	data->async_user_data = NULL;
-#else
 	data->async_callback = callback;
 	data->async_user_data = user_data;
-#endif
 
 	return 0;
 }
@@ -947,14 +959,14 @@ static DEVICE_API(uart, uart_lpf3_driver_api) = {
 };
 
 #if CONFIG_UART_INTERRUPT_DRIVEN || CONFIG_UART_LPF3_DMA_DRIVEN
-#define UART_LPF3_IRQ_CFG(n)									\
-	do {											\
-		UARTClearInt(config->reg, UART_INT_RX);						\
-		UARTClearInt(config->reg, UART_INT_RT);						\
-												\
-		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), uart_lpf3_isr,		\
-			    DEVICE_DT_INST_GET(n), 0);						\
-		irq_enable(DT_INST_IRQN(n));							\
+#define UART_LPF3_IRQ_CFG(n)                                                                       \
+	do {                                                                                       \
+		UARTClearInt(config->reg, UART_INT_RX);                                            \
+		UARTClearInt(config->reg, UART_INT_RT);                                            \
+                                                                                                   \
+		IRQ_CONNECT(DT_INST_IRQN(n), DT_INST_IRQ(n, priority), uart_lpf3_isr,              \
+			    DEVICE_DT_INST_GET(n), 0);                                             \
+		irq_enable(DT_INST_IRQN(n));                                                       \
 	} while (false)
 
 #define UART_LPF3_IRQ_INIT(n) .irq = DT_INST_IRQN(n),
@@ -997,26 +1009,26 @@ static int uart_lpf3_init_common(const struct device *dev)
 	return uart_lpf3_configure(dev, &data->uart_config);
 }
 
-#define UART_LPF3_INIT_FUNC(n)									\
-	static int uart_lpf3_init_##n(const struct device *dev)					\
-	{											\
-		const struct uart_lpf3_config *config = dev->config;				\
-		int ret;									\
-												\
-		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);			\
-		if (ret) {									\
-			return ret;								\
-		}										\
-												\
-		ret = uart_lpf3_init_common(dev);						\
-		if (ret) {									\
-			return ret;								\
-		}										\
-												\
-		/* Enable interrupts */								\
-		UART_LPF3_IRQ_CFG(n);								\
-												\
-		return 0;									\
+#define UART_LPF3_INIT_FUNC(n)                                                                     \
+	static int uart_lpf3_init_##n(const struct device *dev)                                    \
+	{                                                                                          \
+		const struct uart_lpf3_config *config = dev->config;                               \
+		int ret;                                                                           \
+                                                                                                   \
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);                    \
+		if (ret) {                                                                         \
+			return ret;                                                                \
+		}                                                                                  \
+                                                                                                   \
+		ret = uart_lpf3_init_common(dev);                                                  \
+		if (ret) {                                                                         \
+			return ret;                                                                \
+		}                                                                                  \
+                                                                                                   \
+		/* Enable interrupts */                                                            \
+		UART_LPF3_IRQ_CFG(n);                                                              \
+                                                                                                   \
+		return 0;                                                                          \
 	}
 
 #ifdef CONFIG_PM_DEVICE
@@ -1040,49 +1052,47 @@ static int uart_lpf3_pm_action(const struct device *dev, enum pm_device_action a
 #endif /* CONFIG_PM_DEVICE */
 
 #ifdef CONFIG_UART_LPF3_DMA_DRIVEN
-#define UART_LPF3_DMA_INIT(n)							\
-	.dma_dev = DEVICE_DT_GET(TI_CC23X0_CC27XX_DT_INST_DMA_CTLR(n, tx)),	\
-	.dma_channel_tx = TI_CC23X0_CC27XX_DT_INST_DMA_CHANNEL(n, tx),		\
-	.dma_trigsrc_tx = TI_CC23X0_CC27XX_DT_INST_DMA_TRIGSRC(n, tx),		\
-	.dma_channel_rx = TI_CC23X0_CC27XX_DT_INST_DMA_CHANNEL(n, rx),		\
+#define UART_LPF3_DMA_INIT(n)                                                                      \
+	.dma_dev = DEVICE_DT_GET(TI_CC23X0_CC27XX_DT_INST_DMA_CTLR(n, tx)),                        \
+	.dma_channel_tx = TI_CC23X0_CC27XX_DT_INST_DMA_CHANNEL(n, tx),                             \
+	.dma_trigsrc_tx = TI_CC23X0_CC27XX_DT_INST_DMA_TRIGSRC(n, tx),                             \
+	.dma_channel_rx = TI_CC23X0_CC27XX_DT_INST_DMA_CHANNEL(n, rx),                             \
 	.dma_trigsrc_rx = TI_CC23X0_CC27XX_DT_INST_DMA_TRIGSRC(n, rx),
 #else
 #define UART_LPF3_DMA_INIT(n)
 #endif /* CONFIG_UART_LPF3_DMA_DRIVEN */
 
-#define UART_LPF3_DEVICE_DEFINE(n)								\
-												\
-	DEVICE_DT_INST_DEFINE(n, uart_lpf3_init_##n,						\
-			      PM_DEVICE_DT_INST_GET(n),						\
-			      &uart_lpf3_data_##n, &uart_lpf3_config_##n, PRE_KERNEL_1,		\
+#define UART_LPF3_DEVICE_DEFINE(n)                                                                 \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(n, uart_lpf3_init_##n, PM_DEVICE_DT_INST_GET(n),                     \
+			      &uart_lpf3_data_##n, &uart_lpf3_config_##n, PRE_KERNEL_1,            \
 			      CONFIG_SERIAL_INIT_PRIORITY, &uart_lpf3_driver_api)
 
-#define UART_LPF3_INIT(n)									\
-	PINCTRL_DT_INST_DEFINE(n);								\
-	PM_DEVICE_DT_INST_DEFINE(n, uart_lpf3_pm_action);					\
-	UART_LPF3_INIT_FUNC(n);									\
-												\
-	static const struct uart_lpf3_config uart_lpf3_config_##n = {				\
-		.reg = DT_INST_REG_ADDR(n),							\
-		.sys_clk_freq = DT_INST_PROP_BY_PHANDLE(n, clocks, clock_frequency),		\
-		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),					\
-		.clkctl_id = DT_INST_PROP(n, ti_clkctl_id),					\
-		UART_LPF3_IRQ_INIT(n)								\
-		UART_LPF3_DMA_INIT(n)};								\
-												\
-	static struct uart_lpf3_data uart_lpf3_data_##n = {					\
-		.uart_config =									\
-			{									\
-				.baudrate = DT_INST_PROP(n, current_speed),			\
-				.parity = DT_INST_ENUM_IDX(n, parity),					\
-				.stop_bits =  DT_INST_ENUM_IDX(n, stop_bits),				\
-				.data_bits = DT_INST_ENUM_IDX(n, data_bits),				\
-				.flow_ctrl = DT_INST_PROP(n, hw_flow_control)			\
-						? UART_CFG_FLOW_CTRL_RTS_CTS		\
-						: UART_CFG_FLOW_CTRL_NONE,		\
-			},									\
-		UART_LPF3_INT_FIELDS};								\
-												\
+#define UART_LPF3_INIT(n)                                                                          \
+	PINCTRL_DT_INST_DEFINE(n);                                                                 \
+	PM_DEVICE_DT_INST_DEFINE(n, uart_lpf3_pm_action);                                          \
+	UART_LPF3_INIT_FUNC(n);                                                                    \
+                                                                                                   \
+	static const struct uart_lpf3_config uart_lpf3_config_##n = {                              \
+		.reg = DT_INST_REG_ADDR(n),                                                        \
+		.sys_clk_freq = DT_INST_PROP_BY_PHANDLE(n, clocks, clock_frequency),               \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
+		.clkctl_id = DT_INST_PROP(n, ti_clkctl_id),                                        \
+		UART_LPF3_IRQ_INIT(n) UART_LPF3_DMA_INIT(n)};                                      \
+                                                                                                   \
+	static struct uart_lpf3_data uart_lpf3_data_##n = {                                        \
+		.uart_config =                                                                     \
+			{                                                                          \
+				.baudrate = DT_INST_PROP(n, current_speed),                        \
+				.parity = DT_INST_ENUM_IDX(n, parity),                             \
+				.stop_bits = DT_INST_ENUM_IDX(n, stop_bits),                       \
+				.data_bits = DT_INST_ENUM_IDX(n, data_bits),                       \
+				.flow_ctrl = DT_INST_PROP(n, hw_flow_control)                      \
+						     ? UART_CFG_FLOW_CTRL_RTS_CTS                  \
+						     : UART_CFG_FLOW_CTRL_NONE,                    \
+			},                                                                         \
+		UART_LPF3_INT_FIELDS};                                                             \
+                                                                                                   \
 	UART_LPF3_DEVICE_DEFINE(n);
 
 DT_INST_FOREACH_STATUS_OKAY(UART_LPF3_INIT)

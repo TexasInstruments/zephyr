@@ -92,16 +92,4 @@ config WIFI_TI_CC35XX_USE_TI_MBEDTLS
 
 endchoice
 
-config TI_CC35XX_HSM_ITS
-	bool
-	help
-	  Build the TI internal trusted storage adapter required by the TI SDK
-	  mbedTLS backend.
-
-config TI_CC35XX_HSM_PSA_ADAPTER
-	bool
-	select TI_CC35XX_HSM_ITS
-	help
-	  Build the TI HSM PSA adapter and its internal trusted storage backend.
-
 endif # WIFI_TI_CC35XX

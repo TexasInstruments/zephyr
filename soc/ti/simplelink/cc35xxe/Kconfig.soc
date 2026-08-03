@@ -165,3 +165,18 @@ config CC35XXE_CONF_INI_FILE
 	  cc35xx-conf.bin during the build. If left empty, the in-tree
 	  default at soc/ti/simplelink/cc35xxe/conf/cc35xx-conf.ini is
 	  used.
+
+config CC35XXE_GENERATE_FLASH_MAP_CONFIG
+	bool "Generate TI flash map config from MemoryConfigurator JSON"
+	default y if TI_CC35XX_HSM_ITS
+	help
+	  Generate ti_flash_map_config.c during the build from a SimpleLink
+	  Wi-Fi Toolbox MemoryConfigurator JSON file.
+
+config CC35XXE_MEMORY_CONFIG_JSON
+	string "Path to the MemoryConfigurator JSON file"
+	depends on CC35XXE_GENERATE_FLASH_MAP_CONFIG
+	help
+	  Override the default MemoryConfigurator JSON file used to generate
+	  ti_flash_map_config.c. If left empty, the board flash profile's
+	  external_memory_configurator.json is used.

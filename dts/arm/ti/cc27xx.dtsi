@@ -64,8 +64,8 @@
 			compatible = "ti,cc27xx-flash-controller";
 			reg = <0x40021000 0x418>;
 
-			#address-cells	= <1>;
-			#size-cells		= <1>;
+			#address-cells = <1>;
+			#size-cells = <1>;
 
 			/* Main flash sector */
 			flash0: flash@0 {
@@ -88,14 +88,15 @@
 				write-block-size = <0x10>;
 			};
 		};
+
 		gpio0: gpio@40023000 {
-				compatible = "ti,cc27xx-gpio";
-				reg = <0x40023000 0x814>;
-				interrupts = <5 0>;
-				status = "disabled";
-				gpio-controller;
-				#gpio-cells = <2>;
-				ngpios = <33>;
+			compatible = "ti,cc27xx-gpio";
+			reg = <0x40023000 0x814>;
+			interrupts = <5 0>;
+			status = "disabled";
+			gpio-controller;
+			#gpio-cells = <2>;
+			ngpios = <33>;
 		};
 
 		pinctrl: pinctrl@40003000 {
@@ -103,7 +104,7 @@
 			reg = <0x40003000 0xc1c>;
 		};
 
-		uart0: uart@40034000{
+		uart0: uart@40034000 {
 			compatible = "ti,lpf3-uart";
 			reg = <0x40034000 0x4c>;
 			interrupts = <11 0>;
@@ -114,7 +115,7 @@
 			status = "disabled";
 		};
 
-		uart1: uart@40035000{
+		uart1: uart@40035000 {
 			compatible = "ti,lpf3-uart";
 			reg = <0x40035000 0x4c>;
 			interrupts = <22 0>;
@@ -188,7 +189,7 @@
 		};
 
 		dma: dma@400c4000 {
-			compatible = "ti,cc23x0-cc27xx-dma";
+			compatible = "ti,lpf3-dma";
 			reg = <0x400c4000 0x524>;
 			interrupts = <8 0>;
 			#dma-cells = <2>;
@@ -210,6 +211,7 @@
 			reg = <0x40001000 0x1000>;
 			status = "disabled";
 		};
+
 		rtc: rtc@40002000 {
 			compatible = "ti,lpf3-rtc-timer";
 			reg = <0x40002000 0x68>;
@@ -231,12 +233,14 @@
 				ti,output-index = <0>;
 				status = "disabled";
 			};
+
 			pwm1: pwm1 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
 				ti,output-index = <1>;
 				status = "disabled";
 			};
+
 			pwm2: pwm2 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
@@ -259,12 +263,14 @@
 				ti,output-index = <0>;
 				status = "disabled";
 			};
+
 			pwm4: pwm1 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
 				ti,output-index = <1>;
 				status = "disabled";
 			};
+
 			pwm5: pwm2 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
@@ -287,12 +293,14 @@
 				ti,output-index = <0>;
 				status = "disabled";
 			};
+
 			pwm7: pwm1 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
 				ti,output-index = <1>;
 				status = "disabled";
 			};
+
 			pwm8: pwm2 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
@@ -315,12 +323,14 @@
 				ti,output-index = <0>;
 				status = "disabled";
 			};
+
 			pwm10: pwm1 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;
 				ti,output-index = <1>;
 				status = "disabled";
 			};
+
 			pwm11: pwm2 {
 				compatible = "ti,cc27xx-lgpt-pwm";
 				#pwm-cells = <3>;

@@ -106,6 +106,12 @@ struct dma_lpf3_channel {
 	bool trigger;
 	dma_callback_t cb;
 	void *user_data;
+	uint32_t total_size;
+#ifdef CONFIG_PM_DEVICE
+	bool configured;
+	struct dma_block_config dma_blk_cfg;
+	struct dma_config dma_cfg;
+#endif
 };
 
 struct dma_lpf3_data {
@@ -318,6 +324,7 @@ static int dma_lpf3_config(const struct device *dev, uint32_t channel, struct dm
 
 	ch_data = &data->channels[channel];
 	ch_data->data_size = data_size;
+	ch_data->total_size = block->block_size;
 
 	/* Interpret source chaining as auto mode */
 	ch_data->mode = config->source_chaining_en ? UDMA_MODE_AUTO : UDMA_MODE_BASIC;
@@ -405,6 +412,8 @@ static int dma_lpf3_reload(const struct device *dev, uint32_t channel, uint32_t 
 	uDMASetChannelTransfer(&data->desc[channel], ch_data->mode, (void *)src, (void *)dst,
 			       xfer_size);
 
+	ch_data->total_size = size;
+
 #ifdef CONFIG_PM_DEVICE
 	/* Save context */
 	ch_data->dma_blk_cfg.source_address = src;
@@ -438,6 +447,15 @@ static int dma_lpf3_get_status(const struct device *dev, uint32_t channel, struc
 	 */
 	stat->busy = uDMAIsChannelEnabled(BIT(channel));
 	stat->pending_length = uDMAGetChannelSize(&data->desc[channel]) * ch_data->data_size;
+	stat->total_copied = ch_data->total_size - stat->pending_length;
+
+	/*
+	 * This controller does not support circular buffers (chained transfers
+	 * are rejected in dma_lpf3_config()), so these fields are not applicable.
+	 */
+	stat->free = 0;
+	stat->write_position = 0;
+	stat->read_position = 0;
 
 	desc = &data->desc[channel];
 	isSrcPeriph = DMA_LPF3_IS_PERIPH_ADDR(desc->pSrcEndAddr);

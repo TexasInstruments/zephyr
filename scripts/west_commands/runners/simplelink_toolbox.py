@@ -5,10 +5,11 @@
 '''Runner for simplelink-wifi-toolbox.'''
 
 import argparse
+import json
 import logging
+import os
 import re
 import subprocess
-import os
 from os import name as os_name
 from os import path
 from pathlib import Path
@@ -24,7 +25,7 @@ try:  # noqa SIM105
 except ImportError:
     pass
 
-from runners.core import FileType, RunnerCaps, ZephyrBinaryRunner
+from runners.core import FileType, ZephyrBinaryRunner
 
 _logger = logging.getLogger('runners')
 
@@ -34,6 +35,7 @@ DEFAULT_OPENOCD_GDB_PORT = 3333
 DEFAULT_OPENOCD_RTT_PORT = 5555
 DEFAULT_OPENOCD_RESET_HALT_CMD = 'reset init'
 DEFAULT_OPENOCD_TARGET_HANDLE = "_TARGETNAME"
+FLASH_PROFILE_PREFIX = "CONFIG_CC35XXE_FLASH_PROFILE_"
 
 
 def to_num(number):
@@ -75,6 +77,8 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
         no_targets=False,
         no_flash=False,
         flash_address=None,
+        initial_programming=False,
+        activation_type='sdk_example_key',
     ):
         super().__init__(cfg)
 
@@ -139,6 +143,12 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
         self.rtt_port = rtt_port
         self.rtt_server = rtt_server
         self.no_flash = no_flash
+        self.initial_programming = initial_programming
+        self.activation_type = activation_type
+        self.config_file = (Path(cfg.build_dir) / 'zephyr' / '.config').resolve()
+        self.flash_dir = (Path(cfg.build_dir) / 'zephyr' / 'flash').resolve()
+        self.tool_setting_file = (self.flash_dir / 'tool_settings.json').resolve()
+        self.conf_bin_file = (self.flash_dir / 'cc35xx-conf.bin').resolve()
 
     @classmethod
     def name(cls):
@@ -164,6 +174,18 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
             default=False,
             action='store_true',
             help='''if given, disables flashing of the device''',
+        )
+        parser.add_argument(
+            '--initial-programming',
+            default=False,
+            action='store_true',
+            help='''run factory initial programming instead of regular programming''',
+        )
+        parser.add_argument(
+            '--activation-type',
+            choices=('sdk_example_key', 'authentication_bypass'),
+            default='sdk_example_key',
+            help='Toolbox activation type for initial programming',
         )
         parser.add_argument(
             '--tui', default=False, action='store_true', help='if given, GDB uses -tui'
@@ -241,6 +263,8 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
             no_halt=args.no_halt,
             no_init=args.no_init,
             no_flash=args.no_flash,
+            initial_programming=args.initial_programming,
+            activation_type=args.activation_type,
         )
 
     def do_run(self, command, **kwargs):
@@ -264,6 +288,10 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
             self.do_debugserver(**kwargs)
 
     def do_flash(self):
+        if self.initial_programming:
+            self.do_initial_programming()
+            return
+
         if self.vendor_file is not None and os.path.isfile(self.vendor_file):
             fname = self.vendor_file
         else:
@@ -290,6 +318,130 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
             self.logger.info('Success')
         except subprocess.CalledProcessError as grepexc:
             self.logger.error(f"Failure {grepexc.returncode}")
+
+    def _config_value(self, name):
+        prefix = f'{name}="'
+
+        for line in self.config_file.read_text().splitlines():
+            if line.startswith(prefix) and line.endswith('"'):
+                return line[len(prefix):-1]
+
+        return None
+
+    def _config_enabled(self, name):
+        return f'{name}=y' in self.config_file.read_text().splitlines()
+
+    def _flash_profile(self):
+        profiles = [
+            line.removeprefix(FLASH_PROFILE_PREFIX).removesuffix('=y')
+            for line in self.config_file.read_text().splitlines()
+            if line.startswith(FLASH_PROFILE_PREFIX) and line.endswith('=y')
+        ]
+
+        if len(profiles) != 1:
+            raise ValueError(
+                'expected exactly one CONFIG_CC35XXE_FLASH_PROFILE_* selection '
+                f'in {self.config_file}'
+            )
+
+        return profiles[0].lower()
+
+    def _xds110_serial(self):
+        serial = ''.join(self.serial)
+        serial_match = re.search(r'_ZEPHYR_BOARD_SERIAL\s+(\S+)', serial)
+        if serial_match is not None:
+            return serial_match.group(1)
+
+        return 'auto'
+
+    def _flash_type_from_xspi(self, flash_profile_dir):
+        xspi = flash_profile_dir / 'flash_disc_param_xspi.json'
+
+        if not xspi.is_file():
+            raise ValueError(f'missing xSPI flash profile: {xspi}')
+
+        xspi_config = json.loads(xspi.read_text())
+
+        return xspi_config['xspi_header']['flash_name']
+
+    def do_initial_programming(self):
+        for artifact in (self.config_file, self.elf_name, self.conf_bin_file):
+            if artifact is None or not os.path.isfile(artifact):
+                raise ValueError(f'missing build artifact: {artifact}')
+
+        board_dir = Path(self.cfg.board_dir).resolve()
+        flash_config_dir = board_dir / 'config' / 'flash'
+        flash_profile = self._flash_profile()
+        flash_profile_dir = flash_config_dir / flash_profile
+        version = self._config_value('CONFIG_CC35XXE_VENDOR_IMAGE_VERSION') or '0.0.1.0'
+        serial = self._xds110_serial()
+
+        if self._config_enabled('CONFIG_CC35XXE_FWU'):
+            if (flash_profile_dir / 'ota').is_dir():
+                flash_profile_dir = flash_profile_dir / 'ota'
+
+            flash_type = self._flash_type_from_xspi(flash_profile_dir)
+            cmd = [
+                str(self.simplelink_tool),
+                'programmer',
+                '-i',
+                'XDS110',
+                '-param1',
+                serial,
+                'factory_programming',
+                '--activation_type',
+                self.activation_type,
+                '--flash_type',
+                flash_type,
+                '--enable_ota',
+                '--vendor_out_file',
+                self.elf_name,
+                '--conf_bin_file',
+                str(self.conf_bin_file),
+                '--vendor_app_version',
+                version,
+                '--full_flash_erase',
+                '--rollback_protection',
+                'no',
+                '--verbose',
+            ]
+        else:
+            memory_config = flash_profile_dir / 'external_memory_configurator.json'
+            if not memory_config.is_file():
+                raise ValueError(
+                    f'missing MemoryConfigurator layout for {flash_profile}: {memory_config}'
+                )
+
+            factory_config = json.loads(memory_config.read_text())
+            flash_type = factory_config['flash_type']['flash_device_type']
+            config_json = self.flash_dir / 'initial_programming.json'
+            config_json.write_text(json.dumps(factory_config, indent=2) + '\n')
+            cmd = [
+                str(self.simplelink_tool),
+                'programmer',
+                '-i',
+                'XDS110',
+                '-param1',
+                serial,
+                'factory_programming_from_json',
+                '--config_json',
+                str(config_json),
+                '--activation_type',
+                self.activation_type,
+                '--vendor_out_file',
+                self.elf_name,
+                '--conf_bin_file',
+                str(self.conf_bin_file),
+                '--vendor_app_version',
+                version,
+                '--full_flash_erase',
+                '--rollback_protection',
+                'no',
+                '--verbose',
+            ]
+
+        self.logger.info(f'Initial programming flash profile: {flash_type}')
+        self.check_call(cmd, cwd=Path(self.cfg.build_dir).resolve())
 
     def print_gdbserver_message(self):
         if not self.thread_info_enabled:

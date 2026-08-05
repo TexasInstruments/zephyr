@@ -226,15 +226,35 @@ config BT_HCI_TI_LPF3
 	help
 	  TI HCI bluetooth interface
 
-config BT_HCI_TI_CC35XX
-	bool "Texas Instruments CC35xx family Bluetooth Controller"
-	depends on DT_HAS_TI_CC35XX_BT_HCI_ENABLED
+config BT_HCI_TI_CC3XXX
+	bool "Texas Instruments CC3xxx family Bluetooth Controller"
 	select BT_HCI_SETUP
 	select BT_HCI_SET_PUBLIC_ADDR
 	select BT_EXT_ADV
 	select WIFI
-	select WIFI_TI_CC35XX
-	default y
+	select WIFI_TI_CC3XXX
+	depends on !BT_HCI_ACL_FLOW_CONTROL
+	depends on !BT_PHY_UPDATE
+	depends on !BT_AUTO_PHY_UPDATE
+	help
+	  Enables support for the Texas Instruments CC3xxx Bluetooth Controller.
+	  This driver utilizes the HCI transport of TI CC3xxx.
+
+config BT_HCI_TI_CC33XX
+	bool "Texas Instruments CC33xx family Bluetooth Controller"
+	default y if DT_HAS_TI_CC33XX_UART_ENABLED
+	depends on BT_HCI_TI_CC3XXX
+	select UART_INTERRUPT_DRIVEN
+	select RING_BUFFER
+	select ENTROPY_GENERATOR
+	help
+	  Enables support for the Texas Instruments CC33xx Bluetooth Controller.
+	  This driver utilizes the UART HCI transport of TI CC33xx.
+
+config BT_HCI_TI_CC35XX
+	bool "Texas Instruments CC35xx family Bluetooth Controller"
+	default y if DT_HAS_TI_CC35XX_BT_HCI_ENABLED
+	depends on BT_HCI_TI_CC3XXX
 	help
 	  Enables support for the Texas Instruments CC35xx Bluetooth Controller.
 	  This driver utilizes the memory-mapped HCI transport of TI CC35xx.
@@ -263,6 +283,9 @@ config BT_AMBIQ_HCI
 config BT_HCI_INIT_PRIORITY
 	int "BT HCI init priority"
 	default 75 if BT_AMBIQ_HCI
+	default 81 if BT_HCI_TI_CC35XX
+	default 81 if BT_HCI_TI_CC33XX && DT_HAS_TI_CC33XX_SPI_ENABLED
+	default 87 if BT_HCI_TI_CC33XX && DT_HAS_TI_CC33XX_SDIO_ENABLED
 	default KERNEL_INIT_PRIORITY_DEVICE
 	help
 	  The priority of BT HCI driver initialization.

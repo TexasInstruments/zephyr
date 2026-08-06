@@ -43,6 +43,17 @@ function(zephyr_simplelink_tasks)
   endif()
 
   set(flash_profile_dir "${BOARD_DIR}/config/flash/${flash_profile}")
+  if(CONFIG_CC35XXE_FWU)
+    if(EXISTS "${flash_profile_dir}/ota")
+      set(flash_profile_dir "${flash_profile_dir}/ota")
+    elseif("${otfde}" STREQUAL "" AND
+           "${ext_mem}" STREQUAL "" AND
+           "${xspi}" STREQUAL "")
+      message(FATAL_ERROR
+              "FWU requires an OTA flash profile for '${flash_profile}'. "
+              "Provide explicit flash discovery JSONs or select a profile with an ota/ layout.")
+    endif()
+  endif()
 
   if("${otfde}" STREQUAL "")
     set(otfde "${flash_profile_dir}/flash_disc_param_otfde.json")
@@ -279,6 +290,7 @@ function(zephyr_simplelink_tasks)
 
   set_property(GLOBAL APPEND PROPERTY extra_post_build_commands COMMAND
                simplelink-wifi-toolbox flash-images-builder build vendor_image
+               --version ${CONFIG_CC35XXE_VENDOR_IMAGE_VERSION}
                --vendor_out_file ${output}.elf
                --conf_bin_file ${outdir}/cc35xx-conf.bin
                --dir_out_path ${outdir})

@@ -1,5 +1,6 @@
 board:
   name: lp_em_cc2745r10_q1
+  full_name: CC2745R10-Q1 LaunchPad
   vendor: ti
   socs:
     - name: cc2745r10_q1

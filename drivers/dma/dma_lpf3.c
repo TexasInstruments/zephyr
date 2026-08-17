@@ -322,6 +322,15 @@ static int dma_lpf3_config(const struct device *dev, uint32_t channel, struct dm
 		return -EINVAL;
 	}
 
+
+	/*
+	 * Reject a reconfigure of a still-enabled channel before touching any
+	 * shared channel state below.
+	 */
+	if (uDMAIsChannelEnabled(BIT(channel))) {
+		return -EBUSY;
+	}
+
 	ch_data = &data->channels[channel];
 	ch_data->data_size = data_size;
 	ch_data->total_size = block->block_size;
@@ -333,10 +342,6 @@ static int dma_lpf3_config(const struct device *dev, uint32_t channel, struct dm
 	ch_data->trigger = config->source_handshake;
 	ch_data->cb = config->dma_callback;
 	ch_data->user_data = config->user_data;
-
-	if (uDMAIsChannelEnabled(BIT(channel))) {
-		return -EBUSY;
-	}
 
 	if (ch_data->trigger == SW_TRIGGERED_TRANSFER) {
 		uDMAEnableSwEventInt(BIT(channel));

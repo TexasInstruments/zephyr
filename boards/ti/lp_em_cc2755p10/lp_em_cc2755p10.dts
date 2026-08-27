@@ -164,10 +164,6 @@ ti_bt_hci: ti_bt_hci {
 	pinctrl-names = "default", "sleep";
 };
 
-&dma {
-	status = "okay";
-};
-
 &aes {
 	status = "okay";
 };

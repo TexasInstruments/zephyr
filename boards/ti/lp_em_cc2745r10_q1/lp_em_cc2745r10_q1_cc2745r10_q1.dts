@@ -189,10 +189,6 @@ ti_bt_hci: ti_bt_hci {
 	status = "okay";
 };
 
-&dma {
-	status = "okay";
-};
-
 &adc0 {
 	status = "okay";
 	pinctrl-0 = <&adc0_ch3

@@ -1174,11 +1174,19 @@ static int spi_cc23x0_cc27xx_pm_action(const struct device *dev, enum pm_device_
 		}
 #endif
 		SPIDisable(cfg->base);
-		spi_cc23x0_cc27xx_pinctrl_apply_sleep_state(dev, data->ctx.config);
+		CLKCTLDisable(CLKCTL_BASE, cfg->clock_id);
+		if (data->ctx.config != NULL) {
+			spi_cc23x0_cc27xx_pinctrl_apply_sleep_state(dev, data->ctx.config);
+		}
 		return 0;
 	case PM_DEVICE_ACTION_RESUME:
+		CLKCTLEnable(CLKCTL_BASE, cfg->clock_id);
+		if (data->ctx.config != NULL) {
+			spi_cc23x0_cc27xx_pinctrl_apply_active_state(dev, data->ctx.config);
+			/* Disable SPI to clear any stale hardware state before next configure */
+			SPIDisable(cfg->base);
+		}
 		/* Force SPI to be reconfigured at next transfer */
-		spi_cc23x0_cc27xx_pinctrl_apply_active_state(dev, data->ctx.config);
 		data->ctx.config = NULL;
 		return 0;
 	default:

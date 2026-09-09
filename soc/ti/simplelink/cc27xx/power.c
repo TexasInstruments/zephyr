@@ -25,16 +25,20 @@
 
 /* Driverlib header files */
 #include <ti/devices/DeviceFamily.h>
+/* clang-format off */
 #include DeviceFamily_constructPath(inc/hw_types.h)
 #include DeviceFamily_constructPath(inc/hw_memmap.h)
 #include DeviceFamily_constructPath(inc/hw_systim.h)
 #include DeviceFamily_constructPath(inc/hw_rtc.h)
-#include DeviceFamily_constructPath(cmsis/core/cmsis_compiler.h)
+/* clang-format on */
+#include <cmsis_compiler.h>
+/* clang-format off */
 #include DeviceFamily_constructPath(driverlib/systick.h)
 #include DeviceFamily_constructPath(driverlib/ckmd.h)
+/* clang-format on */
 
 /* The range of pins available on this device */
-const uint_least8_t GPIO_pinLowerBound = 0;
+const uint_least8_t GPIO_pinLowerBound;
 const uint_least8_t GPIO_pinUpperBound = 28;
 
 #ifdef CONFIG_PM

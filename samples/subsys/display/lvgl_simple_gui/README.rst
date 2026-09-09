@@ -23,8 +23,10 @@ Requirements
 Display shield and a board which provides a configuration
 for corresponding connectors, for example:
 
-- :ref:`adafruit_2_4_tft_v2.1` and :zephyr:board:`lp_em_cc35x1`
-- :ref:`st7789v_generic` and :zephyr:board:`lp_em_cc35x1`
+- :ref:`adafruit_2_4_tft_v2.1` and :zephyr:board:`lp_em_cc35x1` with the
+  ``cc3551e`` qualifier
+- :ref:`st7789v_generic` and :zephyr:board:`lp_em_cc35x1` with the
+  ``cc3551e`` qualifier
 
 or
 - :zephyr:board:`native_sim`
@@ -34,7 +36,7 @@ or
 Building and Running
 ********************
 
-Example building for :zephyr:board:`lp_em_cc35x1`:
+Example building for ``lp_em_cc35x1/cc3551e``:
 
 .. zephyr-app-commands::
    :zephyr-app: samples/subsys/display/lvgl_simple_gui

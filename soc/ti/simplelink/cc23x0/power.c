@@ -29,7 +29,7 @@
 #include DeviceFamily_constructPath(inc/hw_memmap.h)
 #include DeviceFamily_constructPath(inc/hw_rtc.h)
 #include DeviceFamily_constructPath(inc/hw_systim.h)
-#include DeviceFamily_constructPath(cmsis/core/cmsis_compiler.h)
+#include <cmsis_compiler.h>
 #include DeviceFamily_constructPath(driverlib/systick.h)
 
 /* The range of pins available on this device */

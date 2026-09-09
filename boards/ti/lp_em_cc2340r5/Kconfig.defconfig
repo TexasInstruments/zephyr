@@ -6,9 +6,6 @@ rsource "../lpf3_common/Kconfig.defconfig"
 
 if BOARD_LP_EM_CC2340R5
 
-config BT_CTLR
-	default BT
-
 if BT
 config ZEPHYR
   bool "Bluetooth TI Controller on ZEPHYR"

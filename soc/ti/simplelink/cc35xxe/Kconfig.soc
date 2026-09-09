@@ -175,7 +175,6 @@ config CC35XXE_VENDOR_IMAGE_VERSION
 
 config CC35XXE_GENERATE_FLASH_MAP_CONFIG
 	bool "Generate TI flash map config from MemoryConfigurator JSON"
-	default y if TI_CC35XX_HSM_ITS
 	help
 	  Generate ti_flash_map_config.c during the build from a SimpleLink
 	  Wi-Fi Toolbox MemoryConfigurator JSON file.

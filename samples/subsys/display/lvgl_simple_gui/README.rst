@@ -23,8 +23,8 @@ Requirements
 Display shield and a board which provides a configuration
 for corresponding connectors, for example:
 
-- :ref:`adafruit_2_4_tft` and :zephyr:board:`lm_em_cc35x1e`
-- :ref:`st7789v_waveshare_240x320` and :zephyr:board:`lm_em_cc35x1e`
+- :ref:`adafruit_2_4_tft_v2.1` and :zephyr:board:`lp_em_cc35x1`
+- :ref:`st7789v_generic` and :zephyr:board:`lp_em_cc35x1`
 
 or
 - :zephyr:board:`native_sim`
@@ -34,11 +34,11 @@ or
 Building and Running
 ********************
 
-Example building for :zephyr:board:`nrf52840dk`:
+Example building for :zephyr:board:`lp_em_cc35x1`:
 
 .. zephyr-app-commands::
    :zephyr-app: samples/subsys/display/lvgl_simple_gui
-   :board: lm_em_cc35x1e
+   :board: lp_em_cc35x1/cc3551e
    :shield: st7789v_waveshare_240x320
    :goals: build flash
 

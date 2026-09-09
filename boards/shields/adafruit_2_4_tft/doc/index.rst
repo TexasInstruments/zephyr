@@ -73,7 +73,7 @@ Set ``--shield adafruit_2_4_tft`` when you invoke ``west build``. For example:
 
 .. zephyr-app-commands::
    :zephyr-app: samples/subsys/display/lvgl
-   :board: lm_em_cc35x1e
+   :board: lp_em_cc35x1/cc3551e
    :shield: adafruit_2_4_tft
    :goals: build
 

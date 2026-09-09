@@ -31,6 +31,7 @@ config TI_CC35XX_HSM_ENTROPY_POOL_SIZE
 
 config TI_CC35XX_HSM_ITS
 	bool "TI CC35XX HSM internal trusted storage"
+	select CC35XXE_GENERATE_FLASH_MAP_CONFIG
 	help
 	  Build the TI internal trusted storage adapter required by TI SDK
 	  mbedTLS persistent PSA key storage.

@@ -4,7 +4,6 @@
 
 '''Runner for simplelink-wifi-toolbox.'''
 
-import argparse
 import json
 import logging
 import os
@@ -23,9 +22,9 @@ if os_name != "nt":
 try:  # noqa SIM105
     from elftools.elf.elffile import ELFFile
 except ImportError:
-    pass
+    ELFFile = None
 
-from runners.core import FileType, ZephyrBinaryRunner
+from runners.core import ZephyrBinaryRunner
 
 _logger = logging.getLogger('runners')
 
@@ -35,7 +34,7 @@ DEFAULT_OPENOCD_GDB_PORT = 3333
 DEFAULT_OPENOCD_RTT_PORT = 5555
 DEFAULT_OPENOCD_RESET_HALT_CMD = 'reset init'
 DEFAULT_OPENOCD_TARGET_HANDLE = "_TARGETNAME"
-FLASH_PROFILE_PREFIX = "CONFIG_CC35XXE_FLASH_PROFILE_"
+FLASH_PROFILE_PREFIX = "CONFIG_" + "CC35XXE_FLASH_PROFILE_"
 
 
 def to_num(number):
@@ -269,7 +268,7 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
 
     def do_run(self, command, **kwargs):
         self.require(self.openocd_cmd[0])
-        if globals().get('ELFFile') is None:
+        if ELFFile is None:
             raise RuntimeError('elftools missing; please "pip3 install elftools"')
 
         self.cfg_cmd = []
@@ -324,7 +323,7 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
 
         for line in self.config_file.read_text().splitlines():
             if line.startswith(prefix) and line.endswith('"'):
-                return line[len(prefix):-1]
+                return line[len(prefix) : -1]
 
         return None
 
@@ -487,7 +486,7 @@ class SimpleLinkBinaryRunner(ZephyrBinaryRunner):
             str(self.debug_action_request_file),
         ]
 
-        self.logger.info(f'Enabling Debug mode')
+        self.logger.info('Enabling Debug mode')
         self.check_call(cmd_simple_link_tool)
 
         try:

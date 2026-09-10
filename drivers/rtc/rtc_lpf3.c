@@ -538,8 +538,6 @@ static int rtc_ti_lpf3_alarm_set_time_internal(const struct device *dev, uint16_
 		ch0cc8u = (uint32_t)(RTC_TI_LPF3_SECONDS_TO_8US(sec_time_to_alarm)) + time8u;
 	}
 
-	sys_write32(0, RTC_BASE + RTC_O_CH1CFG);
-
 	data->alarm_enabled = true;
 	data->alarm_time = *timeptr;
 

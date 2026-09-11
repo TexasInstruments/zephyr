@@ -15,6 +15,7 @@ tests:
       - lp_em_cc2755p20
       - nrf52840dk/nrf52840
       - nrf5340dk/nrf5340/cpuapp/ns
+      - lp_em_cc35x1/cc3551e
     integration_platforms:
       - qemu_x86
     tags: bluetooth

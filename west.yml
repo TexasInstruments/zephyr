@@ -37,7 +37,7 @@ manifest:
     - name: hal_ti
       remote: ti
       repo-path: hal_ti.git
-      revision: 218d961-ti-next
+      revision: afbcfff-ti-next
       path: modules/hal/ti
       groups:
         - hal

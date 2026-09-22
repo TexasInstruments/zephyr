@@ -1,5 +1,10 @@
 .. _lp_em_cc35x1:
 
+.. |reg| unicode:: U+00AE
+.. |trade| unicode:: U+2122
+
+.. zephyr:board:: lp_em_cc35x1
+
 TI cc35x1 Launchpad
 #####################
 
@@ -7,7 +12,7 @@ Overview
 ********
 
 The Texas Instruments cc35x1 LaunchPad |trade| (LP_EM_CC35X1) is a
-development kit for the SimpleLink |trade| multi-Standard cc35x1 wireless MCU.
+development kit for the SimpleLink |trade| multi-standard cc35x1 wireless MCU.
 
 See the `TI cc35x1 LaunchPad Product Page`_ for details.
 

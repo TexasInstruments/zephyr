@@ -43,8 +43,6 @@ Supported by this release:
 
 Supported by the Zephyr community:
 
-- [CC2340R5](https://www.ti.com/product/CC2340R5)
-
 - CC1352R
 - CC2652P
 - CC2652R
@@ -66,8 +64,6 @@ Supported by this release:
 - [lp_em_cc35x1](https://www.ti.com/tool/LP-EM-CC35X1)
 
 Supported by the Zephyr community:
-
-- [lp_em_cc2340r5](https://www.ti.com/tool/LP-EM-CC2340R5)
 
 - cc1352p1_launchxl
 - cc1352p7_launchpad

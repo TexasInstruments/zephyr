@@ -36,7 +36,8 @@ or
 Building and Running
 ********************
 
-Example building for ``lp_em_cc35x1/cc3551e``:
+Example building for :zephyr:board:`lp_em_cc35x1` with the ``cc3551e``
+qualifier:
 
 .. zephyr-app-commands::
    :zephyr-app: samples/subsys/display/lvgl_simple_gui

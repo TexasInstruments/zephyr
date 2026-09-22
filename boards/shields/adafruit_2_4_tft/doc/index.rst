@@ -12,8 +12,8 @@ This shield comes with a resistive (STMPE610 controller)
 or capacitive (FT6206 controller) touchscreen. While the
 Zephyr RTOS supports display output to these screens,
 touchscreen input is supported only on Capacitive Touch version.
-More information about the shield can be found
-at the `Adafruit 2.4" TFT website`_.
+More information about the shield can be found at the `Adafruit 2.4" TFT
+website <https://www.adafruit.com/product/1651>`_.
 
    Adafruit 2.4" TFT (Credit: Adafruit)
 

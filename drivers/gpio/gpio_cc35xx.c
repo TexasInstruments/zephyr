@@ -281,7 +281,7 @@ static void cc35xx_ll_gpio_set_config_and_mux(uint8_t index, uint32_t config, ui
 	}
 }
 
-#ifdef CONFIG_GPIO_GET_CONFIG
+#if defined(CONFIG_GPIO_GET_CONFIG) || defined(CONFIG_GPIO_GET_DIRECTION)
 static void cc35xx_ll_gpio_get_config(uint8_t index, uint32_t *config)
 {
 	uint32_t cfgRegAddr;
@@ -462,7 +462,7 @@ static int cc35xx_gpio_pin_configure(const struct device *dev, gpio_pin_t pin, g
 	return 0;
 }
 
-#ifdef CONFIG_GPIO_GET_CONFIG
+#if defined(CONFIG_GPIO_GET_CONFIG) || defined(CONFIG_GPIO_GET_DIRECTION)
 static inline bool cc35xx_config_is_output(uint32_t config)
 {
 	if ((config & ~0x1ff) == (GPIO_CFG_OUTPUT)) {
@@ -533,6 +533,7 @@ static inline bool cc35xx_config_is_input_pull_down(uint32_t config)
 	return false;
 }
 
+#ifdef CONFIG_GPIO_GET_CONFIG
 static int cc35xx_gpio_pin_get_config(const struct device *dev, gpio_pin_t pin,
 				      gpio_flags_t *out_flags)
 {
@@ -563,6 +564,7 @@ static int cc35xx_gpio_pin_get_config(const struct device *dev, gpio_pin_t pin,
 
 	return 0;
 }
+#endif
 #endif
 
 #ifdef CONFIG_GPIO_GET_DIRECTION

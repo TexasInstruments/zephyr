@@ -496,11 +496,13 @@ static void uart_cc35xx_isr(const struct device *dev)
 	uint32_t status = UARTIntStatus(config->base, true);
 #endif /* CONFIG_UART_ASYNC_API */
 
+#ifdef CONFIG_UART_INTERRUPT_DRIVEN
 	/* Interrupt-driven mode: hand off to the registered callback */
 	if (data->callback) {
 		data->callback(dev, data->user_data);
 		return;
 	}
+#endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
 #ifdef CONFIG_UART_ASYNC_API
 	/* Handle line / framing errors */

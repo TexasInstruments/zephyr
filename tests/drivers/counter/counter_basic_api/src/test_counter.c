@@ -199,6 +199,9 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_BEE_TIMER
 	DEVS_FOR_DT_COMPAT(realtek_bee_counter_timer)
 #endif
+#ifdef CONFIG_COUNTER_MSPM0_TIMER
+	DEVS_FOR_DT_COMPAT(ti_mspm0_timer_counter)
+#endif
 };
 
 static const struct device *const period_devs[] = {
@@ -1264,6 +1267,11 @@ static bool reliable_cancel_capable(const struct device *dev)
 	}
 #endif
 #ifdef CONFIG_COUNTER_RENESAS_RZA2M_OSTM
+	if (single_channel_alarm_capable(dev)) {
+		return true;
+	}
+#endif
+#ifdef CONFIG_COUNTER_MSPM0_TIMER
 	if (single_channel_alarm_capable(dev)) {
 		return true;
 	}

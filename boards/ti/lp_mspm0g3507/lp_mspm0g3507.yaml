@@ -12,6 +12,7 @@ supported:
   - uart
   - gpio
   - can
+  - vref
   - trng
   - counter
 vendor: ti

@@ -124,6 +124,12 @@
 	pinctrl-names = "default";
 };
 
+&vref0 {
+	status = "okay";
+	pinctrl-0 = <&analog_pa23>;
+	pinctrl-names = "default";
+};
+
 &trng {
 	status = "okay";
 };

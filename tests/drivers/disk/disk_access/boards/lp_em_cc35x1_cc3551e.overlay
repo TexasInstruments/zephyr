@@ -5,5 +5,14 @@
  */
 
 &sdhc {
+	pinctrl-0 = <&sdhc_mmc_default>;
+	pinctrl-names = "default";
+	card-always-present;
 	status = "okay";
+
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		disk-name = "SD";
+		status = "okay";
+	};
 };

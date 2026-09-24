@@ -12,4 +12,8 @@ supported:
   - uart
   - gpio
   - can
+  - dac
+  - spi
+  - vref
+  - rtc
 vendor: ti

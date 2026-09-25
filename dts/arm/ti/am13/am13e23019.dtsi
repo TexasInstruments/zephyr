@@ -183,6 +183,8 @@
 				#size-cells = <0>;
 				interrupts = <34 0>;
 				clocks = <&ckm MSPM0_CLOCK_MCLK_DIV_2>;
+				dmas = <&dma 0 53>, <&dma 1 54>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 		};
@@ -224,6 +226,8 @@
 				#size-cells = <0>;
 				interrupts = <35 0>;
 				clocks = <&ckm MSPM0_CLOCK_MCLK_DIV_2>;
+				dmas = <&dma 2 55>, <&dma 3 56>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 		};
@@ -297,6 +301,8 @@
 				#size-cells = <0>;
 				interrupts = <37 0>;
 				clocks = <&ckm MSPM0_CLOCK_MCLK_DIV_2>;
+				dmas = <&dma 4 59>, <&dma 5 60>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 		};
@@ -338,6 +344,8 @@
 				#size-cells = <0>;
 				interrupts = <38 0>;
 				clocks = <&ckm MSPM0_CLOCK_MCLK_DIV_2>;
+				dmas = <&dma 6 61>, <&dma 7 62>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 		};

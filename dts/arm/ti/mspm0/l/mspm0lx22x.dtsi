@@ -14,6 +14,13 @@
 			reg = <0x20000000 DT_SIZE_K(32)>;
 		};
 
+		comp0: comp@40008000 {
+			compatible = "ti,mspm0-comparator";
+			reg = <0x40008000 0x2000>;
+			interrupts = <1 0>;
+			status = "disabled";
+		};
+
 		timg0: timg0@40084000 {
 			compatible = "ti,mspm0-timer";
 			reg = <0x40084000 0x2000>;

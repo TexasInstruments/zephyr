@@ -12,4 +12,5 @@ supported:
   - gpio
   - pinctrl
   - uart
+  - trng
 vendor: ti

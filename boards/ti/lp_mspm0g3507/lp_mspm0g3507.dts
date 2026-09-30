@@ -29,6 +29,7 @@
 		zephyr,shell-uart = &uart0;
 		zephyr,code-partition = &slot0_partition;
 		zephyr,canbus = &canfd0;
+		zephyr,entropy = &trng;
 	};
 
 	leds {
@@ -131,4 +132,8 @@
 	status = "okay";
 	pinctrl-0 = <&canfd0_cantx_pa12 &canfd0_canrx_pa13>;
 	pinctrl-names = "default";
+};
+
+&trng {
+	status = "okay";
 };

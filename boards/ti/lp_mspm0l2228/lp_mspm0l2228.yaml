@@ -13,4 +13,5 @@ supported:
   - pinctrl
   - uart
   - counter
+  - trng
 vendor: ti

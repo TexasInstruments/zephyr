@@ -27,6 +27,7 @@
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0;
 		zephyr,code-partition = &slot0_partition;
+		zephyr,entropy = &trng;
 	};
 
 	leds {
@@ -92,4 +93,8 @@
 	current-speed = <115200>;
 	pinctrl-0 = <&uart0_tx_pa10 &uart0_rx_pa11>;
 	pinctrl-names = "default";
+};
+
+&trng {
+	status = "okay";
 };

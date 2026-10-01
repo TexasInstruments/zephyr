@@ -9,8 +9,10 @@ toolchain:
 ram: 32
 flash: 256
 supported:
+  - adc
   - gpio
   - pinctrl
   - uart
   - counter
+  - vref
 vendor: ti

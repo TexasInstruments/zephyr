@@ -129,3 +129,9 @@
 	pinctrl-0 = <&canfd0_cantx_pa12 &canfd0_canrx_pa13>;
 	pinctrl-names = "default";
 };
+
+&vref0 {
+	status = "okay";
+	pinctrl-0 = <&analog_pa23>;
+	pinctrl-names = "default";
+};

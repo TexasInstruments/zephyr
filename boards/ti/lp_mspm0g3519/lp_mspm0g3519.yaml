@@ -9,7 +9,9 @@ toolchain:
 ram: 128
 flash: 512
 supported:
+  - adc
   - uart
   - gpio
   - can
+  - vref
 vendor: ti

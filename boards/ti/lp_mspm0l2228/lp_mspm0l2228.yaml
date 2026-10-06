@@ -15,5 +15,6 @@ supported:
   - uart
   - counter
   - vref
+  - dma
   - trng
 vendor: ti

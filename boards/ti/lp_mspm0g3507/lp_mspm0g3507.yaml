@@ -14,6 +14,7 @@ supported:
   - gpio
   - can
   - vref
+  - dma
   - trng
   - counter
 vendor: ti

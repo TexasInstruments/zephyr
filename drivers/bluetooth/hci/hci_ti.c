@@ -44,18 +44,18 @@ struct hci_driver_data {
 #define BLE_SYNC_INIT_TIMEOUT_TICKS 10000 /* K_SECONDS(BLE_SYNC_INIT_TIMEOUT_SEC) */
 
 /* Offsets for HCI Command Complete Event fields */
-#define HCI_CMD_COMPLETE_EVT_CODE_OFFSET       1
-#define HCI_CMD_COMPLETE_PARAMS_LEN_OFFSET     2
-#define HCI_CMD_COMPLETE_NUM_CMD_PKTS_OFFSET   3
-#define HCI_CMD_COMPLETE_OPCODE_LSB_OFFSET     4
-#define HCI_CMD_COMPLETE_OPCODE_MSB_OFFSET     5
-#define HCI_CMD_COMPLETE_STATUS_OFFSET         6
-#define HCI_CMD_COMPLETE_PARAMS_START_OFFSET   7
-#define HCI_VS_PARAMS_LEN_OFFSET               2
-#define HCI_VS_STATUS_OFFSET                   5
-#define HCI_VS_OPCODE_LSB_OFFSET               6
-#define HCI_VS_OPCODE_MSB_OFFSET               7
-#define HCI_VS_MIN_LENGTH                      8
+#define HCI_CMD_COMPLETE_EVT_CODE_OFFSET     1
+#define HCI_CMD_COMPLETE_PARAMS_LEN_OFFSET   2
+#define HCI_CMD_COMPLETE_NUM_CMD_PKTS_OFFSET 3
+#define HCI_CMD_COMPLETE_OPCODE_LSB_OFFSET   4
+#define HCI_CMD_COMPLETE_OPCODE_MSB_OFFSET   5
+#define HCI_CMD_COMPLETE_STATUS_OFFSET       6
+#define HCI_CMD_COMPLETE_PARAMS_START_OFFSET 7
+#define HCI_VS_PARAMS_LEN_OFFSET             2
+#define HCI_VS_STATUS_OFFSET                 5
+#define HCI_VS_OPCODE_LSB_OFFSET             6
+#define HCI_VS_OPCODE_MSB_OFFSET             7
+#define HCI_VS_MIN_LENGTH                    8
 
 /*******************************************************************************
  * LOCAL FUNCTIONS PROTOTYPES
@@ -294,12 +294,14 @@ static int convert_vs_le_meta_event(uint8 *pHciPkt, uint16 *pktLen)
 		opcode_msb = pHciPkt[HCI_VS_OPCODE_MSB_OFFSET];
 
 		/* Extracts the parameters length from the vendor-specific (VS) HCI packet.
-		 * The parameters length (`params_len`) is calculated by taking the VS parameter length,
-		 * and subtracting the difference between the VS header length (`HCI_VS_MIN_LENGTH`)
-		 * and the location of the VS parameter length field. This ensures that only the actual
-		 * parameter data length is extracted, excluding the header bytes.*/
+		 * The parameters length (`params_len`) is calculated by taking the VS parameter
+		 * length, and subtracting the difference between the VS header length
+		 * (`HCI_VS_MIN_LENGTH`) and the location of the VS parameter length field. This
+		 * ensures that only the actual parameter data length is extracted, excluding the
+		 * header bytes.
+		 */
 		params_len = pHciPkt[HCI_VS_PARAMS_LEN_OFFSET] - HCI_VS_MIN_LENGTH +
-		             HCI_VS_PARAMS_LEN_OFFSET + 1;
+			     HCI_VS_PARAMS_LEN_OFFSET + 1;
 
 		if ((params_len > 0) && (*pktLen > HCI_VS_MIN_LENGTH)) {
 			/* Extract parameters */
@@ -331,8 +333,8 @@ static int convert_vs_le_meta_event(uint8 *pHciPkt, uint16 *pktLen)
 		/* Copy all event parameters (if any) */
 		if ((params != NULL) && (params_len > 0)) {
 			if ((HCI_CMD_COMPLETE_PARAMS_START_OFFSET + params_len) <= *pktLen) {
-				memmove(&pHciPkt[HCI_CMD_COMPLETE_PARAMS_START_OFFSET],
-						params, params_len);
+				memmove(&pHciPkt[HCI_CMD_COMPLETE_PARAMS_START_OFFSET], params,
+					params_len);
 			} else {
 				/* Invalid length, do nothing */
 				ret_val = -EINVAL;
@@ -341,7 +343,7 @@ static int convert_vs_le_meta_event(uint8 *pHciPkt, uint16 *pktLen)
 
 		/* Set the new pktLen */
 		*pktLen = (HCI_CMD_COMPLETE_PARAMS_LEN_OFFSET + 1) +
-					pHciPkt[HCI_CMD_COMPLETE_PARAMS_LEN_OFFSET];
+			  pHciPkt[HCI_CMD_COMPLETE_PARAMS_LEN_OFFSET];
 	}
 
 	return ret_val;
@@ -441,7 +443,7 @@ static int hci_driver_close(const struct device *dev)
 	return 0; /* Assuming 0 indicates success */
 }
 
-static const struct bt_hci_driver_api hci_driver_api = {
+static DEVICE_API(bt_hci, hci_driver_api) = {
 	.open = hci_driver_open,
 	.close = hci_driver_close,
 	.send = hci_driver_send,

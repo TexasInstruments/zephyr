@@ -1044,7 +1044,7 @@ static int spi_cc23x0_cc27xx_release(const struct device *dev, const struct spi_
 	return 0;
 }
 
-static const struct spi_driver_api spi_cc23x0_cc27xx_driver_api = {
+static DEVICE_API(spi, spi_cc23x0_cc27xx_driver_api) = {
 	.transceive = spi_cc23x0_cc27xx_transceive,
 #ifdef CONFIG_SPI_ASYNC
 	.transceive_async = spi_cc23x0_cc27xx_transceive_async,

@@ -808,7 +808,7 @@ static void rtc_ti_lpf3_isr(const struct device *dev)
 #endif /* CONFIG_RTC_ALARM || CONFIG_RTC_UPDATE */
 }
 
-static const struct rtc_driver_api rtc_ti_lpf3_driver_api = {
+static DEVICE_API(rtc, rtc_ti_lpf3_driver_api) = {
 	.set_time = rtc_ti_lpf3_set_time,
 	.get_time = rtc_ti_lpf3_get_time,
 #if CONFIG_RTC_ALARM

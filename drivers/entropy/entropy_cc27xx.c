@@ -19,20 +19,20 @@
 #error "Entropy Driver for CC27xx requires at least one instance"
 #endif
 
-#define ENTROPY_LENGTH_BYTES_MIN		64
-#define SHA256_DIGEST_LENGTH_BYTES		32
-#define ENTROPY_HEALTH_RCT_THRESHOLD_MIN	24
-#define ENTROPY_HEALTH_APT_THRESHOLD		461
-#define ENTROPY_HEALTH_BIMODAL_THRESHOLD	369
+#define ENTROPY_LENGTH_BYTES_MIN         64
+#define SHA256_DIGEST_LENGTH_BYTES       32
+#define ENTROPY_HEALTH_RCT_THRESHOLD_MIN 24
+#define ENTROPY_HEALTH_APT_THRESHOLD     461
+#define ENTROPY_HEALTH_BIMODAL_THRESHOLD 369
 /* Window size for Adaptive Proportion Test */
-#define ENTROPY_HEALTH_APT_WINDOW_SIZE		512
+#define ENTROPY_HEALTH_APT_WINDOW_SIZE   512
 
-#if (CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH < ENTROPY_LENGTH_BYTES_MIN) || \
+#if (CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH < ENTROPY_LENGTH_BYTES_MIN) ||                      \
 	(CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH % SHA256_DIGEST_LENGTH_BYTES != 0)
 #error "ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH must be a multiple of 32 and at least 64 bytes"
 #endif
 
-#if (CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD < ENTROPY_HEALTH_RCT_THRESHOLD_MIN) || \
+#if (CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD < ENTROPY_HEALTH_RCT_THRESHOLD_MIN) ||                    \
 	(CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD % 3 != 0)
 #error "ENTROPY_CC27XX_RCT_THRESHOLD must be a multiple of 3 and at least 24"
 #endif
@@ -64,7 +64,7 @@ static int_fast16_t get_rcl_noise(uint32_t *local_noise_input, uint16_t noise_le
  */
 static void add_codes_to_apt_densities(uint16_t codes, volatile uint16_t *densities)
 {
-    /* Counts a set of three codes in the densities array. */
+	/* Counts a set of three codes in the densities array. */
 	for (uint_fast8_t i = 0U; i < 3U; i++) {
 		uint8_t code = codes & 0x0F;
 
@@ -96,10 +96,8 @@ static void add_codes_to_apt_densities(uint16_t codes, volatile uint16_t *densit
 /*
  *  ======== execute_rct ========
  */
-static inline int_fast16_t execute_rct(uint32_t last_word,
-					uint32_t new_word,
-					size_t *count_repeated_iac,
-					size_t *count_repeated_qac)
+static inline int_fast16_t execute_rct(uint32_t last_word, uint32_t new_word,
+				       size_t *count_repeated_iac, size_t *count_repeated_qac)
 {
 	/* CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD has been already verified to be
 	 * a multiple of 3. Simple division here is sufficient.
@@ -206,11 +204,11 @@ static int_fast16_t entropy_health_tests(uint32_t *noise_data)
 	uint32_t new_word;
 	uint16_t ia_codes;
 	uint16_t qa_codes;
-	int_fast16_t return_value   = 0;
+	int_fast16_t return_value = 0;
 	size_t num_codes_in_apt_window = 0U;
-	size_t count_repeated_iac    = 0U;
-	size_t count_repeated_qac    = 0U;
-	uint32_t last_word          = 0xFFFFFFFF;
+	size_t count_repeated_iac = 0U;
+	size_t count_repeated_qac = 0U;
+	uint32_t last_word = 0xFFFFFFFF;
 
 	memset((void *)densities, 0x0, 32 * sizeof(uint16_t));
 
@@ -218,8 +216,8 @@ static int_fast16_t entropy_health_tests(uint32_t *noise_data)
 		new_word = noise_data[i];
 
 		if (CONFIG_ENTROPY_CC27XX_RCT_ENABLED) {
-			return_value = execute_rct(last_word, new_word,
-						&count_repeated_iac, &count_repeated_qac);
+			return_value = execute_rct(last_word, new_word, &count_repeated_iac,
+						   &count_repeated_qac);
 			if (return_value != 0) {
 				return return_value;
 			}
@@ -246,9 +244,7 @@ static int_fast16_t entropy_health_tests(uint32_t *noise_data)
 	return return_value;
 }
 
-static int entropy_cc27xx_get_entropy(const struct device *dev,
-					     uint8_t *buf,
-					     uint16_t len)
+static int entropy_cc27xx_get_entropy(const struct device *dev, uint8_t *buf, uint16_t len)
 {
 	int ret_status = 0;
 
@@ -257,8 +253,8 @@ static int entropy_cc27xx_get_entropy(const struct device *dev,
 	} else {
 		if ((len > 0) && (entropy_pool_level > 0)) {
 			/* Copy entropy generated to the buffer */
-			memcpy(buf, &entropy[entropy_pool_level-len], len);
-			memset(&entropy[entropy_pool_level-len], 0, len);
+			memcpy(buf, &entropy[entropy_pool_level - len], len);
+			memset(&entropy[entropy_pool_level - len], 0, len);
 			entropy_pool_level -= len;
 		} else {
 			/* Invalid length */
@@ -272,9 +268,9 @@ static int entropy_cc27xx_get_entropy(const struct device *dev,
 static int entropy_cc27xx_init(const struct device *dev)
 {
 	SHA256SW_Object sha256_sw_object;
-	int_fast16_t	rcl_status;
-	int_fast16_t	sha256_sw_status;
-	size_t          noise_length = CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH * 4;
+	int_fast16_t rcl_status;
+	int_fast16_t sha256_sw_status;
+	size_t noise_length = CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH * 4;
 
 	/* Each 32-bytes of entropy will be generated from given noise input array */
 	uint32_t *rcl_noise;
@@ -287,8 +283,8 @@ static int entropy_cc27xx_init(const struct device *dev)
 	/* Since the value of entropy length has already been verified, performing
 	 * a simple division and taking the floor value here suffice.
 	 */
-	uint16_t entropy_iter = CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH /
-				SHA256_DIGEST_LENGTH_BYTES;
+	uint16_t entropy_iter =
+		CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH / SHA256_DIGEST_LENGTH_BYTES;
 
 	/* The following code is used to generate the entropy from the RCL noise.
 	 * The entropy is generated using SHA2 Operation.
@@ -296,7 +292,8 @@ static int entropy_cc27xx_init(const struct device *dev)
 	for (int i = 0; i < entropy_iter; i++) {
 		/* Clear noise data array and retrieve RCL noise */
 		memset(rcl_noise, 0, noise_length);
-		rcl_status = get_rcl_noise(rcl_noise, CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH);
+		rcl_status =
+			get_rcl_noise(rcl_noise, CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH);
 
 		if (CONFIG_ENTROPY_CC27XX_RCT_ENABLED || CONFIG_ENTROPY_CC27XX_APT_ENABLED) {
 			/* Perform Health Checks on the noise data before generating entropy */
@@ -305,9 +302,9 @@ static int entropy_cc27xx_init(const struct device *dev)
 
 		if (rcl_status == 0) {
 			/* RCL noise successfully retrieved. Generate 32 bytes of entropy */
-			sha256_sw_status = HapiSha256SwHashData((SHA256SW_Handle)&sha256_sw_object,
-								rcl_noise, noise_length,
-					(uint32_t *)(entropy + (i * SHA256_DIGEST_LENGTH_BYTES)));
+			sha256_sw_status = HapiSha256SwHashData(
+				(SHA256SW_Handle)&sha256_sw_object, rcl_noise, noise_length,
+				(uint32_t *)(entropy + (i * SHA256_DIGEST_LENGTH_BYTES)));
 			if (sha256_sw_status != SHA2SW_STATUS_SUCCESS) {
 				k_free(rcl_noise);
 				return -EIO;
@@ -323,12 +320,9 @@ static int entropy_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static const struct entropy_driver_api entropy_cc27xx_driver_api = {
+static DEVICE_API(entropy, entropy_cc27xx_driver_api) = {
 	.get_entropy = entropy_cc27xx_get_entropy,
 };
 
-DEVICE_DT_INST_DEFINE(0,
-		entropy_cc27xx_init,
-		NULL, NULL, NULL,
-		POST_KERNEL, CONFIG_ENTROPY_INIT_PRIORITY,
-		&entropy_cc27xx_driver_api);
+DEVICE_DT_INST_DEFINE(0, entropy_cc27xx_init, NULL, NULL, NULL, POST_KERNEL,
+		      CONFIG_ENTROPY_INIT_PRIORITY, &entropy_cc27xx_driver_api);

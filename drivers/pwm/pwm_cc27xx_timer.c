@@ -507,7 +507,7 @@ static int pwm_cc27xx_timer_disable_capture(const struct device *dev, uint32_t c
 
 #endif /* CONFIG_PWM_CAPTURE */
 
-static const struct pwm_driver_api pwm_cc27xx_timer_driver_api = {
+static DEVICE_API(pwm, pwm_cc27xx_timer_driver_api) = {
 	.set_cycles = pwm_cc27xx_timer_set_cycles,
 	.get_cycles_per_sec = pwm_cc27xx_timer_get_cycles_per_sec,
 #ifdef CONFIG_PWM_CAPTURE

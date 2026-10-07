@@ -39,10 +39,9 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_PWM_LOG_LEVEL);
 #define LGPT_MAX_CHANNELS       3
 
 /* Output enable bits for CxCFG registers */
-#define LGPT_CxCFG_OUT0         0x100
-#define LGPT_CxCFG_OUT1         0x200
-#define LGPT_CxCFG_OUT2         0x400
-
+#define LGPT_CxCFG_OUT0 0x100
+#define LGPT_CxCFG_OUT1 0x200
+#define LGPT_CxCFG_OUT2 0x400
 
 /*
  * Per-channel state tracking for proper handling of start/stop/modify sequences.
@@ -75,7 +74,7 @@ struct pwm_cc27xx_timer_config {
 	const uint32_t base;
 	const struct pinctrl_dev_config *pcfg;
 	uint8_t lgpt_id;
-	uint8_t output_idx;  /* Which output (0, 1, or 2) this PWM controls */
+	uint8_t output_idx; /* Which output (0, 1, or 2) this PWM controls */
 #ifdef CONFIG_PWM_CAPTURE
 	uint32_t irq_num;
 	uint32_t irq_priority;
@@ -119,7 +118,7 @@ static void pwm_cc27xx_timer_start(const struct pwm_cc27xx_timer_config *config)
 }
 
 static void pwm_cc27xx_timer_set_initial_target(const struct pwm_cc27xx_timer_config *config,
-					  uint32_t period)
+						uint32_t period)
 {
 	HWREG(config->base + LGPT_O_TGT) = period;
 }
@@ -146,7 +145,7 @@ static uint32_t pwm_cc27xx_timer_get_output_enable(uint8_t output_idx)
  * Uses channel 0 registers but enables the correct output based on output_idx.
  */
 static void pwm_cc27xx_timer_set_initial_compare(const struct pwm_cc27xx_timer_config *config,
-					   uint32_t pulse, uint8_t capture_compare_action)
+						 uint32_t pulse, uint8_t capture_compare_action)
 {
 	uint32_t output_enable = pwm_cc27xx_timer_get_output_enable(config->output_idx);
 
@@ -154,19 +153,18 @@ static void pwm_cc27xx_timer_set_initial_compare(const struct pwm_cc27xx_timer_c
 	HWREG(config->base + LGPT_O_C0CC) = pulse;
 	HWREG(config->base + LGPT_O_C0CFG) = output_enable | capture_compare_action;
 
-	LOG_DBG("C0CFG = 0x%x (output_idx=%d, ccact=0x%x)",
-		output_enable | capture_compare_action, config->output_idx,
-		capture_compare_action);
+	LOG_DBG("C0CFG = 0x%x (output_idx=%d, ccact=0x%x)", output_enable | capture_compare_action,
+		config->output_idx, capture_compare_action);
 }
 
 static void pwm_cc27xx_timer_set_next_target(const struct pwm_cc27xx_timer_config *config,
-				       uint32_t period)
+					     uint32_t period)
 {
 	HWREG(config->base + LGPT_O_PTGT) = period;
 }
 
 static void pwm_cc27xx_timer_set_next_compare(const struct pwm_cc27xx_timer_config *config,
-					uint32_t pulse)
+					      uint32_t pulse)
 {
 	/* Always use channel 0 pipeline register */
 	HWREG(config->base + LGPT_O_PC0CC) = pulse;
@@ -176,7 +174,7 @@ static void pwm_cc27xx_timer_set_next_compare(const struct pwm_cc27xx_timer_conf
  * Set channel output level directly (used when PWM is stopped)
  */
 static void pwm_cc27xx_timer_set_output_level(const struct pwm_cc27xx_timer_config *config,
-					bool level_high)
+					      bool level_high)
 {
 	uint32_t outctl_val;
 
@@ -193,8 +191,8 @@ static void pwm_cc27xx_timer_set_output_level(const struct pwm_cc27xx_timer_conf
 	HWREG(config->base + LGPT_O_OUTCTL) = outctl_val;
 }
 
-static int pwm_cc27xx_timer_set_cycles(const struct device *dev, uint32_t channel,
-				 uint32_t period, uint32_t pulse, pwm_flags_t flags)
+static int pwm_cc27xx_timer_set_cycles(const struct device *dev, uint32_t channel, uint32_t period,
+				       uint32_t pulse, pwm_flags_t flags)
 {
 	const struct pwm_cc27xx_timer_config *config = dev->config;
 	struct pwm_cc27xx_timer_data *data = dev->data;
@@ -204,8 +202,8 @@ static int pwm_cc27xx_timer_set_cycles(const struct device *dev, uint32_t channe
 	bool was_running;
 	int ret;
 
-	LOG_DBG("set cycles output=%u period=%u pulse=%u flags=0x%x",
-		config->output_idx, period, pulse, flags);
+	LOG_DBG("set cycles output=%u period=%u pulse=%u flags=0x%x", config->output_idx, period,
+		pulse, flags);
 
 	/*
 	 * Note: The 'channel' parameter from pwms is ignored.
@@ -214,8 +212,7 @@ static int pwm_cc27xx_timer_set_cycles(const struct device *dev, uint32_t channe
 	(void)channel;
 
 	/* Validate parameters based on timer width */
-	if ((config->base != LGPT3_BASE) &&
-	    (pulse > 0xffff || period > 0xffff || pulse > period)) {
+	if ((config->base != LGPT3_BASE) && (pulse > 0xffff || period > 0xffff || pulse > period)) {
 		LOG_ERR("Period or pulse out of range for 16-bit timer");
 		return -EINVAL;
 	} else if (pulse > 0xffffff || period > 0xffffff || pulse > period) {
@@ -326,7 +323,7 @@ static int pwm_cc27xx_timer_set_cycles(const struct device *dev, uint32_t channe
 }
 
 static int pwm_cc27xx_timer_get_cycles_per_sec(const struct device *dev, uint32_t channel,
-					 uint64_t *cycles)
+					       uint64_t *cycles)
 {
 	struct pwm_cc27xx_timer_data *data = dev->data;
 
@@ -366,7 +363,7 @@ static void pwm_cc27xx_timer_isr(const void *arg)
 	 * race that timeout and break test_capture_timeout.
 	 */
 	if (mis & LGPT_RIS_C0CC) {
-		uint32_t period   = HWREG(base + LGPT_O_C0CCNC);
+		uint32_t period = HWREG(base + LGPT_O_C0CCNC);
 		uint32_t low_time = HWREG(base + LGPT_O_PC0CCNC);
 		uint32_t pulse;
 
@@ -408,8 +405,7 @@ static void pwm_cc27xx_timer_isr(const void *arg)
 }
 
 static int pwm_cc27xx_timer_configure_capture(const struct device *dev, uint32_t channel,
-					      pwm_flags_t flags,
-					      pwm_capture_callback_handler_t cb,
+					      pwm_flags_t flags, pwm_capture_callback_handler_t cb,
 					      void *user_data)
 {
 	const struct pwm_cc27xx_timer_config *cfg = dev->config;
@@ -428,22 +424,21 @@ static int pwm_cc27xx_timer_configure_capture(const struct device *dev, uint32_t
 	/* C0CFG must be written while CTL.MODE = DIS per TRM */
 	pwm_cc27xx_timer_stop(cfg);
 
-	ccfg = LGPT_C0CFG_CCACT_PER_PULSE_WIDTH_MEAS
-	     | LGPT_C0CFG_INPUT_IO
-	     | pwm_cc27xx_timer_get_output_enable(cfg->output_idx);
+	ccfg = LGPT_C0CFG_CCACT_PER_PULSE_WIDTH_MEAS | LGPT_C0CFG_INPUT_IO |
+	       pwm_cc27xx_timer_get_output_enable(cfg->output_idx);
 	ccfg |= (flags & PWM_POLARITY_INVERTED) ? LGPT_C0CFG_EDGE_FALL : LGPT_C0CFG_EDGE_RISE;
 
 	HWREG(cfg->base + LGPT_O_C0CFG) = ccfg;
 	HWREG(cfg->base + LGPT_O_TGT) = cfg->max_top_value;
 	barrier_dsync_fence_full();
 
-	data->capture.callback    = cb;
-	data->capture.user_data   = user_data;
-	data->capture.flags       = flags;
+	data->capture.callback = cb;
+	data->capture.user_data = user_data;
+	data->capture.flags = flags;
 	data->capture.is_continuous = !!(flags & PWM_CAPTURE_MODE_CONTINUOUS);
 
-	LOG_DBG("configure_capture output_idx=%d ccfg=0x%x top=0x%x",
-		cfg->output_idx, ccfg, cfg->max_top_value);
+	LOG_DBG("configure_capture output_idx=%d ccfg=0x%x top=0x%x", cfg->output_idx, ccfg,
+		cfg->max_top_value);
 
 	return 0;
 }
@@ -461,16 +456,14 @@ static int pwm_cc27xx_timer_enable_capture(const struct device *dev, uint32_t ch
 	if (data->capture.is_capturing) {
 		return -EBUSY;
 	}
-	if (lgpt_capture_dev[cfg->lgpt_id] != NULL &&
-	    lgpt_capture_dev[cfg->lgpt_id] != dev) {
+	if (lgpt_capture_dev[cfg->lgpt_id] != NULL && lgpt_capture_dev[cfg->lgpt_id] != dev) {
 		return -EBUSY;
 	}
 
 	lgpt_capture_dev[cfg->lgpt_id] = dev;
-	irq_connect_dynamic(cfg->irq_num, cfg->irq_priority,
-			    pwm_cc27xx_timer_isr, dev, 0);
+	irq_connect_dynamic(cfg->irq_num, cfg->irq_priority, pwm_cc27xx_timer_isr, dev, 0);
 
-	HWREG(cfg->base + LGPT_O_ICLR)  = LGPT_RIS_C0CC | LGPT_RIS_TGT;
+	HWREG(cfg->base + LGPT_O_ICLR) = LGPT_RIS_C0CC | LGPT_RIS_TGT;
 	HWREG(cfg->base + LGPT_O_IMSET) = LGPT_RIS_C0CC;
 	barrier_dsync_fence_full();
 
@@ -494,7 +487,7 @@ static int pwm_cc27xx_timer_disable_capture(const struct device *dev, uint32_t c
 	irq_disable(cfg->irq_num);
 	HWREG(cfg->base + LGPT_O_IMCLR) = LGPT_RIS_C0CC;
 	pwm_cc27xx_timer_stop(cfg);
-	HWREG(cfg->base + LGPT_O_ICLR)  = LGPT_RIS_C0CC | LGPT_RIS_TGT;
+	HWREG(cfg->base + LGPT_O_ICLR) = LGPT_RIS_C0CC | LGPT_RIS_TGT;
 	barrier_dsync_fence_full();
 
 	data->capture.is_capturing = false;
@@ -507,13 +500,13 @@ static int pwm_cc27xx_timer_disable_capture(const struct device *dev, uint32_t c
 
 #endif /* CONFIG_PWM_CAPTURE */
 
-static const struct pwm_driver_api pwm_cc27xx_timer_driver_api = {
+static DEVICE_API(pwm, pwm_cc27xx_timer_driver_api) = {
 	.set_cycles = pwm_cc27xx_timer_set_cycles,
 	.get_cycles_per_sec = pwm_cc27xx_timer_get_cycles_per_sec,
 #ifdef CONFIG_PWM_CAPTURE
 	.configure_capture = pwm_cc27xx_timer_configure_capture,
-	.enable_capture    = pwm_cc27xx_timer_enable_capture,
-	.disable_capture   = pwm_cc27xx_timer_disable_capture,
+	.enable_capture = pwm_cc27xx_timer_enable_capture,
+	.disable_capture = pwm_cc27xx_timer_disable_capture,
 #endif
 };
 
@@ -572,59 +565,56 @@ static int pwm_cc27xx_timer_pm_action(const struct device *dev, enum pm_device_a
 /*
  * Get output index from the ti,output-index device tree property.
  */
-#define DT_TIMER(idx) DT_INST_PARENT(idx)
+#define DT_TIMER(idx)           DT_INST_PARENT(idx)
 #define DT_TIMER_BASE_ADDR(idx) (DT_REG_ADDR(DT_TIMER(idx)))
 
 /* Get output index from ti,output-index property, default to 0 */
-#define PWM_OUTPUT_IDX(idx) \
-	DT_INST_PROP_OR(idx, ti_output_index, 0)
+#define PWM_OUTPUT_IDX(idx) DT_INST_PROP_OR(idx, ti_output_index, 0)
 
-#define PWM_CC27XX_TIMER_INIT_FUNC(idx)							\
-	static int pwm_cc27xx_timer_init##idx(const struct device *dev)			\
-	{										\
-		const struct pwm_cc27xx_timer_config *config = dev->config;			\
-		int ret;								\
-											\
-		LOG_DBG("PWM cc27xx_timer base=[%x] output_idx=%d",				\
-			config->base, config->output_idx);				\
-											\
-		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);		\
-		if (ret < 0) {								\
-			LOG_ERR("[ERR] failed to setup PWM pinctrl");			\
-			return ret;							\
-		}									\
-											\
-		pwm_cc27xx_timer_clock_action(dev, true);					\
-											\
-		return 0;								\
+#define PWM_CC27XX_TIMER_INIT_FUNC(idx)                                                            \
+	static int pwm_cc27xx_timer_init##idx(const struct device *dev)                            \
+	{                                                                                          \
+		const struct pwm_cc27xx_timer_config *config = dev->config;                        \
+		int ret;                                                                           \
+                                                                                                   \
+		LOG_DBG("PWM cc27xx_timer base=[%x] output_idx=%d", config->base,                  \
+			config->output_idx);                                                       \
+                                                                                                   \
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);                    \
+		if (ret < 0) {                                                                     \
+			LOG_ERR("[ERR] failed to setup PWM pinctrl");                              \
+			return ret;                                                                \
+		}                                                                                  \
+                                                                                                   \
+		pwm_cc27xx_timer_clock_action(dev, true);                                          \
+                                                                                                   \
+		return 0;                                                                          \
 	}
 
-#define PWM_DEVICE_INIT(idx)								\
-	PM_DEVICE_DT_INST_DEFINE(idx, pwm_cc27xx_timer_pm_action);				\
-	PWM_CC27XX_TIMER_INIT_FUNC(idx);							\
-	PINCTRL_DT_INST_DEFINE(idx);							\
-	LOG_INSTANCE_REGISTER(LOG_MODULE_NAME, idx, CONFIG_PWM_LOG_LEVEL);		\
-											\
-	static const struct pwm_cc27xx_timer_config pwm_cc27xx_timer_##idx##_config = {		\
-		.base = DT_TIMER_BASE_ADDR(idx),					\
-		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(idx),				\
-		.lgpt_id = (DT_TIMER_BASE_ADDR(idx) - LGPT0_BASE) >> 12,		\
-		.output_idx = PWM_OUTPUT_IDX(idx),					\
+#define PWM_DEVICE_INIT(idx)                                                                       \
+	PM_DEVICE_DT_INST_DEFINE(idx, pwm_cc27xx_timer_pm_action);                                 \
+	PWM_CC27XX_TIMER_INIT_FUNC(idx);                                                           \
+	PINCTRL_DT_INST_DEFINE(idx);                                                               \
+	LOG_INSTANCE_REGISTER(LOG_MODULE_NAME, idx, CONFIG_PWM_LOG_LEVEL);                         \
+                                                                                                   \
+	static const struct pwm_cc27xx_timer_config pwm_cc27xx_timer_##idx##_config = {            \
+		.base = DT_TIMER_BASE_ADDR(idx),                                                   \
+		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(idx),                                       \
+		.lgpt_id = (DT_TIMER_BASE_ADDR(idx) - LGPT0_BASE) >> 12,                           \
+		.output_idx = PWM_OUTPUT_IDX(idx),                                                 \
 		IF_ENABLED(CONFIG_PWM_CAPTURE, (					\
 		.irq_num      = DT_IRQN(DT_INST_PARENT(idx)),				\
 		.irq_priority = DT_IRQ(DT_INST_PARENT(idx), priority),			\
 		.max_top_value = DT_PROP(DT_INST_PARENT(idx), max_top_value),		\
-		))									\
-	};										\
-											\
-	static struct pwm_cc27xx_timer_data pwm_cc27xx_timer_##idx##_data = {			\
-		.prescale = DT_PROP(DT_INST_PARENT(idx), clk_prescale),			\
-		.base_clk = DT_PROP(DT_PATH(cpus, cpu_0), clock_frequency),		\
-	};										\
-											\
-	DEVICE_DT_INST_DEFINE(idx, pwm_cc27xx_timer_init##idx, PM_DEVICE_DT_INST_GET(idx),	\
-			      &pwm_cc27xx_timer_##idx##_data, &pwm_cc27xx_timer_##idx##_config,	\
-			      POST_KERNEL, CONFIG_PWM_INIT_PRIORITY,			\
-			      &pwm_cc27xx_timer_driver_api)
+		)) };      \
+                                                                                                   \
+	static struct pwm_cc27xx_timer_data pwm_cc27xx_timer_##idx##_data = {                      \
+		.prescale = DT_PROP(DT_INST_PARENT(idx), clk_prescale),                            \
+		.base_clk = DT_PROP(DT_PATH(cpus, cpu_0), clock_frequency),                        \
+	};                                                                                         \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(idx, pwm_cc27xx_timer_init##idx, PM_DEVICE_DT_INST_GET(idx),         \
+			      &pwm_cc27xx_timer_##idx##_data, &pwm_cc27xx_timer_##idx##_config,    \
+			      POST_KERNEL, CONFIG_PWM_INIT_PRIORITY, &pwm_cc27xx_timer_driver_api)
 
 DT_INST_FOREACH_STATUS_OKAY(PWM_DEVICE_INIT);

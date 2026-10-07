@@ -365,7 +365,7 @@ static void spi_cc23x0_cc27xx_isr(const struct device *dev)
 			spi_cc23x0_cc27xx_dma_load_tx(dev, data->dma_tx_xfer_len);
 			spi_cc23x0_cc27xx_dma_start(dev, TRANSFER_DIR_TX);
 		}
-	} else
+	} else {
 #endif /* CONFIG_SPI_SLAVE */
 		if (data->dma_status_flags ==
 		    (SPI_CC23X0_CC27XX_DMA_RX_DONE | SPI_CC23X0_CC27XX_DMA_TX_DONE)) {
@@ -384,6 +384,9 @@ static void spi_cc23x0_cc27xx_isr(const struct device *dev)
 				spi_context_complete(ctx, dev, SPI_CC23X0_CC27XX_STATUS_SUCCESS);
 			}
 		}
+#ifdef CONFIG_SPI_SLAVE
+	}
+#endif /* CONFIG_SPI_SLAVE */
 #endif /* CONFIG_SPI_CC23X0_CC27XX_DMA_DRIVEN */
 	__enable_irq();
 }
@@ -1044,7 +1047,7 @@ static int spi_cc23x0_cc27xx_release(const struct device *dev, const struct spi_
 	return 0;
 }
 
-static const struct spi_driver_api spi_cc23x0_cc27xx_driver_api = {
+static DEVICE_API(spi, spi_cc23x0_cc27xx_driver_api) = {
 	.transceive = spi_cc23x0_cc27xx_transceive,
 #ifdef CONFIG_SPI_ASYNC
 	.transceive_async = spi_cc23x0_cc27xx_transceive_async,

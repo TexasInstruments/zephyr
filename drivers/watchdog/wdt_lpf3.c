@@ -31,10 +31,10 @@ LOG_MODULE_REGISTER(wdt_ti_lpf3, CONFIG_WDT_LOG_LEVEL);
 /* Register access macros for each chip family */
 #if defined(CONFIG_SOC_SERIES_CC23X0)
 /* CC23X0 register access macros */
-#define WDT_UNLOCK(_base)       (HWREG((_base) + CKMD_O_WDTLOCK) = 0x1ACCE551)
-#define WDT_LOCK(_base)         (HWREG((_base) + CKMD_O_WDTLOCK) = 0x1)
-#define WDT_FEED(_base, _value) (HWREG((_base) + CKMD_O_WDTCNT) = (_value))
-#define WDT_STALL_ENABLE(_base) (HWREG((_base) + CKMD_O_WDTTEST) = 0x1)
+#define WDT_UNLOCK(_base)        (HWREG((_base) + CKMD_O_WDTLOCK) = 0x1ACCE551)
+#define WDT_LOCK(_base)          (HWREG((_base) + CKMD_O_WDTLOCK) = 0x1)
+#define WDT_FEED(_base, _value)  (HWREG((_base) + CKMD_O_WDTCNT) = (_value))
+#define WDT_STALL_ENABLE(_base)  (HWREG((_base) + CKMD_O_WDTTEST) = 0x1)
 #define WDT_STALL_DISABLE(_base) (HWREG((_base) + CKMD_O_WDTTEST) = 0x0)
 
 /* No explicit control register in CC23X0 */
@@ -42,30 +42,30 @@ LOG_MODULE_REGISTER(wdt_ti_lpf3, CONFIG_WDT_LOG_LEVEL);
 
 #elif defined(CONFIG_SOC_SERIES_CC27XX)
 /* CC27XX register access macros */
-#define WDT_UNLOCK(_base)       (HWREG((_base) + CKMD_O_LOCK) = 0x1ACCE551)
-#define WDT_LOCK(_base)         (HWREG((_base) + CKMD_O_LOCK) = 0x1)
-#define WDT_FEED(_base, _value) (HWREG((_base) + CKMD_O_CNT) = (_value))
-#define WDT_STALL_ENABLE(_base) (HWREG((_base) + CKMD_O_TEST) = 0x1)
-#define WDT_STALL_DISABLE(_base) (HWREG((_base) + CKMD_O_TEST) = 0x0)
+#define WDT_UNLOCK(_base)            (HWREG((_base) + CKMD_O_LOCK) = 0x1ACCE551)
+#define WDT_LOCK(_base)              (HWREG((_base) + CKMD_O_LOCK) = 0x1)
+#define WDT_FEED(_base, _value)      (HWREG((_base) + CKMD_O_CNT) = (_value))
+#define WDT_STALL_ENABLE(_base)      (HWREG((_base) + CKMD_O_TEST) = 0x1)
+#define WDT_STALL_DISABLE(_base)     (HWREG((_base) + CKMD_O_TEST) = 0x0)
 
 /* Define constants for reset bit in the watchdog control register */
-#define WDT_HAS_CTL_REG 1
-#define WDT_CTL_REG_OFFSET CKMD_O_CTL
-#define WDT_CTL_RSTEN_BIT (1U << 1) /* Reset enable is bit 1 */
-#define WDT_CTL_EN_BIT    (1U << 0) /* Watchdog enable is bit 0 */
+#define WDT_HAS_CTL_REG              1
+#define WDT_CTL_REG_OFFSET           CKMD_O_CTL
+#define WDT_CTL_RSTEN_BIT            (1U << 1) /* Reset enable is bit 1 */
+#define WDT_CTL_EN_BIT               (1U << 0) /* Watchdog enable is bit 0 */
 #define WDT_WRITE_CTL(_base, _value) (HWREG((_base) + WDT_CTL_REG_OFFSET) = (_value))
-#define WDT_GET_CTL(_base) (HWREG((_base) + WDT_CTL_REG_OFFSET))
+#define WDT_GET_CTL(_base)           (HWREG((_base) + WDT_CTL_REG_OFFSET))
 #endif
 
 /* Common timing constants for both chip families */
-#define WDT_SOURCE_FREQ     32768
+#define WDT_SOURCE_FREQ      32768
 /*
  * Convert milliseconds to watchdog ticks with proper rounding.
  * Formula:  ticks = (ms * 32768) / 1000
  * Use (ms * 32768 + 500) / 1000 for rounding to nearest integer.
  */
 #define WDT_MS_TO_TICKS(_ms) (((_ms) * WDT_SOURCE_FREQ + 500) / 1000)
-#define WDT_MAX_RELOAD_MS   (0xffffffffUL / WDT_SOURCE_FREQ * 1000)
+#define WDT_MAX_RELOAD_MS    (0xffffffffUL / WDT_SOURCE_FREQ * 1000)
 
 /* Common data structures */
 struct wdt_ti_lpf3_data {
@@ -78,8 +78,7 @@ struct wdt_ti_lpf3_config {
 	uint32_t base;
 };
 
-static int wdt_ti_lpf3_install_timeout(const struct device *dev,
-				      const struct wdt_timeout_cfg *cfg)
+static int wdt_ti_lpf3_install_timeout(const struct device *dev, const struct wdt_timeout_cfg *cfg)
 {
 	struct wdt_ti_lpf3_data *data = dev->data;
 
@@ -236,7 +235,7 @@ static int wdt_ti_lpf3_init(const struct device *dev)
 	return 0;
 }
 
-static const struct wdt_driver_api wdt_ti_lpf3_api = {
+static DEVICE_API(wdt, wdt_ti_lpf3_api) = {
 	.setup = wdt_ti_lpf3_setup,
 	.disable = wdt_ti_lpf3_disable,
 	.install_timeout = wdt_ti_lpf3_install_timeout,
@@ -245,16 +244,16 @@ static const struct wdt_driver_api wdt_ti_lpf3_api = {
 
 #define WDT_INITIAL_TIMEOUT CONFIG_WDT_LPF3_INITIAL_TIMEOUT
 
-#define WDT_TI_LPF3_INIT(index)								\
-	static struct wdt_ti_lpf3_data wdt_ti_lpf3_data_##index = {			\
-		.reload = WDT_MS_TO_TICKS(WDT_INITIAL_TIMEOUT),				\
-		.flags = 0,								\
-	};										\
-	static struct wdt_ti_lpf3_config wdt_ti_lpf3_config_##index = {			\
-		.base = DT_INST_REG_ADDR(index),						\
-	};										\
-	DEVICE_DT_INST_DEFINE(index, wdt_ti_lpf3_init, NULL, &wdt_ti_lpf3_data_##index,	\
-			      &wdt_ti_lpf3_config_##index, POST_KERNEL,			\
+#define WDT_TI_LPF3_INIT(index)                                                                    \
+	static struct wdt_ti_lpf3_data wdt_ti_lpf3_data_##index = {                                \
+		.reload = WDT_MS_TO_TICKS(WDT_INITIAL_TIMEOUT),                                    \
+		.flags = 0,                                                                        \
+	};                                                                                         \
+	static struct wdt_ti_lpf3_config wdt_ti_lpf3_config_##index = {                            \
+		.base = DT_INST_REG_ADDR(index),                                                   \
+	};                                                                                         \
+	DEVICE_DT_INST_DEFINE(index, wdt_ti_lpf3_init, NULL, &wdt_ti_lpf3_data_##index,            \
+			      &wdt_ti_lpf3_config_##index, POST_KERNEL,                            \
 			      CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &wdt_ti_lpf3_api);
 
 DT_INST_FOREACH_STATUS_OKAY(WDT_TI_LPF3_INIT)

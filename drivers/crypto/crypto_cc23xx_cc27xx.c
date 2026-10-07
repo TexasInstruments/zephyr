@@ -57,7 +57,7 @@ LOG_MODULE_REGISTER(crypto_cc23xx_cc27xx, CONFIG_CRYPTO_LOG_LEVEL);
 
 #ifdef CONFIG_CRYPTO_CC23XX_CC27XX_DMA
 #define CRYPTO_CC23_CC27_OP_TIMEOUT_DMA(len)                                                       \
-	K_CYC(CRYPTO_CC23_CC27_BLK_PROC_TIMEOUT * ((len) / AES_BLOCK_SIZE))
+	K_CYC(CRYPTO_CC23_CC27_BLK_PROC_TIMEOUT *((len) / AES_BLOCK_SIZE))
 
 #define CRYPTO_CC23_CC27_IS_INVALID_DATA_LEN_DMA(len) (((len) % AES_BLOCK_SIZE) != 0)
 
@@ -100,11 +100,11 @@ static void crypto_cc23xx_cc27xx_isr(const struct device *dev)
 	uint32_t status, op_mask;
 
 	status = AESGetMaskedInterruptStatus();
-	#ifdef CONFIG_CRYPTO_CC23XX_CC27XX_DMA
-		op_mask = AES_IMASK_AESDONE | AES_IMASK_CHADONE | AES_IMASK_CHBDONE;
-	#else
-		op_mask = AES_IMASK_AESDONE;
-	#endif
+#ifdef CONFIG_CRYPTO_CC23XX_CC27XX_DMA
+	op_mask = AES_IMASK_AESDONE | AES_IMASK_CHADONE | AES_IMASK_CHBDONE;
+#else
+	op_mask = AES_IMASK_AESDONE;
+#endif
 
 	AESClearInterrupt(status);
 
@@ -265,7 +265,7 @@ static int crypto_cc23xx_cc27xx_ecb_encrypt(struct cipher_ctx *ctx, struct ciphe
 	 * Enable bus halts on access to KEY, TXT, BUF, TXTX and TXTXBUF when STA.STATE = BUSY.
 	 */
 	AESSetAUTOCFG(AES_AUTOCFG_AESSRC_BUF | AES_AUTOCFG_TRGAES_WRBUF3S | AES_AUTOCFG_BUSHALT_EN |
-			  (pkt->in_len != AES_BLOCK_SIZE ? AES_AUTOCFG_TRGAES_RDTXT3 : 0));
+		      (pkt->in_len != AES_BLOCK_SIZE ? AES_AUTOCFG_TRGAES_RDTXT3 : 0));
 
 #ifdef CONFIG_CRYPTO_CC23XX_CC27XX_DMA
 	ret = crypto_cc23xx_cc27xx_dma_enable(dev, &dma_enabled);
@@ -276,8 +276,8 @@ static int crypto_cc23xx_cc27xx_ecb_encrypt(struct cipher_ctx *ctx, struct ciphe
 
 	/* Setup the DMA for the AES engine */
 	AESSetupDMA(AES_DMA_ADRCHA_BUF0 | AES_DMA_TRGCHA_AESSTART |
-		AES_DMA_DONEACT_GATE_TRGAES_ON_CHA_DEL | AES_DMA_ADRCHB_TXT0 |
-		AES_DMA_TRGCHB_AESDONE);
+		    AES_DMA_DONEACT_GATE_TRGAES_ON_CHA_DEL | AES_DMA_ADRCHB_TXT0 |
+		    AES_DMA_TRGCHB_AESDONE);
 
 	ret = dma_config(cfg->dma_dev, cfg->dma_channel_a, &dma_cfg_cha);
 	if (ret) {
@@ -367,7 +367,6 @@ static int crypto_cc23xx_cc27xx_ctr(struct cipher_ctx *ctx, struct cipher_pkt *p
 	int dma_len = ROUND_DOWN(pkt->in_len, AES_BLOCK_SIZE);
 	bool dma_enabled = false;
 	uint32_t data_size = crypto_cc23xx_cc27xx_get_dma_data_size(pkt->in_buf);
-
 
 	struct dma_block_config block_cfg_cha = {
 		.source_address = (uint32_t)(pkt->in_buf),
@@ -1169,7 +1168,7 @@ static int crypto_cc23xx_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static struct crypto_driver_api crypto_enc_funcs = {
+static DEVICE_API(crypto, crypto_enc_funcs) = {
 	.cipher_begin_session = crypto_cc23xx_cc27xx_session_setup,
 	.cipher_free_session = crypto_cc23xx_cc27xx_session_free,
 	.query_hw_caps = crypto_cc23xx_cc27xx_query_caps,

@@ -591,7 +591,7 @@ static struct dma_lpf3_data lpf3_data = {
 	},
 };
 
-static const struct dma_driver_api dma_lpf3_api = {
+static DEVICE_API(dma, dma_lpf3_api) = {
 	.config = dma_lpf3_config,
 	.start = dma_lpf3_start,
 	.stop = dma_lpf3_stop,

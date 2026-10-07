@@ -1764,7 +1764,7 @@ end:
 }
 
 
-static const struct i2s_driver_api ti_cc27xx_i2s_driver_api = {
+static DEVICE_API(i2s, ti_cc27xx_i2s_driver_api) = {
 	.configure  = ti_cc27xx_i2s_configure,
 	.config_get = ti_cc27xx_i2s_config_get,
 	.read       = ti_cc27xx_i2s_read,

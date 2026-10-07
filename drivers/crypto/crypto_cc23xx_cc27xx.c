@@ -1169,7 +1169,7 @@ static int crypto_cc23xx_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static struct crypto_driver_api crypto_enc_funcs = {
+static DEVICE_API(crypto, crypto_enc_funcs) = {
 	.cipher_begin_session = crypto_cc23xx_cc27xx_session_setup,
 	.cipher_free_session = crypto_cc23xx_cc27xx_session_free,
 	.query_hw_caps = crypto_cc23xx_cc27xx_query_caps,

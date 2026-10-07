@@ -123,6 +123,12 @@
 			clocks = <&ckm MSPM0_CLOCK_MCLK>;
 			status = "disabled";
 		};
+
+		crc: crc@40440000 {
+			compatible = "ti,mspm0-crc";
+			reg = <0x40440000 0x2000>;
+			status = "disabled";
+		};
 	};
 };
 

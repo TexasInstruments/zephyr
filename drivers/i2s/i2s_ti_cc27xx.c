@@ -18,12 +18,14 @@
 #include <zephyr/pm/policy.h>
 
 #include <ti/devices/DeviceFamily.h>
+/* clang-format off */
 #include DeviceFamily_constructPath(driverlib/i2s.h)
 #include DeviceFamily_constructPath(driverlib/ckmd.h)
 #include DeviceFamily_constructPath(driverlib/clkctl.h)
 #include DeviceFamily_constructPath(inc/hw_memmap.h)
 #include DeviceFamily_constructPath(inc/hw_i2s.h)
 #include DeviceFamily_constructPath(inc/hw_clkctl.h)
+/* clang-format on */
 #include <ti/drivers/power/PowerCC27XX.h>
 
 #include "i2s_ti_cc27xx.h"
@@ -35,29 +37,28 @@ LOG_MODULE_REGISTER(i2s_ti_cc27xx, CONFIG_I2S_LOG_LEVEL);
 #define TI_CC27XX_I2S_RX_SLAB_CHUNK_COUNT CONFIG_I2S_TI_CC27XX_RXQ_SIZE
 #define TI_CC27XX_I2S_SLAB_ALIGN          4
 
-#define CC27XX_I2S_TIMEOUT_ERROR    (0x0100U)
-#define CC27XX_I2S_BUS_ERROR        (0x0200U)
-#define CC27XX_I2S_WS_ERROR         (0x0400U)
-#define CC27XX_I2S_PTR_READ_ERROR   (0x0800U)
-#define CC27XX_I2S_PTR_WRITE_ERROR  (0x1000U)
+#define CC27XX_I2S_TIMEOUT_ERROR   (0x0100U)
+#define CC27XX_I2S_BUS_ERROR       (0x0200U)
+#define CC27XX_I2S_WS_ERROR        (0x0400U)
+#define CC27XX_I2S_PTR_READ_ERROR  (0x0800U)
+#define CC27XX_I2S_PTR_WRITE_ERROR (0x1000U)
 
 #define TI_CC27XX_I2S_DMA_MIN_FRAMES_PER_TRANSFER 2
 #define TI_CC27XX_I2S_DMA_MAX_FRAMES_PER_TRANSFER 256
 
 #define TI_CC27XX_I2S_HW_STOP_TIMEOUT_US 40000
 
-static inline struct ti_cc27xx_i2s_transfer *peek_next_tx_transfer(
-		struct ti_cc27xx_i2s_stream *stream)
+static inline struct ti_cc27xx_i2s_transfer *
+peek_next_tx_transfer(struct ti_cc27xx_i2s_stream *stream)
 {
 	return k_fifo_peek_head(&stream->queue);
 }
 
-static inline struct ti_cc27xx_i2s_transfer *peek_next_rx_transfer(
-		struct ti_cc27xx_i2s_stream *stream)
+static inline struct ti_cc27xx_i2s_transfer *
+peek_next_rx_transfer(struct ti_cc27xx_i2s_stream *stream)
 {
 	return stream->next_transfer;
 }
-
 
 static void purge_queue(struct ti_cc27xx_i2s_stream *stream)
 {
@@ -74,7 +75,6 @@ static void purge_queue(struct ti_cc27xx_i2s_stream *stream)
 	}
 }
 
-
 static inline void set_dma_tx_pointer(const struct device *dev, void *addr)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
@@ -89,26 +89,21 @@ static inline void set_dma_rx_pointer(const struct device *dev, void *addr)
 	I2SSetInPointer(config->reg_base, (uintptr_t)addr);
 }
 
-static inline void set_tx_sample_stamp_trigger(const struct device *dev,
-					       uint32_t value)
+static inline void set_tx_sample_stamp_trigger(const struct device *dev, uint32_t value)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 
 	I2SConfigureOutSampleStampTrigger(config->reg_base, value);
 }
 
-static inline void set_rx_sample_stamp_trigger(const struct device *dev,
-					       uint32_t value)
+static inline void set_rx_sample_stamp_trigger(const struct device *dev, uint32_t value)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 
 	I2SConfigureInSampleStampTrigger(config->reg_base, value);
 }
 
-
-
-static inline uint32_t hw_frame_count_for(const struct device *dev,
-					   uint32_t logical_frame_count);
+static inline uint32_t hw_frame_count_for(const struct device *dev, uint32_t logical_frame_count);
 static void purge_stream(struct ti_cc27xx_i2s_stream *stream);
 
 static void config_serial_format(const struct device *dev,
@@ -143,34 +138,30 @@ static void config_serial_format(const struct device *dev,
 	is_dual_phase = (config->phase_type == TI_CC27XX_I2S_PHASE_TYPE_DUAL);
 
 	if (config->phase_type == TI_CC27XX_I2S_PHASE_TYPE_DUAL) {
-		bits_per_sample = stream_cfg->bits_per_audio_word
-			+ stream_cfg->after_word_padding;
+		bits_per_sample = stream_cfg->bits_per_audio_word + stream_cfg->after_word_padding;
 	} else {
 		bits_per_sample = stream_cfg->bits_per_audio_word;
 	}
 
-	I2SConfigureFormat(config->reg_base,
-			   data_delay,     /* beforeWordPadding(=0) + dataShift */
-			   memory_length,     /* I2S_MEM_LENGTH_16 or _32 */
-			   sampling_edge,       /* samplingEdge = RISING */
-			   is_dual_phase,               /* dualPhase = true for I2S/LJF/RJF */
-			   bits_per_sample); /* wordLength (no afterPadding for dual) */
+	I2SConfigureFormat(config->reg_base, data_delay, /* beforeWordPadding(=0) + dataShift */
+			   memory_length,                /* I2S_MEM_LENGTH_16 or _32 */
+			   sampling_edge,                /* samplingEdge = RISING */
+			   is_dual_phase,                /* dualPhase = true for I2S/LJF/RJF */
+			   bits_per_sample);             /* wordLength (no afterPadding for dual) */
 
 	/* Set WCLK counter period for sample stamp generation (used for DMA timing).
 	 * STMPWPER must be a multiple of (END_FRAME_IDX + 1) per the TRM (section
 	 * 26.7), so when start_dma() doubles the END_FRAME_IDX in MEMLEN32 mode
 	 * we double STMPWPER here too to keep them coordinated.
 	 */
-	I2SConfigureWclkCounterPeriod(config->reg_base,
-				      hw_frame_count_for(dev, dma_frame_count));
+	I2SConfigureWclkCounterPeriod(config->reg_base, hw_frame_count_for(dev, dma_frame_count));
 
 	I2SConfigureInSampleStampTrigger(config->reg_base, I2S_STMP_SATURATION);
 	I2SConfigureOutSampleStampTrigger(config->reg_base, I2S_STMP_SATURATION);
 }
 
-static inline enum TI_CC27XX_I2S_CHANNEL_BITMASK get_pin_bitmask(
-			const struct device *dev,
-			enum TI_CC27XX_I2S_PIN_DIR pin_dir)
+static inline enum TI_CC27XX_I2S_CHANNEL_BITMASK get_pin_bitmask(const struct device *dev,
+								 enum TI_CC27XX_I2S_PIN_DIR pin_dir)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
 
@@ -193,10 +184,10 @@ static void config_channels(const struct device *dev)
 	sd1_bitmask = get_pin_bitmask(dev, config->pin_dir_sd1);
 
 	I2SConfigureFrame(config->reg_base,
-			  (uint8_t)config->pin_dir_sd0,      /* I2S_SD0_OUT / IN / DIS */
-			  sd0_bitmask, /* channel bitmask for SD0 */
-			  (uint8_t)(config->pin_dir_sd1 << 4),      /* I2S_SD1_OUT / IN / DIS */
-			  sd1_bitmask);/* channel bitmask for SD1 */
+			  (uint8_t)config->pin_dir_sd0,        /* I2S_SD0_OUT / IN / DIS */
+			  sd0_bitmask,                         /* channel bitmask for SD0 */
+			  (uint8_t)(config->pin_dir_sd1 << 4), /* I2S_SD1_OUT / IN / DIS */
+			  sd1_bitmask);                        /* channel bitmask for SD1 */
 }
 
 static void config_clocks(const struct device *dev)
@@ -204,13 +195,9 @@ static void config_clocks(const struct device *dev)
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 	struct ti_cc27xx_i2s_data *data = dev->data;
 
-	I2SConfigureClocks(config->reg_base,
-			   config->module_role,
-			   data->invert_ws,
+	I2SConfigureClocks(config->reg_base, config->module_role, data->invert_ws,
 			   config->phase_type == TI_CC27XX_I2S_PHASE_TYPE_DUAL,
-			   config->cclk_divider,
-			   data->ws_divider,
-			   data->sck_divider);
+			   config->cclk_divider, data->ws_divider, data->sck_divider);
 }
 
 /* When the audio sample is held in a 32-bit memory slot (MEMLEN32=EN, used
@@ -223,15 +210,13 @@ static void config_clocks(const struct device *dev)
  * logical (user) frame count and the rest of the driver's bookkeeping is
  * unaffected.
  */
-static inline uint32_t hw_frame_count_for(const struct device *dev,
-					   uint32_t logical_frame_count)
+static inline uint32_t hw_frame_count_for(const struct device *dev, uint32_t logical_frame_count)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
-	bool is_memlen32 =
-		(data->stream_rx.enabled &&
-		 data->stream_rx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16) ||
-		(data->stream_tx.enabled &&
-		 data->stream_tx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16);
+	bool is_memlen32 = (data->stream_rx.enabled && data->stream_rx.cfg.bits_per_memory_word >
+							       TI_CC27XX_I2S_WORD_SIZE_16) ||
+			   (data->stream_tx.enabled &&
+			    data->stream_tx.cfg.bits_per_memory_word > TI_CC27XX_I2S_WORD_SIZE_16);
 
 	/* Before either stream is enabled (initial start path), inspect either
 	 * stream's configured memory width directly.
@@ -275,8 +260,7 @@ static void enable_clocks(const struct device *dev)
 	}
 }
 
-static void init_hw(const struct device *dev,
-		    struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
+static void init_hw(const struct device *dev, struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
 		    uint32_t dma_frame_count)
 {
 	config_serial_format(dev, stream_cfg, dma_frame_count);
@@ -284,8 +268,7 @@ static void init_hw(const struct device *dev,
 	config_clocks(dev);
 }
 
-static void start_clocks(const struct device *dev,
-			 struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
+static void start_clocks(const struct device *dev, struct ti_cc27xx_i2s_stream_cfg *stream_cfg,
 			 uint32_t dma_frame_count)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
@@ -330,14 +313,12 @@ static inline bool is_stream_stopping(struct ti_cc27xx_i2s_stream *stream)
 
 static bool is_stream_writeable(struct ti_cc27xx_i2s_stream *stream)
 {
-	return ((stream->state == I2S_STATE_RUNNING) ||
-		(stream->state == I2S_STATE_READY));
+	return ((stream->state == I2S_STATE_RUNNING) || (stream->state == I2S_STATE_READY));
 }
 
 static bool is_stream_configurable(struct ti_cc27xx_i2s_stream *stream)
 {
-	return ((stream->state == I2S_STATE_NOT_READY) ||
-		(stream->state == I2S_STATE_READY) ||
+	return ((stream->state == I2S_STATE_NOT_READY) || (stream->state == I2S_STATE_READY) ||
 		(stream->state == I2S_STATE_ERROR));
 }
 
@@ -353,8 +334,7 @@ static inline k_timeout_t translate_timeout(int32_t timeout_ms)
 	}
 }
 
-static int validate_args_configure(enum i2s_dir dir,
-				   const struct i2s_config *cfg)
+static int validate_args_configure(enum i2s_dir dir, const struct i2s_config *cfg)
 {
 	switch (dir) {
 	case I2S_DIR_BOTH:
@@ -388,15 +368,13 @@ static int validate_args_configure(enum i2s_dir dir,
 
 	uint32_t fmt = cfg->format & I2S_FMT_DATA_FORMAT_MASK;
 
-	if (fmt != I2S_FMT_DATA_FORMAT_I2S &&
-	    fmt != I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED &&
+	if (fmt != I2S_FMT_DATA_FORMAT_I2S && fmt != I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED &&
 	    fmt != I2S_FMT_DATA_FORMAT_RIGHT_JUSTIFIED) {
 		LOG_ERR("Unsupported data format: 0x%02x", cfg->format);
 		return -EINVAL;
 	}
 
-	if ((cfg->options & I2S_OPT_BIT_CLK_SLAVE) ||
-	    (cfg->options & I2S_OPT_FRAME_CLK_SLAVE)) {
+	if ((cfg->options & I2S_OPT_BIT_CLK_SLAVE) || (cfg->options & I2S_OPT_FRAME_CLK_SLAVE)) {
 		LOG_ERR("Unsupported operation mode: 0x%02x", cfg->options);
 		return -EINVAL;
 	}
@@ -404,7 +382,6 @@ static int validate_args_configure(enum i2s_dir dir,
 		LOG_ERR("Memory slab required");
 		return -EINVAL;
 	}
-
 
 	if (cfg->block_size == 0U) {
 		LOG_ERR("Invalid block size: %d", cfg->block_size);
@@ -422,16 +399,14 @@ static int is_frame_count_valid(uint32_t frame_count)
 
 	remainder = frame_count % TI_CC27XX_I2S_DMA_MAX_FRAMES_PER_TRANSFER;
 
-	if ((remainder == 0) ||
-	    (remainder >= TI_CC27XX_I2S_DMA_MIN_FRAMES_PER_TRANSFER)) {
+	if ((remainder == 0) || (remainder >= TI_CC27XX_I2S_DMA_MIN_FRAMES_PER_TRANSFER)) {
 		return true;
 	}
 
 	return false;
 }
 
-static uint32_t get_bit_rate(const struct device *dev,
-			     const struct ti_cc27xx_i2s_stream *stream)
+static uint32_t get_bit_rate(const struct device *dev, const struct ti_cc27xx_i2s_stream *stream)
 {
 	uint32_t data_length;
 	uint32_t sample_length;
@@ -444,8 +419,7 @@ static uint32_t get_bit_rate(const struct device *dev,
 	return data_length * stream->cfg.frame_clk_freq;
 }
 
-static bool compute_sck_divider(const struct device *dev,
-				const struct ti_cc27xx_i2s_stream *stream,
+static bool compute_sck_divider(const struct device *dev, const struct ti_cc27xx_i2s_stream *stream,
 				uint32_t *divider)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
@@ -458,8 +432,7 @@ static bool compute_sck_divider(const struct device *dev,
 
 	out = DIV_ROUND_CLOSEST(config->afosc_freq, bit_rate);
 
-	if (IN_RANGE(out, TI_CC27XX_I2S_CLOCK_DIVIDER_MIN,
-		     TI_CC27XX_I2S_CLOCK_DIVIDER_MAX)) {
+	if (IN_RANGE(out, TI_CC27XX_I2S_CLOCK_DIVIDER_MIN, TI_CC27XX_I2S_CLOCK_DIVIDER_MAX)) {
 		*divider = out;
 		return true;
 	}
@@ -467,8 +440,7 @@ static bool compute_sck_divider(const struct device *dev,
 	return false;
 }
 
-static bool compute_ws_divider(const struct device *dev,
-			       const struct ti_cc27xx_i2s_stream *stream,
+static bool compute_ws_divider(const struct device *dev, const struct ti_cc27xx_i2s_stream *stream,
 			       uint32_t *divider)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
@@ -489,10 +461,8 @@ static bool compute_ws_divider(const struct device *dev,
 	case TI_CC27XX_I2S_PHASE_TYPE_SINGLE:
 
 		sample_length += stream->cfg.before_word_padding;
-		sample_length += (stream->cfg.bits_per_audio_word
-			* channel_count);
+		sample_length += (stream->cfg.bits_per_audio_word * channel_count);
 		sample_length += stream->cfg.after_word_padding;
-
 
 		if (channel_count > TI_CC27XX_I2S_SINGLE_PHASE_CHANNEL_MAX) {
 			return false;
@@ -506,32 +476,29 @@ static bool compute_ws_divider(const struct device *dev,
 	return true;
 }
 
-
 static int ti_cc27xx_i2s_configure(const struct device *dev, enum i2s_dir dir,
-				    const struct i2s_config *i2s_cfg)
+				   const struct i2s_config *i2s_cfg)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
 	struct ti_cc27xx_i2s_stream *stream;
 	struct ti_cc27xx_i2s_stream_cfg *stream_cfg;
 	int ret;
 
-
 	ret = validate_args_configure(dir, i2s_cfg);
 	if (ret < 0) {
 		return ret;
 	}
 
-
 	if (dir == I2S_DIR_RX) {
-		stream = &data->stream_rx;          /* RX stream */
-		stream_cfg = &stream->cfg;          /* RX configuration */
+		stream = &data->stream_rx; /* RX stream */
+		stream_cfg = &stream->cfg; /* RX configuration */
 	} else if (dir == I2S_DIR_TX) {
-		stream = &data->stream_tx;          /* TX stream */
-		stream_cfg = &stream->cfg;          /* TX configuration */
+		stream = &data->stream_tx; /* TX stream */
+		stream_cfg = &stream->cfg; /* TX configuration */
 	}
 
 	if (stream->state == I2S_STATE_STOPPING) {
-		const uint32_t timeout_ms = 50;  /* Max wait: ~12x buffer time at 8kHz */
+		const uint32_t timeout_ms = 50; /* Max wait: ~12x buffer time at 8kHz */
 		uint32_t elapsed = 0;
 
 		while (stream->state == I2S_STATE_STOPPING && elapsed < timeout_ms) {
@@ -559,25 +526,24 @@ static int ti_cc27xx_i2s_configure(const struct device *dev, enum i2s_dir dir,
 	}
 
 	if (i2s_cfg->frame_clk_freq == 0) {
-		memset(stream_cfg, 0, sizeof(*stream_cfg));  /* Clear config */
-		stream->enabled = false;                     /* Mark disabled */
-		stream->drain = false;                       /* Clear drain flag */
-		stream->configured = false;                  /* Not configured */
+		memset(stream_cfg, 0, sizeof(*stream_cfg)); /* Clear config */
+		stream->enabled = false;                    /* Mark disabled */
+		stream->drain = false;                      /* Clear drain flag */
+		stream->configured = false;                 /* Not configured */
 		stream->state = I2S_STATE_NOT_READY;        /* Back to NOT_READY */
-		return 0;  /* Successfully disabled */
+		return 0;                                   /* Successfully disabled */
 	}
 
-	stream_cfg->frame_clk_freq = i2s_cfg->frame_clk_freq;      /* Sample rate (Hz) */
-	stream->audio_mem_slab = i2s_cfg->mem_slab;                /* Memory pool for buffers */
-	stream->cfg.bytes_per_audio_block = i2s_cfg->block_size;  /* DMA buffer size (bytes) */
-
+	stream_cfg->frame_clk_freq = i2s_cfg->frame_clk_freq;    /* Sample rate (Hz) */
+	stream->audio_mem_slab = i2s_cfg->mem_slab;              /* Memory pool for buffers */
+	stream->cfg.bytes_per_audio_block = i2s_cfg->block_size; /* DMA buffer size (bytes) */
 
 	switch (i2s_cfg->format & I2S_FMT_DATA_FORMAT_MASK) {
 	case I2S_FMT_DATA_FORMAT_I2S:
-		data->invert_ws = true;                    /* I2S: WS is inverted */
-		stream_cfg->data_shift = 1;                /* MSB sent 1 clock after WS edge */
-		stream_cfg->before_word_padding = 0;       /* No padding before sample */
-		stream_cfg->after_word_padding = 0;        /* No padding after sample */
+		data->invert_ws = true;              /* I2S: WS is inverted */
+		stream_cfg->data_shift = 1;          /* MSB sent 1 clock after WS edge */
+		stream_cfg->before_word_padding = 0; /* No padding before sample */
+		stream_cfg->after_word_padding = 0;  /* No padding after sample */
 		break;
 	case I2S_FMT_DATA_FORMAT_LEFT_JUSTIFIED:
 		data->invert_ws = false;
@@ -601,7 +567,6 @@ static int ti_cc27xx_i2s_configure(const struct device *dev, enum i2s_dir dir,
 		stream_cfg->bits_per_audio_word = i2s_cfg->word_size;
 	}
 
-
 	switch (i2s_cfg->channels) {
 	case TI_CC27XX_I2S_CHANNEL_COUNT_1:
 		stream_cfg->channel_bitmask = TI_CC27XX_I2S_CHANNEL_BITMASK_MONO;
@@ -614,11 +579,10 @@ static int ti_cc27xx_i2s_configure(const struct device *dev, enum i2s_dir dir,
 	stream_cfg->timeout = translate_timeout(i2s_cfg->timeout);
 
 	stream_cfg->channel_count = i2s_cfg->channels;
-	stream_cfg->bytes_per_frame = (stream_cfg->bits_per_memory_word / 8)
-		* stream_cfg->channel_count;
+	stream_cfg->bytes_per_frame =
+		(stream_cfg->bits_per_memory_word / 8) * stream_cfg->channel_count;
 
-	stream->cfg.frames_per_audio_block = i2s_cfg->block_size
-		/ stream_cfg->bytes_per_frame;
+	stream->cfg.frames_per_audio_block = i2s_cfg->block_size / stream_cfg->bytes_per_frame;
 
 	if (!is_frame_count_valid(stream_cfg->frames_per_audio_block)) {
 		return -EINVAL;
@@ -638,8 +602,7 @@ static int ti_cc27xx_i2s_configure(const struct device *dev, enum i2s_dir dir,
 	return 0;
 }
 
-static const struct i2s_config *ti_cc27xx_i2s_config_get(
-	const struct device *dev, enum i2s_dir dir)
+static const struct i2s_config *ti_cc27xx_i2s_config_get(const struct device *dev, enum i2s_dir dir)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
 	struct ti_cc27xx_i2s_stream *stream;
@@ -652,36 +615,35 @@ static const struct i2s_config *ti_cc27xx_i2s_config_get(
 	return stream->configured ? &stream->i2s_config_copy : NULL;
 }
 
-
 static int validate_args_trigger(enum i2s_dir dir, enum i2s_trigger_cmd cmd)
 {
 	/* Verify direction is one of: TX only, RX only, or both */
 	switch (dir) {
-	case I2S_DIR_BOTH:  /* Bidirectional: simultaneous TX and RX */
-	case I2S_DIR_RX:    /* Receive only: audio input */
-	case I2S_DIR_TX:    /* Transmit only: audio output */
-		break;      /* Valid direction, continue */
-	default:            /* Unknown/unsupported direction value */
-		return -EINVAL;  /* Return error code: invalid argument */
+	case I2S_DIR_BOTH:      /* Bidirectional: simultaneous TX and RX */
+	case I2S_DIR_RX:        /* Receive only: audio input */
+	case I2S_DIR_TX:        /* Transmit only: audio output */
+		break;          /* Valid direction, continue */
+	default:                /* Unknown/unsupported direction value */
+		return -EINVAL; /* Return error code: invalid argument */
 	}
 
 	/* Verify command is a supported trigger operation */
 	switch (cmd) {
-	case I2S_TRIGGER_START:    /* Begin streaming audio */
-	case I2S_TRIGGER_STOP:     /* Stop after current buffer completes */
-	case I2S_TRIGGER_DRAIN:    /* Stop after all queued buffers complete */
-	case I2S_TRIGGER_DROP:     /* Abort immediately, discard buffers */
-	case I2S_TRIGGER_PREPARE:  /* Transition to READY state */
-		break;             /* Valid command, continue */
-	default:                   /* Unknown/unsupported command value */
-		return -EINVAL;  /* Return error code: invalid argument */
+	case I2S_TRIGGER_START:   /* Begin streaming audio */
+	case I2S_TRIGGER_STOP:    /* Stop after current buffer completes */
+	case I2S_TRIGGER_DRAIN:   /* Stop after all queued buffers complete */
+	case I2S_TRIGGER_DROP:    /* Abort immediately, discard buffers */
+	case I2S_TRIGGER_PREPARE: /* Transition to READY state */
+		break;            /* Valid command, continue */
+	default:                  /* Unknown/unsupported command value */
+		return -EINVAL;   /* Return error code: invalid argument */
 	}
 
-	return 0;  /* All validation passed, return success */
+	return 0; /* All validation passed, return success */
 }
 
-static inline bool is_i2s_config_equal(const struct i2s_config *a,
-				       const struct i2s_config *b) {
+static inline bool is_i2s_config_equal(const struct i2s_config *a, const struct i2s_config *b)
+{
 	struct i2s_config confa = *a;
 	struct i2s_config confb = *b;
 
@@ -690,8 +652,7 @@ static inline bool is_i2s_config_equal(const struct i2s_config *a,
 	return (memcmp(&confa, &confb, sizeof(struct i2s_config)) == 0);
 }
 
-static int validate_args_trigger_start(enum i2s_dir dir,
-				       struct ti_cc27xx_i2s_stream *stream_tx,
+static int validate_args_trigger_start(enum i2s_dir dir, struct ti_cc27xx_i2s_stream *stream_tx,
 				       struct ti_cc27xx_i2s_stream *stream_rx)
 {
 	/* For bidirectional I2S, TX and RX must use identical clock/format settings */
@@ -736,10 +697,8 @@ static int validate_args_trigger_start(enum i2s_dir dir,
 		}
 	}
 
-	return 0;  /* All preconditions satisfied, safe to start */
+	return 0; /* All preconditions satisfied, safe to start */
 }
-
-
 
 static int compute_fixed_frame_count(uint32_t frames_per_audio_block)
 {
@@ -767,7 +726,7 @@ static int compute_fixed_frame_count(uint32_t frames_per_audio_block)
 static uint32_t get_next_frame_count(struct ti_cc27xx_i2s_data *data,
 				     struct ti_cc27xx_i2s_transfer *tr)
 {
-	uint32_t frames_left;  /* Frames remaining to transfer in this buffer */
+	uint32_t frames_left; /* Frames remaining to transfer in this buffer */
 
 	/* Bidirectional mode: use fixed frame count to keep TX and RX synchronized */
 	if (data->is_dma_frame_count_fixed) {
@@ -776,27 +735,26 @@ static uint32_t get_next_frame_count(struct ti_cc27xx_i2s_data *data,
 	}
 
 	/* Unidirectional mode: calculate frames left in current transfer */
-	frames_left = tr->frames_total - tr->frames_transferred;  /* Remaining frames */
+	frames_left = tr->frames_total - tr->frames_transferred; /* Remaining frames */
 	/* Return smaller of: frames left, or hardware max (256 frames) */
 	return MIN(frames_left, TI_CC27XX_I2S_DMA_MAX_FRAMES_PER_TRANSFER);
 }
 
-
 static void *get_next_mem_block(struct ti_cc27xx_i2s_stream *stream,
-				   struct ti_cc27xx_i2s_transfer *tr)
+				struct ti_cc27xx_i2s_transfer *tr)
 {
-	struct ti_cc27xx_i2s_transfer *next_tr;  /* Next transfer in queue */
+	struct ti_cc27xx_i2s_transfer *next_tr; /* Next transfer in queue */
 	/* Number of bytes in one audio frame (channels × bytes_per_sample) */
 	uint32_t bytes_per_frame = stream->cfg.bytes_per_frame;
 	/* Frames still remaining in current transfer after this DMA completes */
 	uint32_t frames_left = tr->frames_total - tr->frames_transferred;
-	uint32_t bytes_offset;  /* Byte offset into current buffer */
+	uint32_t bytes_offset; /* Byte offset into current buffer */
 
 	/* Check if current transfer will need another DMA pass */
 	if (frames_left > tr->frames_scheduled) {
 		/* Current buffer not finished: calculate offset for continuation */
-		bytes_offset = (tr->frames_transferred + tr->frames_scheduled)
-				* bytes_per_frame;  /* Offset = frames processed × frame size */
+		bytes_offset = (tr->frames_transferred + tr->frames_scheduled) *
+			       bytes_per_frame; /* Offset = frames processed × frame size */
 		/* Return pointer to next chunk within same buffer */
 		return (uint8_t *)tr->mem_block + bytes_offset;
 	}
@@ -808,8 +766,7 @@ static void *get_next_mem_block(struct ti_cc27xx_i2s_stream *stream,
 	return next_tr ? next_tr->mem_block : 0;
 }
 
-static int prep_tx_stream(const struct device *dev,
-			  struct ti_cc27xx_i2s_stream *stream,
+static int prep_tx_stream(const struct device *dev, struct ti_cc27xx_i2s_stream *stream,
 			  void **mem_block_1, void **mem_block_2)
 {
 	/* Get runtime data containing DMA frame count settings */
@@ -840,8 +797,7 @@ static int prep_tx_stream(const struct device *dev,
 	return 0;
 }
 
-static inline struct ti_cc27xx_i2s_transfer *alloc_rx_transfer(
-		struct ti_cc27xx_i2s_stream *stream)
+static inline struct ti_cc27xx_i2s_transfer *alloc_rx_transfer(struct ti_cc27xx_i2s_stream *stream)
 {
 	struct k_mem_slab *transfer_slab = stream->transfer_mem_slab;
 	struct k_mem_slab *audio_slab = stream->audio_mem_slab;
@@ -868,15 +824,13 @@ static inline struct ti_cc27xx_i2s_transfer *alloc_rx_transfer(
 	return transfer;
 }
 
-
 static inline void purge_transfer(struct ti_cc27xx_i2s_transfer *transfer)
 {
 	k_mem_slab_free(transfer->audio_mem_slab, transfer->mem_block);
 	k_mem_slab_free(transfer->own_mem_slab, transfer);
 }
 
-static int prep_rx_stream(const struct device *dev,
-			  struct ti_cc27xx_i2s_stream *stream,
+static int prep_rx_stream(const struct device *dev, struct ti_cc27xx_i2s_stream *stream,
 			  void **mem_block_1, void **mem_block_2)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
@@ -906,29 +860,23 @@ static int prep_rx_stream(const struct device *dev,
 	return 0;
 }
 
-
 static inline void enable_common_irqs(const struct device *dev)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 	/* Enable I2S Hardware Interrupts */
-	I2SEnableInt(config->reg_base, (uint32_t)I2S_INT_TIMEOUT |
-		     (uint32_t)I2S_INT_BUS_ERR | (uint32_t)I2S_INT_WCLK_ERR |
-		     (uint32_t)I2S_INT_PTR_ERR);
+	I2SEnableInt(config->reg_base, (uint32_t)I2S_INT_TIMEOUT | (uint32_t)I2S_INT_BUS_ERR |
+					       (uint32_t)I2S_INT_WCLK_ERR |
+					       (uint32_t)I2S_INT_PTR_ERR);
 }
 
-static inline void enable_stream_irq(const struct device *dev,
-				     struct ti_cc27xx_i2s_stream *stream)
+static inline void enable_stream_irq(const struct device *dev, struct ti_cc27xx_i2s_stream *stream)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
-
 
 	I2SEnableInt(config->reg_base, stream->irq_flag);
 }
 
-
-
-static void start_stream(const struct device *dev,
-			 struct ti_cc27xx_i2s_stream *stream)
+static void start_stream(const struct device *dev, struct ti_cc27xx_i2s_stream *stream)
 {
 	enable_stream_irq(dev, stream);
 
@@ -936,8 +884,6 @@ static void start_stream(const struct device *dev,
 
 	stream->state = I2S_STATE_RUNNING;
 }
-
-
 
 static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 				struct ti_cc27xx_i2s_stream *stream_tx,
@@ -961,47 +907,45 @@ static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 	void *tx_mem_addr_2 = NULL; /* Second TX buffer (queued for next DMA) */
 	void *rx_mem_addr_1 = NULL; /* First RX buffer (loaded immediately) */
 	void *rx_mem_addr_2 = NULL; /* Second RX buffer (queued for next DMA) */
-	uint32_t trig; /* Sample counter value at which streaming starts */
-	int ret; /* Return value for error checking */
+	uint32_t trig;              /* Sample counter value at which streaming starts */
+	int ret;                    /* Return value for error checking */
 
 	/* Determine which streams to activate */
 	/* If RX is requested */
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
-		start_rx = true;  /* Set RX flag */
-		stream = stream_rx;  /* Point to RX stream structure */
-		stream_cfg = &stream_rx->cfg;  /* Use RX stream config */
+		start_rx = true;              /* Set RX flag */
+		stream = stream_rx;           /* Point to RX stream structure */
+		stream_cfg = &stream_rx->cfg; /* Use RX stream config */
 	}
 
 	/* If TX is requested */
 	if (dir == I2S_DIR_TX || dir == I2S_DIR_BOTH) {
-		start_tx = true;  /* Set TX flag */
-		stream = stream_tx;  /* Point to TX stream structure (overwrites if BOTH) */
-		stream_cfg = &stream_tx->cfg;  /* Use TX stream config (overwrites if BOTH) */
+		start_tx = true;    /* Set TX flag */
+		stream = stream_tx; /* Point to TX stream structure (overwrites if BOTH) */
+		stream_cfg = &stream_tx->cfg; /* Use TX stream config (overwrites if BOTH) */
 	}
-
 
 	/* Bidirectional requires synchronized DMA */
 	if (dir == I2S_DIR_BOTH) {
 		/* Calculate aligned frame count (must be multiple of MIN, within MAX) */
 		ret = compute_fixed_frame_count(
-			stream_cfg->frames_per_audio_block);  /* User's requested block size */
+			stream_cfg->frames_per_audio_block); /* User's requested block size */
 		/* Frame count validation failed */
 		if (ret < 0) {
 			return ret;
 		}
-		data->dma_frame_count = ret;  /* Store validated frame count */
-		data->is_dma_frame_count_fixed = true;  /* Lock frame count for sync */
+		data->dma_frame_count = ret;           /* Store validated frame count */
+		data->is_dma_frame_count_fixed = true; /* Lock frame count for sync */
 	} else {
 		/* Unidirectional: frame count can vary per transfer */
-		data->is_dma_frame_count_fixed = false;  /* Allow dynamic frame count */
+		data->is_dma_frame_count_fixed = false; /* Allow dynamic frame count */
 	}
 
 	/* Prepare TX: dequeue up to 2 buffers from user queue, get addresses */
 	/* If TX stream is being started */
 	if (start_tx) {
 		/* Dequeue TX buffers, get memory addresses, update stream state */
-		ret = prep_tx_stream(dev, stream_tx, &tx_mem_addr_1,
-			&tx_mem_addr_2);
+		ret = prep_tx_stream(dev, stream_tx, &tx_mem_addr_1, &tx_mem_addr_2);
 		/* Buffer preparation failed (queue empty, etc.) */
 		if (ret < 0) {
 			return ret;
@@ -1014,8 +958,7 @@ static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 	/* If RX stream is being started */
 	if (start_rx) {
 		/* Dequeue RX buffers, get memory addresses, update stream state */
-		ret = prep_rx_stream(dev, stream_rx, &rx_mem_addr_1,
-			&rx_mem_addr_2);
+		ret = prep_rx_stream(dev, stream_rx, &rx_mem_addr_1, &rx_mem_addr_2);
 		/* Buffer preparation failed (queue empty, etc.) */
 		if (ret < 0) {
 			return ret;
@@ -1025,7 +968,6 @@ static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 	}
 
 	start_clocks(dev, stream_cfg, dma_frame_count);
-
 
 	/* Clear interrupts */
 	I2SClearInt(config->reg_base, I2S_INT_ALL);
@@ -1053,17 +995,15 @@ static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 		/* Enable RX stream (sets enabled=true, state=RUNNING) */
 		start_stream(dev, stream_rx);
 		/* Preload second RX buffer into INPTRNEXT */
-		stream_rx->set_dma_pointer(dev,
-			rx_mem_addr_2 ? rx_mem_addr_2
-				      : stream_rx->next_transfer->mem_block);
+		stream_rx->set_dma_pointer(
+			dev, rx_mem_addr_2 ? rx_mem_addr_2 : stream_rx->next_transfer->mem_block);
 		stream_rx->set_stamp_trigger(dev, trig);
 	}
 
 	return 0;
 }
 
-static int validate_args_trigger_drain(enum i2s_dir dir,
-				       struct ti_cc27xx_i2s_stream *stream_tx,
+static int validate_args_trigger_drain(enum i2s_dir dir, struct ti_cc27xx_i2s_stream *stream_tx,
 				       struct ti_cc27xx_i2s_stream *stream_rx)
 {
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
@@ -1080,8 +1020,6 @@ static int validate_args_trigger_drain(enum i2s_dir dir,
 
 	return 0;
 }
-
-
 
 static int handle_trigger_drain(const struct device *dev, enum i2s_dir dir,
 				struct ti_cc27xx_i2s_stream *stream_tx,
@@ -1100,8 +1038,7 @@ static int handle_trigger_drain(const struct device *dev, enum i2s_dir dir,
 	return 0;
 }
 
-static int validate_args_trigger_stop(enum i2s_dir dir,
-				      struct ti_cc27xx_i2s_stream *stream_tx,
+static int validate_args_trigger_stop(enum i2s_dir dir, struct ti_cc27xx_i2s_stream *stream_tx,
 				      struct ti_cc27xx_i2s_stream *stream_rx)
 {
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
@@ -1120,8 +1057,8 @@ static int validate_args_trigger_stop(enum i2s_dir dir,
 }
 
 static void handle_trigger_stop(const struct device *dev, enum i2s_dir dir,
-			       struct ti_cc27xx_i2s_stream *stream_tx,
-			       struct ti_cc27xx_i2s_stream *stream_rx)
+				struct ti_cc27xx_i2s_stream *stream_tx,
+				struct ti_cc27xx_i2s_stream *stream_rx)
 {
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
 		stream_rx->state = I2S_STATE_STOPPING;
@@ -1132,8 +1069,7 @@ static void handle_trigger_stop(const struct device *dev, enum i2s_dir dir,
 	}
 }
 
-static int validate_args_trigger_drop(enum i2s_dir dir,
-				      struct ti_cc27xx_i2s_stream *stream_tx,
+static int validate_args_trigger_drop(enum i2s_dir dir, struct ti_cc27xx_i2s_stream *stream_tx,
 				      struct ti_cc27xx_i2s_stream *stream_rx)
 {
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
@@ -1176,8 +1112,7 @@ static void stop_dma(const struct device *dev)
 	I2SStop(config->reg_base);
 }
 
-static inline void disable_stream_irq(const struct device *dev,
-				     struct ti_cc27xx_i2s_stream *stream)
+static inline void disable_stream_irq(const struct device *dev, struct ti_cc27xx_i2s_stream *stream)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 
@@ -1185,8 +1120,7 @@ static inline void disable_stream_irq(const struct device *dev,
 	I2SClearInt(config->reg_base, stream->irq_flag);
 }
 
-static inline void stop_stream(const struct device *dev,
-			       struct ti_cc27xx_i2s_stream *stream)
+static inline void stop_stream(const struct device *dev, struct ti_cc27xx_i2s_stream *stream)
 {
 	disable_stream_irq(dev, stream);
 	stream->set_dma_pointer(dev, 0);
@@ -1206,11 +1140,9 @@ static void disable_clocks(const struct device *dev)
 	data->clocks_active = false;
 
 	I2SClearInt(config->reg_base, I2S_INT_ALL);
-	I2SDisableInt(config->reg_base,
-		      (uint32_t)I2S_INT_TIMEOUT  |
-		      (uint32_t)I2S_INT_BUS_ERR  |
-		      (uint32_t)I2S_INT_WCLK_ERR |
-		      (uint32_t)I2S_INT_PTR_ERR);
+	I2SDisableInt(config->reg_base, (uint32_t)I2S_INT_TIMEOUT | (uint32_t)I2S_INT_BUS_ERR |
+						(uint32_t)I2S_INT_WCLK_ERR |
+						(uint32_t)I2S_INT_PTR_ERR);
 
 	I2SDisableSampleStamp(config->reg_base);
 	/* Disable controller generated clocks (if they were previously enabled) */
@@ -1239,19 +1171,15 @@ static int handle_trigger_drop(const struct device *dev, enum i2s_dir dir,
 
 		stop_stream(dev, stream_rx);
 
-
 		for (timeout = TI_CC27XX_I2S_HW_STOP_TIMEOUT_US;
-		     I2SGetInPointer(config->reg_base) != 0 && timeout > 0;
-		     timeout--) {
+		     I2SGetInPointer(config->reg_base) != 0 && timeout > 0; timeout--) {
 			k_busy_wait(1);
 		}
 		if (timeout <= 0) {
 			LOG_WRN("RX DMA pointer did not clear within timeout");
 		}
 
-
 		purge_stream(stream_rx);
-
 
 		stream_rx->state = I2S_STATE_READY;
 	}
@@ -1261,23 +1189,18 @@ static int handle_trigger_drop(const struct device *dev, enum i2s_dir dir,
 
 		stop_stream(dev, stream_tx);
 
-
 		for (timeout = TI_CC27XX_I2S_HW_STOP_TIMEOUT_US;
-		     I2SGetOutPointer(config->reg_base) != 0 && timeout > 0;
-		     timeout--) {
+		     I2SGetOutPointer(config->reg_base) != 0 && timeout > 0; timeout--) {
 			k_busy_wait(1);
 		}
 		if (timeout <= 0) {
 			LOG_WRN("TX DMA pointer did not clear within timeout");
 		}
 
-
 		purge_stream(stream_tx);
-
 
 		stream_tx->state = I2S_STATE_READY;
 	}
-
 
 	if (!stream_tx->enabled && !stream_rx->enabled) {
 		stop_dma(dev);
@@ -1287,8 +1210,7 @@ static int handle_trigger_drop(const struct device *dev, enum i2s_dir dir,
 	return 0;
 }
 
-static int validate_args_trigger_prepare(enum i2s_dir dir,
-					 struct ti_cc27xx_i2s_stream *stream_tx,
+static int validate_args_trigger_prepare(enum i2s_dir dir, struct ti_cc27xx_i2s_stream *stream_tx,
 					 struct ti_cc27xx_i2s_stream *stream_rx)
 {
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
@@ -1322,7 +1244,6 @@ static int handle_trigger_prepare(const struct device *dev, enum i2s_dir dir,
 
 	return 0;
 }
-
 
 static int ti_cc27xx_i2s_trigger(const struct device *dev, enum i2s_dir dir,
 				 enum i2s_trigger_cmd cmd)
@@ -1387,13 +1308,11 @@ static int ti_cc27xx_i2s_trigger(const struct device *dev, enum i2s_dir dir,
 	}
 }
 
-
 static inline void free_transfer(struct ti_cc27xx_i2s_transfer *transfer)
 {
 	k_mem_slab_free(transfer->own_mem_slab, transfer);
 }
-static int ti_cc27xx_i2s_read(const struct device *dev, void **mem_block,
-			      size_t *size)
+static int ti_cc27xx_i2s_read(const struct device *dev, void **mem_block, size_t *size)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
 	struct ti_cc27xx_i2s_stream *stream = &data->stream_rx;
@@ -1426,9 +1345,7 @@ static int ti_cc27xx_i2s_read(const struct device *dev, void **mem_block,
 	return 0;
 }
 
-
-static int validate_args_write(const struct device *dev, void *mem_block,
-			       size_t size)
+static int validate_args_write(const struct device *dev, void *mem_block, size_t size)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
 	struct ti_cc27xx_i2s_stream *stream = &data->stream_tx;
@@ -1442,9 +1359,7 @@ static int validate_args_write(const struct device *dev, void *mem_block,
 		return -EINVAL;
 	}
 
-
-	if ((data->dir == I2S_DIR_BOTH) &&
-	    (size % stream->cfg.bytes_per_audio_block)) {
+	if ((data->dir == I2S_DIR_BOTH) && (size % stream->cfg.bytes_per_audio_block)) {
 		return -EINVAL;
 	}
 
@@ -1458,8 +1373,7 @@ static inline bool is_next_pointer_null(const struct device *dev)
 	return !(bool)I2SGetOutPointerNext(config->reg_base);
 }
 
-static int ti_cc27xx_i2s_write(const struct device *dev, void *mem_block,
-			       size_t size)
+static int ti_cc27xx_i2s_write(const struct device *dev, void *mem_block, size_t size)
 {
 	struct ti_cc27xx_i2s_data *data = dev->data;
 	struct ti_cc27xx_i2s_stream *stream = &data->stream_tx;
@@ -1494,14 +1408,12 @@ static int ti_cc27xx_i2s_write(const struct device *dev, void *mem_block,
 
 	k_fifo_put(&stream->queue, transfer);
 
-
 	if (is_next_pointer_null(dev) && stream->state == I2S_STATE_RUNNING) {
 		stream->set_dma_pointer(dev, transfer->mem_block);
 	}
 
 	return 0;
 }
-
 
 static inline bool update_transfer(struct ti_cc27xx_i2s_transfer *transfer)
 {
@@ -1533,16 +1445,16 @@ static inline bool is_int_in_ptr_err(const struct device *dev, uint32_t status)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 
-	return (is_int_dma_in(status) && is_int_ptr_err(status)
-		&& !(bool)I2SGetInPointer(config->reg_base));
+	return (is_int_dma_in(status) && is_int_ptr_err(status) &&
+		!(bool)I2SGetInPointer(config->reg_base));
 }
 
 static inline bool is_int_out_ptr_err(const struct device *dev, uint32_t status)
 {
 	const struct ti_cc27xx_i2s_cfg *config = dev->config;
 
-	return (is_int_dma_out(status) && is_int_ptr_err(status)
-		&& !(bool)I2SGetOutPointer(config->reg_base));
+	return (is_int_dma_out(status) && is_int_ptr_err(status) &&
+		!(bool)I2SGetOutPointer(config->reg_base));
 }
 
 static inline bool is_int_timeout(uint32_t status)
@@ -1587,8 +1499,7 @@ static void ti_cc27xx_i2s_isr(const struct device *dev)
 		/* Stop TX hardware: disable interrupts, clear OUTPTR/OUTPTRNXT */
 		stop_stream(dev, stream_tx);
 		/* Check if underrun was expected (graceful drain/stop) */
-		if (is_stream_draining(stream_tx) ||
-		    is_stream_stopping(stream_tx)) {
+		if (is_stream_draining(stream_tx) || is_stream_stopping(stream_tx)) {
 			/* Expected underrun during drain/stop → clean completion */
 			stream_tx->state = I2S_STATE_READY;
 		} else {
@@ -1597,11 +1508,9 @@ static void ti_cc27xx_i2s_isr(const struct device *dev)
 		}
 	}
 
-
 	if (is_int_in_ptr_err(dev, status) && stream_rx->enabled) {
 
-		if (is_stream_draining(stream_rx) &&
-		    stream_rx->active_transfer != NULL) {
+		if (is_stream_draining(stream_rx) && stream_rx->active_transfer != NULL) {
 			update_transfer(stream_rx->active_transfer);
 			k_fifo_put(&stream_rx->queue, stream_rx->active_transfer);
 			stream_rx->active_transfer = NULL;
@@ -1613,7 +1522,6 @@ static void ti_cc27xx_i2s_isr(const struct device *dev)
 			stream_rx->state = I2S_STATE_ERROR;
 		}
 	}
-
 
 	if (is_int_dma_out(status)) {
 
@@ -1629,21 +1537,18 @@ static void ti_cc27xx_i2s_isr(const struct device *dev)
 			goto int_dma_out_done;
 		}
 
-		if (tr_completed && (is_stream_running(stream_tx) ||
-		    is_stream_draining(stream_tx))) {
+		if (tr_completed &&
+		    (is_stream_running(stream_tx) || is_stream_draining(stream_tx))) {
 			/* Dequeue next TX transfer from application queue (non-blocking) */
-			stream_tx->active_transfer = k_fifo_get(
-				&stream_tx->queue, K_NO_WAIT);
+			stream_tx->active_transfer = k_fifo_get(&stream_tx->queue, K_NO_WAIT);
 		}
 
 		if (stream_tx->active_transfer) {
 			tr = stream_tx->active_transfer;
 
-
 			tr->frames_scheduled = get_next_frame_count(data, tr);
 
 			start_dma(dev, tr->frames_scheduled);
-
 
 			next_addr = get_next_mem_block(stream_tx, tr);
 
@@ -1669,8 +1574,7 @@ int_dma_out_done:
 
 		if (tr_completed) {
 
-			k_fifo_put(&stream_rx->queue,
-				   stream_rx->active_transfer);
+			k_fifo_put(&stream_rx->queue, stream_rx->active_transfer);
 			stream_rx->active_transfer = NULL;
 		}
 
@@ -1716,21 +1620,17 @@ int_dma_in_done:
 		error = true;
 	}
 
-
 	if (is_int_bus_err(status)) {
 		error = true;
 	}
-
 
 	if (is_int_wclk_err(status)) {
 		error = true;
 	}
 
-
 	if (!error) {
 		goto end;
 	}
-
 
 	stop_stream(dev, stream_tx);
 	stream_tx->state = I2S_STATE_ERROR;
@@ -1759,76 +1659,71 @@ end:
 		 */
 	}
 
-
 	I2SClearInt(config->reg_base, status);
 }
 
-
-static const struct i2s_driver_api ti_cc27xx_i2s_driver_api = {
-	.configure  = ti_cc27xx_i2s_configure,
+static DEVICE_API(i2s, ti_cc27xx_i2s_driver_api) = {
+	.configure = ti_cc27xx_i2s_configure,
 	.config_get = ti_cc27xx_i2s_config_get,
-	.read       = ti_cc27xx_i2s_read,
-	.write      = ti_cc27xx_i2s_write,
-	.trigger    = ti_cc27xx_i2s_trigger,
+	.read = ti_cc27xx_i2s_read,
+	.write = ti_cc27xx_i2s_write,
+	.trigger = ti_cc27xx_i2s_trigger,
 };
-
 
 #define I2S_NODE(inst) DT_NODELABEL(i2s##inst)
 
-
-#define TI_CC27XX_I2S_INIT(inst)								\
-	K_MEM_SLAB_DEFINE_STATIC(i2s_##inst##_tx_mem_slab, TI_CC27XX_I2S_SLAB_CHUNK_SIZE,	\
-				 TI_CC27XX_I2S_TX_SLAB_CHUNK_COUNT, TI_CC27XX_I2S_SLAB_ALIGN);	\
-	K_MEM_SLAB_DEFINE_STATIC(i2s_##inst##_rx_mem_slab, TI_CC27XX_I2S_SLAB_CHUNK_SIZE,	\
-				 TI_CC27XX_I2S_RX_SLAB_CHUNK_COUNT, TI_CC27XX_I2S_SLAB_ALIGN);	\
-	PINCTRL_DT_DEFINE(I2S_NODE(inst));							\
-	static struct ti_cc27xx_i2s_cfg i2s_##inst##_cfg = {					\
-		.pin_cfg = PINCTRL_DT_DEV_CONFIG_GET(I2S_NODE(inst)),					\
-		.reg_base = DT_REG_ADDR(I2S_NODE(inst)),					\
-		.startup_delay = DT_PROP(I2S_NODE(inst), startup_delay),			\
-		.cclk_divider = DT_PROP(I2S_NODE(inst), cclk_divider),				\
-		.module_role = TI_CC27XX_I2S_ROLE_CONTROLLER,					\
-		.phase_type = TI_CC27XX_I2S_PHASE_TYPE_DUAL,					\
-		.sampling_edge = TI_CC27XX_I2S_SAMPLING_EDGE_RISING,				\
-		.afclk_src = DT_PROP(I2S_NODE(inst), afclk_source),				\
-		.afosc_freq = DT_PROP(I2S_NODE(inst), afosc_freq),				\
-		.pin_dir_sd0 = DT_PROP(I2S_NODE(inst), pin_dir_sd0), \
-		.pin_dir_sd1 = DT_PROP(I2S_NODE(inst), pin_dir_sd1), \
-	};											\
-	static struct ti_cc27xx_i2s_data i2s_##inst##_data = {					\
-		.stream_rx.state = I2S_STATE_NOT_READY,						\
-		.stream_rx.transfer_mem_slab = &i2s_##inst##_rx_mem_slab,			\
-		.stream_tx.state = I2S_STATE_NOT_READY,						\
-		.stream_tx.transfer_mem_slab = &i2s_##inst##_tx_mem_slab,			\
-	};											\
-	static int ti_cc27xx_i2s_init##inst(const struct device *dev)				\
-	{											\
-		const struct ti_cc27xx_i2s_cfg *const config = dev->config;			\
-		struct ti_cc27xx_i2s_data *data = dev->data;					\
-		int ret;										\
-		ret = pinctrl_apply_state(config->pin_cfg, PINCTRL_STATE_DEFAULT);		\
-		if (ret < 0) {									\
-			return ret;								\
-		}										\
-		data->stream_rx.set_dma_pointer = set_dma_rx_pointer;				\
-		data->stream_rx.irq_flag = I2S_INT_DMA_IN;					\
-		data->stream_rx.set_stamp_trigger = set_rx_sample_stamp_trigger;		\
-		data->stream_rx.peek_next_transfer = peek_next_rx_transfer;			\
-		k_fifo_init(&data->stream_rx.queue);						\
-		data->stream_tx.set_dma_pointer = set_dma_tx_pointer;				\
-		data->stream_tx.irq_flag = I2S_INT_DMA_OUT;					\
-		data->stream_tx.set_stamp_trigger = set_tx_sample_stamp_trigger;		\
-		data->stream_tx.peek_next_transfer = peek_next_tx_transfer;			\
-		k_fifo_init(&data->stream_tx.queue);						\
-		I2SClearInt(config->reg_base, I2S_INT_ALL);					\
-		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),			\
-			ti_cc27xx_i2s_isr, DEVICE_DT_GET(					\
-			DT_INST(inst, DT_DRV_COMPAT)), 0);					\
-		irq_enable(DT_INST_IRQN(inst));							\
-		return 0;									\
-	}											\
-	DEVICE_DT_INST_DEFINE(inst, &ti_cc27xx_i2s_init##inst, NULL,				\
-		&i2s_##inst##_data, &i2s_##inst##_cfg, POST_KERNEL,				\
-		CONFIG_I2S_INIT_PRIORITY, &ti_cc27xx_i2s_driver_api);
+#define TI_CC27XX_I2S_INIT(inst)                                                                   \
+	K_MEM_SLAB_DEFINE_STATIC(i2s_##inst##_tx_mem_slab, TI_CC27XX_I2S_SLAB_CHUNK_SIZE,          \
+				 TI_CC27XX_I2S_TX_SLAB_CHUNK_COUNT, TI_CC27XX_I2S_SLAB_ALIGN);     \
+	K_MEM_SLAB_DEFINE_STATIC(i2s_##inst##_rx_mem_slab, TI_CC27XX_I2S_SLAB_CHUNK_SIZE,          \
+				 TI_CC27XX_I2S_RX_SLAB_CHUNK_COUNT, TI_CC27XX_I2S_SLAB_ALIGN);     \
+	PINCTRL_DT_DEFINE(I2S_NODE(inst));                                                         \
+	static struct ti_cc27xx_i2s_cfg i2s_##inst##_cfg = {                                       \
+		.pin_cfg = PINCTRL_DT_DEV_CONFIG_GET(I2S_NODE(inst)),                              \
+		.reg_base = DT_REG_ADDR(I2S_NODE(inst)),                                           \
+		.startup_delay = DT_PROP(I2S_NODE(inst), startup_delay),                           \
+		.cclk_divider = DT_PROP(I2S_NODE(inst), cclk_divider),                             \
+		.module_role = TI_CC27XX_I2S_ROLE_CONTROLLER,                                      \
+		.phase_type = TI_CC27XX_I2S_PHASE_TYPE_DUAL,                                       \
+		.sampling_edge = TI_CC27XX_I2S_SAMPLING_EDGE_RISING,                               \
+		.afclk_src = DT_PROP(I2S_NODE(inst), afclk_source),                                \
+		.afosc_freq = DT_PROP(I2S_NODE(inst), afosc_freq),                                 \
+		.pin_dir_sd0 = DT_PROP(I2S_NODE(inst), pin_dir_sd0),                               \
+		.pin_dir_sd1 = DT_PROP(I2S_NODE(inst), pin_dir_sd1),                               \
+	};                                                                                         \
+	static struct ti_cc27xx_i2s_data i2s_##inst##_data = {                                     \
+		.stream_rx.state = I2S_STATE_NOT_READY,                                            \
+		.stream_rx.transfer_mem_slab = &i2s_##inst##_rx_mem_slab,                          \
+		.stream_tx.state = I2S_STATE_NOT_READY,                                            \
+		.stream_tx.transfer_mem_slab = &i2s_##inst##_tx_mem_slab,                          \
+	};                                                                                         \
+	static int ti_cc27xx_i2s_init##inst(const struct device *dev)                              \
+	{                                                                                          \
+		const struct ti_cc27xx_i2s_cfg *const config = dev->config;                        \
+		struct ti_cc27xx_i2s_data *data = dev->data;                                       \
+		int ret;                                                                           \
+		ret = pinctrl_apply_state(config->pin_cfg, PINCTRL_STATE_DEFAULT);                 \
+		if (ret < 0) {                                                                     \
+			return ret;                                                                \
+		}                                                                                  \
+		data->stream_rx.set_dma_pointer = set_dma_rx_pointer;                              \
+		data->stream_rx.irq_flag = I2S_INT_DMA_IN;                                         \
+		data->stream_rx.set_stamp_trigger = set_rx_sample_stamp_trigger;                   \
+		data->stream_rx.peek_next_transfer = peek_next_rx_transfer;                        \
+		k_fifo_init(&data->stream_rx.queue);                                               \
+		data->stream_tx.set_dma_pointer = set_dma_tx_pointer;                              \
+		data->stream_tx.irq_flag = I2S_INT_DMA_OUT;                                        \
+		data->stream_tx.set_stamp_trigger = set_tx_sample_stamp_trigger;                   \
+		data->stream_tx.peek_next_transfer = peek_next_tx_transfer;                        \
+		k_fifo_init(&data->stream_tx.queue);                                               \
+		I2SClearInt(config->reg_base, I2S_INT_ALL);                                        \
+		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority), ti_cc27xx_i2s_isr,    \
+			    DEVICE_DT_GET(DT_INST(inst, DT_DRV_COMPAT)), 0);                       \
+		irq_enable(DT_INST_IRQN(inst));                                                    \
+		return 0;                                                                          \
+	}                                                                                          \
+	DEVICE_DT_INST_DEFINE(inst, &ti_cc27xx_i2s_init##inst, NULL, &i2s_##inst##_data,           \
+			      &i2s_##inst##_cfg, POST_KERNEL, CONFIG_I2S_INIT_PRIORITY,            \
+			      &ti_cc27xx_i2s_driver_api);
 
 DT_INST_FOREACH_STATUS_OKAY(TI_CC27XX_I2S_INIT)

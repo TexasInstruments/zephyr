@@ -20,8 +20,8 @@
 #include <inc/hw_ioc.h>
 #include <inc/hw_types.h>
 
-#define IOC_ADDR(index)       (IOC_BASE + IOC_O_IOC0 + (sizeof(uint32_t) * (index)))
-#define IOC_PORTCFG_MASK	  IOC_IOC0_PORTCFG_M
+#define IOC_ADDR(index)  (IOC_BASE + IOC_O_IOC0 + (sizeof(uint32_t) * (index)))
+#define IOC_PORTCFG_MASK IOC_IOC0_PORTCFG_M
 struct gpio_cc27xx_config {
 	/* gpio_driver_config needs to be first */
 	struct gpio_driver_config common;
@@ -43,16 +43,15 @@ static int gpio_cc27xx_config(const struct device *port, gpio_pin_t pin, gpio_fl
 	bool setPinToOutput = flags & GPIO_OUTPUT;
 
 	/* The pin will be an output after configuring */
-    if (setPinToOutput)
-    {
-        /* Set the new default value and enable output */
+	if (setPinToOutput) {
+		/* Set the new default value and enable output */
 		if (flags & GPIO_OUTPUT_INIT_HIGH) {
 			GPIOSetDio(pin);
 		} else if (flags & GPIO_OUTPUT_INIT_LOW) {
 			GPIOClearDio(pin);
 		}
-        GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_ENABLE);
-    }
+		GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_ENABLE);
+	}
 
 	/*
 	 * Keep the port configuration (pinmux). pinctrl takes care of the pinmux.
@@ -300,7 +299,7 @@ static int gpio_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static const struct gpio_driver_api gpio_cc27xx_driver_api = {
+static DEVICE_API(gpio, gpio_cc27xx_driver_api) = {
 	.pin_configure = gpio_cc27xx_config,
 #ifdef CONFIG_GPIO_GET_CONFIG
 	.pin_get_config = gpio_cc27xx_get_config,
@@ -317,12 +316,12 @@ static const struct gpio_driver_api gpio_cc27xx_driver_api = {
 
 static const struct gpio_cc27xx_config gpio_cc27xx_config_0 = {
 	.common = {/* Read ngpios from DT */
-			.port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(0)}};
+		   .port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(0)}};
 
 static struct gpio_cc27xx_data gpio_cc27xx_data_0;
 
 PM_DEVICE_DT_DEFINE(0, gpio_cc27xx_pm_action);
 
 DEVICE_DT_INST_DEFINE(0, gpio_cc27xx_init, PM_DEVICE_DT_GET(0), &gpio_cc27xx_data_0,
-		      &gpio_cc27xx_config_0, PRE_KERNEL_1,
-		      CONFIG_GPIO_INIT_PRIORITY, &gpio_cc27xx_driver_api);
+		      &gpio_cc27xx_config_0, PRE_KERNEL_1, CONFIG_GPIO_INIT_PRIORITY,
+		      &gpio_cc27xx_driver_api);

@@ -481,7 +481,7 @@ static int lgpt_cc27xx_pm_action(const struct device *dev, enum pm_device_action
 
 #endif /* CONFIG_PM_DEVICE */
 
-static const struct counter_driver_api cc27xx_lgpt_api = {
+static DEVICE_API(counter, cc27xx_lgpt_api) = {
 	.start = counter_cc27xx_lgpt_start,
 	.stop = counter_cc27xx_lgpt_stop,
 	.get_value = counter_cc27xx_lgpt_get_value,

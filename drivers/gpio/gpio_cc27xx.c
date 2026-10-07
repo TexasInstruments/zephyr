@@ -300,7 +300,7 @@ static int gpio_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static const struct gpio_driver_api gpio_cc27xx_driver_api = {
+static DEVICE_API(gpio, gpio_cc27xx_driver_api) = {
 	.pin_configure = gpio_cc27xx_config,
 #ifdef CONFIG_GPIO_GET_CONFIG
 	.pin_get_config = gpio_cc27xx_get_config,

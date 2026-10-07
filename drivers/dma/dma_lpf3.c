@@ -323,7 +323,6 @@ static int dma_lpf3_config(const struct device *dev, uint32_t channel, struct dm
 		return -EINVAL;
 	}
 
-
 	/*
 	 * Reject a reconfigure of a still-enabled channel before touching any
 	 * shared channel state below.
@@ -593,7 +592,7 @@ static struct dma_lpf3_data lpf3_data = {
 	},
 };
 
-static const struct dma_driver_api dma_lpf3_api = {
+static DEVICE_API(dma, dma_lpf3_api) = {
 	.config = dma_lpf3_config,
 	.start = dma_lpf3_start,
 	.stop = dma_lpf3_stop,

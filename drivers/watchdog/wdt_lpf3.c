@@ -236,7 +236,7 @@ static int wdt_ti_lpf3_init(const struct device *dev)
 	return 0;
 }
 
-static const struct wdt_driver_api wdt_ti_lpf3_api = {
+static DEVICE_API(wdt, wdt_ti_lpf3_api) = {
 	.setup = wdt_ti_lpf3_setup,
 	.disable = wdt_ti_lpf3_disable,
 	.install_timeout = wdt_ti_lpf3_install_timeout,

@@ -51,10 +51,11 @@ LOG_MODULE_REGISTER(counter_cc27xx_lgpt, CONFIG_COUNTER_LOG_LEVEL);
 #define LGPT_NUM_CHANNELS 3
 
 /* Helper macro to get the correct CLKCTL value based on LGPT base address */
-#define LGPT_CLKCTL_FROM_BASE(base)                                            \
-	((base) == LGPT0_BASE ? CLKCTL_LGPT0 :                                 \
-	 (base) == LGPT1_BASE ? CLKCTL_LGPT1 :                                 \
-	 (base) == LGPT2_BASE ? CLKCTL_LGPT2 : CLKCTL_LGPT3)
+#define LGPT_CLKCTL_FROM_BASE(base)                                                                \
+	((base) == LGPT0_BASE   ? CLKCTL_LGPT0                                                     \
+	 : (base) == LGPT1_BASE ? CLKCTL_LGPT1                                                     \
+	 : (base) == LGPT2_BASE ? CLKCTL_LGPT2                                                     \
+				: CLKCTL_LGPT3)
 
 /* Channel interrupt masks */
 #define LGPT_IMASK_C0CC_MASK 0x100
@@ -256,8 +257,8 @@ static int counter_cc27xx_lgpt_set_alarm(const struct device *dev, uint8_t chan_
 	data->alarm_cfg[chan_id].callback = alarm_cfg->callback;
 	data->alarm_cfg[chan_id].user_data = alarm_cfg->user_data;
 
-	LOG_DBG("Set alarm ch%d: ticks=%u compare=%u top=%u", chan_id,
-		alarm_cfg->ticks, compare_val, top_val);
+	LOG_DBG("Set alarm ch%d: ticks=%u compare=%u top=%u", chan_id, alarm_cfg->ticks,
+		compare_val, top_val);
 
 	return 0;
 }
@@ -481,7 +482,7 @@ static int lgpt_cc27xx_pm_action(const struct device *dev, enum pm_device_action
 
 #endif /* CONFIG_PM_DEVICE */
 
-static const struct counter_driver_api cc27xx_lgpt_api = {
+static DEVICE_API(counter, cc27xx_lgpt_api) = {
 	.start = counter_cc27xx_lgpt_start,
 	.stop = counter_cc27xx_lgpt_stop,
 	.get_value = counter_cc27xx_lgpt_get_value,
@@ -493,51 +494,44 @@ static const struct counter_driver_api cc27xx_lgpt_api = {
 	.get_freq = counter_cc27xx_lgpt_get_freq,
 };
 
-#define LGPT_CC27XX_INIT_FUNC(inst)							\
-	static int counter_cc27xx_lgpt_init##inst(const struct device *dev)		\
-	{										\
-		const struct counter_cc27xx_lgpt_config *config = dev->config;		\
-											\
-		CLKCTLEnable(CLKCTL_BASE, config->clk_idx);				\
-											\
-		IRQ_CONNECT(DT_INST_IRQN(inst),						\
-			    DT_INST_IRQ(inst, priority),				\
-			    counter_cc27xx_lgpt_isr,					\
-			    DEVICE_DT_INST_GET(inst),					\
-			    0);								\
-											\
-		irq_enable(DT_INST_IRQN(inst));						\
-											\
-		counter_cc27xx_lgpt_init_common(dev);					\
-											\
-		return 0;								\
+#define LGPT_CC27XX_INIT_FUNC(inst)                                                                \
+	static int counter_cc27xx_lgpt_init##inst(const struct device *dev)                        \
+	{                                                                                          \
+		const struct counter_cc27xx_lgpt_config *config = dev->config;                     \
+                                                                                                   \
+		CLKCTLEnable(CLKCTL_BASE, config->clk_idx);                                        \
+                                                                                                   \
+		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),                       \
+			    counter_cc27xx_lgpt_isr, DEVICE_DT_INST_GET(inst), 0);                 \
+                                                                                                   \
+		irq_enable(DT_INST_IRQN(inst));                                                    \
+                                                                                                   \
+		counter_cc27xx_lgpt_init_common(dev);                                              \
+                                                                                                   \
+		return 0;                                                                          \
 	}
 
-#define CC27XX_LGPT_INIT(inst)								\
-										\
-	LGPT_CC27XX_INIT_FUNC(inst);							\
-	PM_DEVICE_DT_INST_DEFINE(inst, lgpt_cc27xx_pm_action);				\
-											\
-	static const struct counter_cc27xx_lgpt_config cc27xx_lgpt_config_##inst = {	\
-		.counter_info = {							\
-			.max_top_value = DT_INST_PROP(inst, max_top_value),		\
-			.flags = COUNTER_CONFIG_INFO_COUNT_UP,				\
-			.channels = LGPT_NUM_CHANNELS,					\
-		},									\
-		.base = DT_INST_REG_ADDR(inst),						\
-		.clk_idx = LGPT_CLKCTL_FROM_BASE(DT_INST_REG_ADDR(inst)),		\
-		.prescale = DT_INST_PROP(inst, clk_prescale),				\
-	};										\
-											\
-	static struct counter_cc27xx_lgpt_data cc27xx_lgpt_data_##inst;			\
-											\
-	DEVICE_DT_INST_DEFINE(inst,							\
-			      &counter_cc27xx_lgpt_init##inst,				\
-			      PM_DEVICE_DT_INST_GET(inst),				\
-			      &cc27xx_lgpt_data_##inst,					\
-			      &cc27xx_lgpt_config_##inst,				\
-			      POST_KERNEL,						\
-			      CONFIG_COUNTER_INIT_PRIORITY,				\
-			      &cc27xx_lgpt_api);
+#define CC27XX_LGPT_INIT(inst)                                                                     \
+                                                                                                   \
+	LGPT_CC27XX_INIT_FUNC(inst);                                                               \
+	PM_DEVICE_DT_INST_DEFINE(inst, lgpt_cc27xx_pm_action);                                     \
+                                                                                                   \
+	static const struct counter_cc27xx_lgpt_config cc27xx_lgpt_config_##inst = {               \
+		.counter_info =                                                                    \
+			{                                                                          \
+				.max_top_value = DT_INST_PROP(inst, max_top_value),                \
+				.flags = COUNTER_CONFIG_INFO_COUNT_UP,                             \
+				.channels = LGPT_NUM_CHANNELS,                                     \
+			},                                                                         \
+		.base = DT_INST_REG_ADDR(inst),                                                    \
+		.clk_idx = LGPT_CLKCTL_FROM_BASE(DT_INST_REG_ADDR(inst)),                          \
+		.prescale = DT_INST_PROP(inst, clk_prescale),                                      \
+	};                                                                                         \
+                                                                                                   \
+	static struct counter_cc27xx_lgpt_data cc27xx_lgpt_data_##inst;                            \
+                                                                                                   \
+	DEVICE_DT_INST_DEFINE(inst, &counter_cc27xx_lgpt_init##inst, PM_DEVICE_DT_INST_GET(inst),  \
+			      &cc27xx_lgpt_data_##inst, &cc27xx_lgpt_config_##inst, POST_KERNEL,   \
+			      CONFIG_COUNTER_INIT_PRIORITY, &cc27xx_lgpt_api);
 
 DT_INST_FOREACH_STATUS_OKAY(CC27XX_LGPT_INIT);

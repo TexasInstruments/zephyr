@@ -318,6 +318,17 @@
 		status = "disabled";
 	};
 
+	main_adc0: adc@28001000 {
+		compatible = "ti,am335x-adc";
+		reg = <0x28001000 DT_SIZE_K(1)>;
+		status = "disabled";
+		power-domains = <&main_adc0_pd>;
+		clocks = <&scmi_clk 4>;
+		#io-channel-cells = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 	main_timer0: timer@2400000 {
 		compatible = "ti,am654-timer";
 		reg = <0x2400000 DT_SIZE_K(1)>;

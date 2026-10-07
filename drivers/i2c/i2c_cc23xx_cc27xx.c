@@ -853,12 +853,11 @@ static void i2c_cc23xx_cc27xx_isr(const struct device *dev)
 	if (data->target_cfg != NULL) {
 		/* Target mode */
 		i2c_cc23xx_cc27xx_isr_target(dev);
-	} else
-#endif /* CONFIG_I2C_TARGET */
-	{
-		/* Controller mode */
-		i2c_cc23xx_cc27xx_controller_isr(dev);
+		return;
 	}
+#endif /* CONFIG_I2C_TARGET */
+	/* Controller mode */
+	i2c_cc23xx_cc27xx_controller_isr(dev);
 }
 
 /**
@@ -868,7 +867,7 @@ static void i2c_cc23xx_cc27xx_isr(const struct device *dev)
  * I2C driver operations for the CC23xx/CC27xx series. It is used by the Zephyr
  * I2C subsystem to interface with the hardware-specific driver functions.
  */
-static const struct i2c_driver_api i2c_cc23xx_cc27xx_driver_api = {
+static DEVICE_API(i2c, i2c_cc23xx_cc27xx_driver_api) = {
 	.configure = i2c_cc23xx_cc27xx_runtime_controller_configure,
 	.transfer = i2c_cc23xx_cc27xx_controller_transfer,
 	.get_config = i2c_cc23xx_cc27xx_get_config,

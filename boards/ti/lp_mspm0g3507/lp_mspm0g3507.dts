@@ -30,6 +30,7 @@
 		zephyr,code-partition = &slot0_partition;
 		zephyr,canbus = &canfd0;
 		zephyr,entropy = &trng;
+		zephyr,crc = &crc;
 	};
 
 	leds {
@@ -141,5 +142,9 @@
 };
 
 &trng {
+	status = "okay";
+};
+
+&crc {
 	status = "okay";
 };

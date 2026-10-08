@@ -74,6 +74,10 @@
 	status = "okay";
 };
 
+&mfpclk {
+	status = "okay";
+};
+
 &canclk {
 	clocks = <&syspll>;
 	status = "okay";
@@ -142,6 +146,8 @@
 
 &dac0 {
 	status = "okay";
+	fifo-enable;
+	sample-rate-hz = <1000>;
 };
 
 &vref0 {

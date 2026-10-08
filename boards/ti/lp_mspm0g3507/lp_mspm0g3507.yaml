@@ -17,4 +17,5 @@ supported:
   - dma
   - trng
   - counter
+  - watchdog
 vendor: ti

@@ -8,3 +8,8 @@ config WDT_MSPM0
 	default y
 	depends on DT_HAS_TI_MSPM0_WATCHDOG_ENABLED
 	select SHARED_INTERRUPTS
+
+config WDT_MSPM0_IWDT
+	bool "MSPM0 Independent Watchdog (IWDT) Driver"
+	default y
+	depends on DT_HAS_TI_MSPM0_IWDT_ENABLED

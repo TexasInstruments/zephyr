@@ -6,6 +6,7 @@ patches directly to the project.  In our collaborative open source environment,
 standards and methods for submitting changes help reduce the chaos that can result
 from an active development community.
 
+
 This document briefly summarizes the full `Contribution
 Guidelines <http://docs.zephyrproject.org/latest/contribute/index.html>`_
 documentation.

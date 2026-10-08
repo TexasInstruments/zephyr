@@ -17,6 +17,8 @@ documentation.
 * There are some imported or reused components of the Zephyr project that
   use other licensing and are clearly identified.
 
+
+
 * The Developer Certificate of Origin (DCO) process is followed to
   ensure developers are following licensing criteria for their
   contributions, and documented with a ``Signed-off-by`` line in commits.

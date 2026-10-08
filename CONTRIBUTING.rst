@@ -11,6 +11,7 @@ This document briefly summarizes the full `Contribution
 Guidelines <http://docs.zephyrproject.org/latest/contribute/index.html>`_
 documentation.
 
+
 * Zephyr uses the permissive open source `Apache 2.0 license`_
   that allows you to freely use, modify, distribute and sell your own products
   that include Apache 2.0 licensed software.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Texas Instruments Incorporated
+ * Copyright (c) 2025 Texas Instruments Incorporated
  * Copyright (c) 2024 BayLibre, SAS
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -11,6 +11,8 @@
 / {
 	chosen {
 		zephyr,flash-controller = &flash_controller;
+		zephyr,bt-hci = &ti_bt_hci;
+		zephyr,entropy = &rng;
 	};
 
 	cpus {
@@ -54,10 +56,15 @@
 		compatible = "mmio-sram";
 	};
 
-	sysclk: system-clock {
+	uartclk: uart-clock {
 		compatible = "fixed-clock";
 		clock-frequency = <DT_FREQ_M(48)>;
 		#clock-cells = <0>;
+	};
+
+	ti_bt_hci: ti_bt_hci {
+		compatible = "ti,bt-hci";
+		status = "enabled";
 	};
 
 	soc {
@@ -98,17 +105,18 @@
 		};
 
 		uart0: uart@40034000 {
-			compatible = "ti,cc23x0-uart";
+			compatible = "ti,lpf3-uart";
 			reg = <0x40034000 0x52>;
 			interrupts = <11 0>;
-			clocks = <&sysclk>;
+			clocks = <&uartclk>;
+			ti,clkctl-id = <0x4>; /* CLKCTL_UART0 */
 			dmas = <&dma 2 6>, <&dma 3 7>;
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
 
 		aes: aes@400c0000 {
-			compatible = "ti,cc23x0-aes";
+			compatible = "ti,cc23xx-cc27xx-aes";
 			reg = <0x400c0000 0x120>;
 			interrupts = <9 0>;
 			dmas = <&dma 4 3>, <&dma 5 4>;
@@ -117,19 +125,19 @@
 		};
 
 		dma: dma@40026000 {
-			compatible = "ti,cc23x0-dma";
+			compatible = "ti,lpf3-dma";
 			reg = <0x40026000 0x524>;
 			interrupts = <8 0>;
 			#dma-cells = <2>;
-			zephyr,pm-device-runtime-auto;
 			status = "disabled";
 		};
 
 		spi0: spi@40030000 {
-			compatible = "ti,cc23x0-spi";
+			compatible = "ti,cc23x0-cc27xx-spi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x40030000 0x164>;
+			clock-id = <0x400>;
 			interrupts = <10 0>;
 			dmas = <&dma 0 0>, <&dma 1 1>;
 			dma-names = "tx", "rx";
@@ -138,15 +146,18 @@
 		};
 
 		wdt0: watchdog@40001000 {
-			compatible = "ti,cc23x0-wdt";
+			compatible = "ti,lpf3-wdt";
 			reg = <0x40001000 0x310>;
 			status = "disabled";
 		};
 
 		rtc0: rtc@40002000 {
-			compatible = "ti,cc23x0-rtc";
+			compatible = "ti,lpf3-rtc-timer";
 			reg = <0x40002000 0x64>;
-			interrupts = <3 0>;
+			/* RTC interrupt signal is mapped to IRQ1. This interrupt line is not a
+			 * dedicated interrupt line for the RTC peripheral.
+			 */
+			interrupts = <1 0>;
 			status = "disabled";
 		};
 
@@ -258,8 +269,13 @@
 			};
 		};
 
+		rng: entropy {
+			compatible = "ti,cc23x0-rng", "simple-bus";
+			status = "disabled";
+		};
+
 		adc0: adc@40050000 {
-			compatible = "ti,cc23x0-adc";
+			compatible = "ti,lpf3-adc";
 			reg = <0x40050000 0xe30>;
 			interrupts = <15 0>;
 			#io-channel-cells = <1>;
@@ -269,7 +285,7 @@
 		};
 
 		i2c0: i2c@40038000 {
-			compatible = "ti,cc23x0-i2c";
+			compatible = "ti,cc23xx-cc27xx-i2c";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x40038000 0x820>;

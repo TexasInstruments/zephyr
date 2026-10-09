@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Texas Instruments Incorporated
+# Copyright (c) 2024-2026 Texas Instruments Incorporated
 # Copyright (c) 2024 BayLibre, SAS
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -8,18 +8,16 @@ config SOC_SERIES_CC23X0
 	select CPU_CORTEX_M0PLUS
 	select CPU_CORTEX_M_HAS_VTOR
 	select SOC_RESET_HOOK
-	select TICKLESS_KERNEL
 	select DYNAMIC_INTERRUPTS
 	select HAS_CC23X0_SDK
-	select HAS_TI_CCFG
+	select HAS_TI_CCFG if !BOOTLOADER_MCUBOOT
 	select TI_SIMPLELINK_DYNAMIC_DPL_OBJECTS
 	select EVENTS
-	select DYNAMIC_THREAD
-	select DYNAMIC_THREAD_ALLOC
 	select THREAD_STACK_INFO
-	select BUILD_OUTPUT_HEX
 	select HAS_PM
 	select PM_DEVICE if PM
+	select HAS_POWEROFF
+	select HAS_SEGGER_RTT if ZEPHYR_SEGGER_MODULE
 
 menu "Bootloader Configuration"
 depends on SOC_SERIES_CC23X0

@@ -8,6 +8,7 @@
 #include <zephyr/kernel.h>
 
 #include <inc/hw_ccfg.h>
+#include <inc/hw_device.h>
 
 #define CC23_CCFG_FLASH            DT_INST(0, ti_cc23x0_ccfg_flash)
 #define CC23_CCFG_FLASH_PROP(prop) DT_PROP(CC23_CCFG_FLASH, prop)
@@ -24,7 +25,7 @@
 #define CC23X0_BLDR_VTOR CC23_CCFG_FLASH_PROP(ti_bldr_vtor_flash)
 #endif
 
-#define CC23X0_P_APP_VTOR DT_REG_ADDR(DT_CHOSEN(zephyr_code_partition))
+#define CC23X0_P_APP_VTOR (CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_OFFSET)
 
 #if CC23_CCFG_FLASH_PROP(ti_chip_erase) == 0
 #warning ti,chip-erase property is NOT PRESENT in your device tree, \
@@ -46,7 +47,7 @@ const ccfg_t ccfg __attribute__((section(".ti_ccfg"))) __attribute__((used)) = {
 		CC23_CCFG_FLASH_PROP(ti_pin_trigger_level_hi),
 	.bootCfg.pAppVtor = (void *)CC23X0_P_APP_VTOR,
 
-	.hwOpts = {0xffffffff, 0xffffffff},
+	.INTERNAL_FIELD_0,
 
 	.permissions.allowDebugPort = CC23_TO_PERM_VAL(CC23_CCFG_FLASH_PROP(ti_debug_port)),
 	.permissions.allowEnergyTrace = CC23_TO_PERM_VAL(CC23_CCFG_FLASH_PROP(ti_energy_trace)),

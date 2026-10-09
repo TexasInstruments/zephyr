@@ -18,3 +18,5 @@ tests:
     platform_allow:
       - s32k5xxcvb/s32k566/m7
       - s32k5xxcvb/s32k566/r52
+    depends_on: pwm
+    filter: dt_compat_enabled("test-pwm-loopback")

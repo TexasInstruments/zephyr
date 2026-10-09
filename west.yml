@@ -21,6 +21,8 @@ manifest:
   remotes:
     - name: upstream
       url-base: https://github.com/zephyrproject-rtos
+    - name: downstream
+      url-base: https://github.com/TexasInstruments
     - name: babblesim
       url-base: https://github.com/BabbleSim
 
@@ -29,7 +31,6 @@ manifest:
   #
   # Please add items below based on alphabetical order
   # zephyr-keep-sorted-start re(^\s+\- name:)
-  projects:
     - name: acpica
       revision: 8d24867bc9c9d81c81eeac59391cda59333affd4
       path: modules/lib/acpica
@@ -273,10 +274,12 @@ manifest:
       groups:
         - hal
     - name: hal_ti
-      revision: 53c80140dd69905cc5e034f637eff9c66b2f9654
+      remote: downstream
+      revision: afbcfff-ti-next
       path: modules/hal/ti
       groups:
         - hal
+        - external
     - name: hal_wch
       revision: dd3855ea624b05de7e6e95584789615d2058a0f3
       path: modules/hal/wch

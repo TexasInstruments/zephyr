@@ -16,9 +16,13 @@
 
 #include <driverlib/clkctl.h>
 #include <driverlib/gpio.h>
+#include <driverlib/ioc.h>
 #include <inc/hw_ioc.h>
+#include <inc/hw_types.h>
 
 #define IOC_ADDR(index)       (IOC_BASE + IOC_O_IOC0 + (sizeof(uint32_t) * (index)))
+#define IOC_PORTCFG_MASK	  IOC_IOC0_PORTCFG_M
+#define GPIO_PIN_TO_MASK(pin) (1 << (pin))
 
 struct gpio_cc23x0_config {
 	/* gpio_driver_config needs to be first */
@@ -31,16 +35,30 @@ struct gpio_cc23x0_data {
 	sys_slist_t callbacks;
 };
 
-static void set_pin_mask_non_atomic(uint8_t index, uint32_t registerBaseAddress)
-{
-	GPIOSetConfigDio(GPIO_BASE + registerBaseAddress, BIT(index));
-}
-
 static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_flags_t flags)
 {
 	uint32_t config = 0;
 	uint32_t iocfg_reg = IOC_ADDR(pin);
 	gpio_flags_t direction = flags & GPIO_DIR_MASK;
+
+	bool setPinToOutput = flags & GPIO_OUTPUT;
+
+	/* The pin will be an output after configuring */
+    if (setPinToOutput)
+    {
+        /* Set the new default value and enable output */
+		if (flags & GPIO_OUTPUT_INIT_HIGH) {
+			GPIOSetDio(pin);
+		} else if (flags & GPIO_OUTPUT_INIT_LOW) {
+			GPIOClearDio(pin);
+		}
+        GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_ENABLE);
+    }
+
+	/*
+	 * Keep the port configuration (pinmux). pinctrl takes care of the pinmux.
+	 */
+	config |= HWREG(iocfg_reg) & IOC_PORTCFG_MASK;
 
 	if (flags & GPIO_PULL_UP) {
 		config |= IOC_IOC0_PULLCTL_PULL_UP;
@@ -50,10 +68,12 @@ static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_fl
 		config |= IOC_IOC0_PULLCTL_PULL_DIS;
 	}
 
+	/* Allow interrupts to trigger in shutdown */
 	if (flags & GPIO_INT_WAKEUP) {
-		config |= IOC_IOC0_WUENSB;
+		config |= IOC_IOC0_WUCFGSD_WAKE_LOW;
 	}
 
+	/* In single-ended mode a GPIO is either open drain or open source */
 	if (!(flags & GPIO_SINGLE_ENDED)) {
 		config |= IOC_IOC0_IOMODE_NORMAL;
 	} else {
@@ -67,16 +87,9 @@ static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_fl
 		config |= IOC_IOC0_INPEN_EN | IOC_IOC0_HYSTEN_EN;
 	}
 
-	GPIOSetConfigDio(iocfg_reg, config);
+	IOCSetConfigAndMux(pin, config, IOC_MUX_GPIO);
 
-	if (flags & GPIO_OUTPUT) {
-		if (flags & GPIO_OUTPUT_INIT_HIGH) {
-			GPIOSetDio(pin);
-		} else if (flags & GPIO_OUTPUT_INIT_LOW) {
-			GPIOClearDio(pin);
-		}
-		GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_ENABLE);
-	} else {
+	if (!setPinToOutput) {
 		GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_DISABLE);
 	}
 	return 0;
@@ -86,8 +99,8 @@ static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_fl
 static int gpio_cc23x0_get_config(const struct device *port, gpio_pin_t pin, gpio_flags_t *flags)
 {
 	uint32_t out_flag = 0;
-	uint32_t iocfg_reg = IOC_ADDR(pin);
-	uint32_t config = GPIOGetConfigDio(iocfg_reg);
+
+	uint32_t config = IOCGetConfig(pin);
 
 	/* GPIO input/output configuration flags */
 	if (config & IOC_IOC0_INPEN_EN) {
@@ -97,7 +110,8 @@ static int gpio_cc23x0_get_config(const struct device *port, gpio_pin_t pin, gpi
 	if (GPIOGetOutputEnableDio(pin)) {
 		out_flag |= GPIO_OUTPUT;
 
-		if (GPIOReadDio(pin)) {
+		if (GPIOReadDioOutputBuffer(pin)) {
+
 			out_flag |= GPIO_OUTPUT_INIT_HIGH;
 		} else {
 			/* This is the default value. If not explicitly set,
@@ -124,12 +138,12 @@ static int gpio_cc23x0_get_config(const struct device *port, gpio_pin_t pin, gpi
 	}
 
 	/* GPIO pin drive flags */
-	if (config & IOC_IOC0_IOMODE_OPENS) {
-		out_flag |= GPIO_OPEN_SOURCE;
-	}
-
-	if (config & IOC_IOC0_IOMODE_OPEND) {
-		out_flag |= IOC_IOC0_IOMODE_OPEND;
+	if (!(config & IOC_IOC0_IOMODE_NORMAL)) {
+		if (config & IOC_IOC0_IOMODE_OPEND) {
+			out_flag |= GPIO_OPEN_DRAIN;
+		} else if (config & IOC_IOC0_IOMODE_OPENS) {
+			out_flag |= GPIO_OPEN_SOURCE;
+		}
 	}
 
 	if (config & IOC_IOC0_PULLCTL_PULL_UP) {
@@ -138,6 +152,10 @@ static int gpio_cc23x0_get_config(const struct device *port, gpio_pin_t pin, gpi
 
 	if (config & IOC_IOC0_PULLCTL_PULL_DOWN) {
 		out_flag |= GPIO_PULL_DOWN;
+	}
+
+	if (config & IOC_IOC0_WUENSB) {
+		out_flag |= GPIO_INT_WAKEUP;
 	}
 
 	*flags = out_flag;
@@ -188,36 +206,39 @@ static int gpio_cc23x0xx_pin_interrupt_configure(const struct device *port, gpio
 		return -ENOTSUP;
 	}
 
-	uint32_t config = GPIOGetConfigDio(IOC_ADDR(pin)) & ~IOC_IOC0_EDGEDET_M;
+	uint32_t config = IOCGetConfig(pin) & ~IOC_IOC0_EDGEDET_M;
 
 	if (mode == GPIO_INT_MODE_DISABLED) {
-		config |= IOC_IOC1_EDGEDET_EDGE_DIS;
+		config |= IOC_IOC0_EDGEDET_EDGE_DIS;
 
-		GPIOSetConfigDio(IOC_ADDR(pin), config);
+		IOCSetConfigAndMux(pin, config, IOC_MUX_GPIO);
 
 		/* Disable interrupt mask */
-		set_pin_mask_non_atomic(pin, GPIO_O_IMCLR);
+		GPIODisableEventDio(pin);
 
 	} else if (mode == GPIO_INT_MODE_EDGE) {
 		switch (trig) {
 		case GPIO_INT_TRIG_LOW:
-			config |= IOC_IOC1_EDGEDET_EDGE_NEG;
+			config |= IOC_IOC0_EDGEDET_EDGE_NEG;
 			break;
 		case GPIO_INT_TRIG_HIGH:
-			config |= IOC_IOC1_EDGEDET_EDGE_POS;
+			config |= IOC_IOC0_EDGEDET_EDGE_POS;
 			break;
 		case GPIO_INT_TRIG_BOTH:
-			config |= IOC_IOC1_EDGEDET_EDGE_BOTH;
+			config |= IOC_IOC0_EDGEDET_EDGE_BOTH;
 			break;
 		default:
 			return -ENOTSUP;
 		}
 
-		GPIOSetConfigDio(IOC_ADDR(pin), config);
+		/* Allow interrupts to trigger in standby */
+		config |= IOC_IOC0_WUENSB;
+
+		IOCSetConfigAndMux(pin, config, IOC_MUX_GPIO);
 
 		/* Enable interrupt mask */
-		set_pin_mask_non_atomic(pin, GPIO_O_ICLR);
-		set_pin_mask_non_atomic(pin, GPIO_O_IMSET);
+		GPIOClearEventDio(pin);
+		GPIOEnableEventDio(pin);
 	}
 
 	return 0;
@@ -233,14 +254,14 @@ static int gpio_cc23x0_manage_callback(const struct device *port, struct gpio_ca
 
 static uint32_t gpio_cc23x0_get_pending_int(const struct device *dev)
 {
-	return GPIOGetEventMultiDio(GPIO_DIO_ALL_MASK);
+	return GPIOGetEventMultiDio(GPIO_DIO_ALL_MASK, true);
 }
 
 static void gpio_cc23x0_isr(const struct device *dev)
 {
 	struct gpio_cc23x0_data *data = dev->data;
 
-	uint32_t status = GPIOGetEventMultiDio(GPIO_DIO_ALL_MASK);
+	uint32_t status = GPIOGetEventMultiDio(GPIO_DIO_ALL_MASK, true);
 
 	GPIOClearEventMultiDio(status);
 
@@ -250,12 +271,13 @@ static void gpio_cc23x0_isr(const struct device *dev)
 #ifdef CONFIG_PM_DEVICE
 static int gpio_cc23x0_pm_action(const struct device *dev, enum pm_device_action action)
 {
+	/* No action is done when suspending or resuming the GPIO module,
+	 * since both clock control and the GPIO peripheral have memory retention.
+	 */
 	switch (action) {
 	case PM_DEVICE_ACTION_RESUME:
-		CLKCTLEnable(CLKCTL_BASE, CLKCTL_GPIO);
 		break;
 	case PM_DEVICE_ACTION_SUSPEND:
-		CLKCTLDisable(CLKCTL_BASE, CLKCTL_GPIO);
 		break;
 	default:
 		return -ENOTSUP;
@@ -303,5 +325,5 @@ static struct gpio_cc23x0_data gpio_cc23x0_data_0;
 PM_DEVICE_DT_DEFINE(0, gpio_cc23x0_pm_action);
 
 DEVICE_DT_INST_DEFINE(0, gpio_cc23x0_init, PM_DEVICE_DT_GET(0), &gpio_cc23x0_data_0,
-		      &gpio_cc23x0_config_0, PRE_KERNEL_1,
-		      CONFIG_GPIO_INIT_PRIORITY, &gpio_cc23x0_driver_api);
+		      &gpio_cc23x0_config_0, PRE_KERNEL_1, CONFIG_GPIO_INIT_PRIORITY,
+		      &gpio_cc23x0_driver_api);

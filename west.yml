@@ -25,22 +25,12 @@ manifest:
       url-base: https://github.com/TexasInstruments
     - name: babblesim
       url-base: https://github.com/BabbleSim
-    - name: ti
-      url-base: ssh://git@bitbucket.itg.ti.com/lpc_sw_rnd
 
   group-filter: [-babblesim, -optional, -testing]
 
   #
   # Please add items below based on alphabetical order
   # zephyr-keep-sorted-start re(^\s+\- name:)
-  projects:
-    - name: hal_ti
-      remote: ti
-      repo-path: hal_ti.git
-      revision: afbcfff-ti-next
-      path: modules/hal/ti
-      groups:
-        - hal
     - name: acpica
       revision: 8d24867bc9c9d81c81eeac59391cda59333affd4
       path: modules/lib/acpica
@@ -283,9 +273,9 @@ manifest:
       path: modules/hal/telink
       groups:
         - hal
-    - name: simplelink-hal_ti
+    - name: hal_ti
       remote: downstream
-      revision: 109a3e0eb3093446b73aabcd99b35b8a462d9299
+      revision: afbcfff-ti-next
       path: modules/hal/ti
       groups:
         - hal

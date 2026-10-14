@@ -7,12 +7,58 @@
 #include <arm/armv8-m.dtsi>
 #include <mem.h>
 #include <freq.h>
+#include <zephyr/dt-bindings/clock/mspm0_clock.h>
+#include <zephyr/dt-bindings/misc/ti_am13e_sysctl.h>
 
 / {
 	soc {
 		pinctrl: pin-controller@400cc000 {
 			compatible = "ti,mspm0-pinctrl";
 			reg = <0x400cc000 0x400>;
+		};
+
+		xbar1: xbar@40468000 {
+			compatible = "ti,am13e230-xbar-in";
+			reg = <0x40468000 0x1000>;
+			ti,pwren = <&sysctl AM13E_SYSCTL_PWREN_MCPERIPH
+				    AM13E_SYSCTL_PWREN_XBAR_BIT>;
+
+			#mux-control-cells = <1>;
+			#mux-state-cells = <2>;
+			status = "disabled";
+		};
+
+		xbar2: xbar@4046a000 {
+			compatible = "ti,am13e230-xbar-out";
+			reg = <0x4046a000 0x1000>;
+			ti,pwren = <&sysctl AM13E_SYSCTL_PWREN_MCPERIPH
+				    AM13E_SYSCTL_PWREN_XBAR_BIT>;
+
+			#mux-control-cells = <1>;
+			#mux-state-cells = <2>;
+			status = "disabled";
+		};
+
+		ecap0: ecap@40440000 {
+			compatible = "ti,am3352-ecap";
+			reg = <0x40440000 0x40>;
+			clocks = <&ckm MSPM0_CLOCK_MCLK>;
+			ti,pwren = <&sysctl AM13E_SYSCTL_PWREN_MCPERIPH
+				    AM13E_SYSCTL_PWREN_ECAP0_BIT>;
+
+			#pwm-cells = <3>;
+			status = "disabled";
+		};
+
+		ecap1: ecap@40441000 {
+			compatible = "ti,am3352-ecap";
+			reg = <0x40441000 0x40>;
+			clocks = <&ckm MSPM0_CLOCK_MCLK>;
+			ti,pwren = <&sysctl AM13E_SYSCTL_PWREN_MCPERIPH
+				    AM13E_SYSCTL_PWREN_ECAP1_BIT>;
+
+			#pwm-cells = <3>;
+			status = "disabled";
 		};
 	};
 
@@ -131,8 +177,9 @@
 
 	soc {
 		sysctl: syscon@400af000 {
-			compatible = "syscon";
+			compatible = "ti,am13e-sysctl", "syscon";
 			reg = <0x400af000 0x2000>;
+			#pwren-cells = <2>;
 			status = "okay";
 		};
 

@@ -413,7 +413,16 @@ static int ti_ehrpwm_get_cycles_per_sec(const struct device *dev, uint32_t chann
 	ARG_UNUSED(channel);
 	const struct ti_ehrpwm_cfg *cfg = DEV_CFG(dev);
 
-	return clock_control_get_rate(cfg->clock_dev, cfg->clock_subsys, (uint32_t *)cycles);
+	uint32_t rate;
+	int ret;
+
+	ret = clock_control_get_rate(cfg->clock_dev, cfg->clock_subsys, &rate);
+	if (ret < 0) {
+		return ret;
+	}
+
+	*cycles = rate;
+	return 0;
 }
 
 #ifdef CONFIG_PWM_EVENT

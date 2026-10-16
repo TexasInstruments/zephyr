@@ -5,6 +5,7 @@
 
 menuconfig ENTROPY_GENERATOR
 	bool "Entropy drivers"
+	default y if (BOARD_LP_EM_CC2745R10_Q1 && BT)
 	help
 	  Include entropy drivers in system config.
 
@@ -26,6 +27,9 @@ source "drivers/entropy/Kconfig.b91"
 source "drivers/entropy/Kconfig.bflb"
 source "drivers/entropy/Kconfig.bt_hci"
 source "drivers/entropy/Kconfig.cc13xx_cc26xx"
+source "drivers/entropy/Kconfig.cc23x0"
+source "drivers/entropy/Kconfig.cc27xx"
+source "drivers/entropy/Kconfig.cc35xx"
 source "drivers/entropy/Kconfig.esp32"
 source "drivers/entropy/Kconfig.gd32"
 source "drivers/entropy/Kconfig.gecko"

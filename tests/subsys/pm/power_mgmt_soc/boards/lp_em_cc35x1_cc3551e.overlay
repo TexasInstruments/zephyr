@@ -1,0 +1,9 @@
+/*
+ * Copyright The Zephyr Project Contributors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* An unused BoosterPack UART must not veto device suspend on pending RX. */
+&uart0 {
+	status = "disabled";
+};

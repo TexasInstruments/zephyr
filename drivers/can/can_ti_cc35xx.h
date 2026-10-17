@@ -40,6 +40,8 @@ struct can_ti_cc35xx_config {
 	uintptr_t mrba;
 	const struct pinctrl_dev_config *pcfg;
 	void (*irq_configure)(void);
+	unsigned int irq0;
+	unsigned int irq1;
 };
 
 #endif /* _CAN_TI_CC35XX_ */

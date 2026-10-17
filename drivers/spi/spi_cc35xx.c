@@ -12,6 +12,7 @@ LOG_MODULE_REGISTER(spi_cc35xx, CONFIG_SPI_LOG_LEVEL);
 
 #include <zephyr/arch/common/sys_io.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/pm/device.h>
 #include <zephyr/pm/policy.h>
@@ -21,6 +22,7 @@ LOG_MODULE_REGISTER(spi_cc35xx, CONFIG_SPI_LOG_LEVEL);
 
 #include <driverlib/spi.h>
 #include <ti/devices/cc35xx/inc/hw_spi.h>
+#include <ti/devices/cc35xx/inc/hw_memmap.h>
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
 #include <zephyr/devicetree/dma.h>
 #include <zephyr/drivers/dma.h>
@@ -78,6 +80,7 @@ struct spi_cc35xx_config {
 	const struct pinctrl_dev_config *pcfg;
 	uint32_t sys_clk_freq;
 	const uint8_t irq_num;
+	enum cc35xx_pm_resource power_resource;
 };
 
 struct spi_cc35xx_data {
@@ -89,6 +92,10 @@ struct spi_cc35xx_data {
 	uint8_t tx_scratch_buf[CONFIG_SPI_CC35XX_DMA_SCRATCH_BUFFER_SIZE];
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 	size_t rxleft;
+	bool transfer_active;
+	bool pm_policy_held;
+	bool power_enabled;
+	bool config_valid;
 };
 
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
@@ -98,6 +105,143 @@ static int spi_cc35xx_dma_load_tx(const struct device *dev, const uint8_t *tx_da
 				  size_t buf_size);
 static int spi_cc35xx_dma_load_rx(const struct device *dev, uint8_t *rx_data, size_t buf_size);
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
+
+/* The context lock serializes transfers; IRQ masking serializes their completion. */
+static void spi_cc35xx_pm_get(struct spi_cc35xx_data *data)
+{
+	if (!data->pm_policy_held) {
+		pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		data->pm_policy_held = true;
+	}
+}
+
+static void spi_cc35xx_pm_put(struct spi_cc35xx_data *data)
+{
+	if (data->pm_policy_held) {
+		data->pm_policy_held = false;
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	}
+}
+
+#ifdef CONFIG_PM_DEVICE
+static int spi_cc35xx_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct spi_cc35xx_config *cfg = dev->config;
+	struct spi_cc35xx_data *data = dev->data;
+	unsigned int key = irq_lock();
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (data->transfer_active || data->pm_policy_held ||
+		    (data->power_enabled && SPIBusy(cfg->base))) {
+			ret = -EBUSY;
+			break;
+		}
+		if (data->power_enabled) {
+			SPIDisable(cfg->base);
+			SPIDisableInt(cfg->base, SPI_INT_ALL);
+			SPIClearInt(cfg->base, SPI_INT_ALL);
+			ret = cc35xx_pm_resource_put(cfg->power_resource);
+			if (ret == 0) {
+				data->power_enabled = false;
+				data->ctx.config = NULL;
+			}
+		}
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		if (!data->power_enabled) {
+			ret = cc35xx_pm_resource_get(cfg->power_resource);
+			if (ret == 0) {
+				data->power_enabled = true;
+				data->ctx.config = NULL;
+			}
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+	irq_unlock(key);
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
+
+/* Quiesce the old transfer before a completion callback can start another one. */
+static bool spi_cc35xx_cleanup(const struct device *dev, int status)
+{
+	const struct spi_cc35xx_config *cfg = dev->config;
+	struct spi_cc35xx_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
+
+	if (!data->transfer_active) {
+		return false;
+	}
+	SPIDisableInt(cfg->base, SPI_INT_ALL);
+	SPIClearInt(cfg->base, SPI_INT_ALL);
+#ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
+	spi_cc35xx_dma_stop(dev);
+#endif
+	if (status < 0) {
+		SPIDisable(cfg->base);
+		_spi_context_cs_control(ctx, false, true);
+		data->config_valid = false;
+	} else {
+		spi_context_cs_control(ctx, false);
+	}
+	data->transfer_active = false;
+	/* A held chip select keeps the peripheral available until release(). */
+	if (status < 0 || ctx->config == NULL ||
+	    !(ctx->config->operation & SPI_HOLD_ON_CS)) {
+		spi_cc35xx_pm_put(data);
+	}
+	return true;
+}
+
+static void spi_cc35xx_complete(const struct device *dev, int status)
+{
+	const struct spi_cc35xx_config *cfg = dev->config;
+	struct spi_cc35xx_data *data = dev->data;
+	struct spi_context *ctx = &data->ctx;
+#ifdef CONFIG_SPI_ASYNC
+	const struct spi_config *config = ctx->config;
+#endif
+
+	if (data->transfer_active && status == 0 && SPIBusy(cfg->base)) {
+		SPIClearInt(cfg->base, SPI_MIS_IDLE_SET);
+		SPIEnableInt(cfg->base, SPI_MIS_IDLE_SET);
+		return;
+	}
+	if (!spi_cc35xx_cleanup(dev, status)) {
+		return;
+	}
+#ifdef CONFIG_SPI_ASYNC
+	if (ctx->asynchronous) {
+		spi_callback_t callback = ctx->callback;
+		void *callback_data = ctx->callback_data;
+
+#ifdef CONFIG_SPI_SLAVE
+		if (status == 0 && config != NULL &&
+		    SPI_OP_MODE_GET(config->operation) == SPI_OP_MODE_SLAVE) {
+			status = ctx->recv_frames;
+		}
+#endif
+#ifdef CONFIG_MULTITHREADING
+		if (config == NULL || !(config->operation & SPI_LOCK_ON) || status < 0) {
+			ctx->owner = NULL;
+			k_sem_give(&ctx->lock);
+		}
+#endif
+		if (callback != NULL) {
+			callback(dev, status, callback_data);
+		}
+		return;
+	}
+#endif
+	spi_context_complete(ctx, dev, status);
+}
 
 static void spi_cc35xx_read_rx_fifo(const struct device *dev)
 {
@@ -168,7 +312,7 @@ static int spi_cc35xx_configure(const struct device *dev, const struct spi_confi
 	uint32_t prot, freq;
 	int ret, mode;
 
-	if (spi_context_configured(ctx, config)) {
+	if (data->config_valid && spi_context_configured(ctx, config)) {
 		return 0;
 	}
 
@@ -213,13 +357,13 @@ static int spi_cc35xx_configure(const struct device *dev, const struct spi_confi
 			    cfg->base + SPI_O_CTL1);
 	}
 
-	sys_write32(BIT(0), cfg->base + SPI_O_CLKCFG);
 
 	SPIEnable(cfg->base);
 
 	spi_cc35xx_flush_fifo(dev);
 
 	ctx->config = config;
+	data->config_valid = true;
 	return 0;
 }
 
@@ -292,9 +436,7 @@ static int spi_cc35xx_dma_transmit_next_packet(const struct device *dev,
 		data->dma_status_flags &= ~SPI_CC35XX_DMA_TX_TRANSFER_DONE;
 	}
 
-	spi_cc35xx_dma_start(dev, dir);
-
-	return 0;
+	return spi_cc35xx_dma_start(dev, dir);
 }
 #else
 static void spi_cc35xx_master_transceive(const struct device *dev)
@@ -330,42 +472,61 @@ static int spi_cc35xx_transceive(const struct device *dev, const struct spi_conf
 {
 	struct spi_cc35xx_data *data = dev->data;
 	struct spi_context *ctx = &data->ctx;
+	unsigned int key;
 	int ret;
 
 	spi_context_lock(ctx, async, cb, userdata, config);
+	key = irq_lock();
+	if (!data->power_enabled) {
+		irq_unlock(key);
+		spi_context_release(ctx, -EIO);
+		return -EIO;
+	}
+#ifdef CONFIG_MULTITHREADING
+	k_sem_reset(&ctx->sync);
+#else
+	atomic_clear(&ctx->ready);
+#endif
+	spi_cc35xx_pm_get(data);
+	data->transfer_active = true;
+	irq_unlock(key);
 
 	ret = spi_cc35xx_configure(dev, config);
-	if (ret) {
-		goto ctx_release;
+	if (ret != 0) {
+		goto cleanup;
 	}
-
 	spi_cc35xx_flush_fifo(dev);
-
 	spi_context_buffers_setup(ctx, tx_bufs, rx_bufs, SPI_CC35XX_DFS);
 
 	if (!spi_context_rx_buf_on(ctx) && !spi_context_tx_buf_on(ctx)) {
-		goto ctx_release;
+		key = irq_lock();
+		spi_cc35xx_complete(dev, 0);
+		irq_unlock(key);
+		if (async) {
+			return 0;
+		}
+		goto wait;
 	}
-
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
 	if (spi_context_total_tx_len(ctx) > SPI_CC35XX_DMA_MAX_TRANSFER_SIZE ||
 	    spi_context_total_rx_len(ctx) > SPI_CC35XX_DMA_MAX_TRANSFER_SIZE) {
 		ret = -EINVAL;
-		goto ctx_release;
+		goto cleanup;
 	}
-
-#ifdef CONFIG_SPI_SLAVE
+	key = irq_lock();
 	if (!spi_context_is_slave(ctx)) {
 		spi_context_cs_control(ctx, true);
 	}
-#else
-	spi_context_cs_control(ctx, true);
-#endif /* CONFIG_SPI_SLAVE */
-
-	spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_BOTH);
+	ret = spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_BOTH);
+	if (ret != 0) {
+		spi_cc35xx_cleanup(dev, ret);
+		irq_unlock(key);
+		spi_context_release(ctx, ret);
+		return ret;
+	}
+	irq_unlock(key);
 #else
 	data->rxleft = spi_context_total_rx_len(ctx);
-
 #ifdef CONFIG_SPI_SLAVE
 	if (spi_context_is_slave(ctx)) {
 		spi_cc35xx_slave_transceive(dev);
@@ -374,35 +535,19 @@ static int spi_cc35xx_transceive(const struct device *dev, const struct spi_conf
 	}
 #else
 	spi_cc35xx_master_transceive(dev);
-#endif /* CONFIG_SPI_SLAVE */
+#endif
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
-
-	ret = spi_context_wait_for_completion(ctx);
-
+	/* Completion may already have called an async client: do not touch its context. */
 	if (async) {
-		spi_context_release(ctx, ret);
 		return 0;
 	}
-
-ctx_release:
-#ifdef CONFIG_SPI_SLAVE
-	if (!spi_context_is_slave(ctx)) {
-		if (!(ctx->config->operation & SPI_HOLD_ON_CS)) {
-			spi_context_cs_control(ctx, false);
-		}
-	} else if (!ret) {
-		ret = data->ctx.recv_frames;
-	}
-#else
-	if (!(ctx->config->operation & SPI_HOLD_ON_CS)) {
-		spi_context_cs_control(ctx, false);
-	}
-#endif /* CONFIG_SPI_SLAVE */
-#ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
-	spi_cc35xx_dma_stop(dev);
-#endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
+wait:
+	ret = spi_context_wait_for_completion(ctx);
+cleanup:
+	key = irq_lock();
+	spi_cc35xx_cleanup(dev, ret);
+	irq_unlock(key);
 	spi_context_release(ctx, ret);
-
 	return ret;
 }
 
@@ -411,16 +556,22 @@ static int spi_cc35xx_release(const struct device *dev, const struct spi_config 
 	const struct spi_cc35xx_config *cfg = dev->config;
 	struct spi_cc35xx_data *data = dev->data;
 	struct spi_context *ctx = &data->ctx;
+	unsigned int key;
 
 	if (!spi_context_configured(ctx, config)) {
 		return -EINVAL;
 	}
 
-	if (SPIBusy(cfg->base)) {
+	key = irq_lock();
+
+	if (data->transfer_active || (data->power_enabled && SPIBusy(cfg->base))) {
+		irq_unlock(key);
 		return -EBUSY;
 	}
-
+	_spi_context_cs_control(ctx, false, true);
+	spi_cc35xx_pm_put(data);
 	spi_context_unlock_unconditionally(ctx);
+	irq_unlock(key);
 
 	return 0;
 }
@@ -430,8 +581,20 @@ static void spi_cc35xx_isr(const struct device *dev)
 	const struct spi_cc35xx_config *cfg = dev->config;
 	struct spi_cc35xx_data *data = dev->data;
 	struct spi_context *ctx = &data->ctx;
-	uint32_t irq_status = SPIIntStatus(cfg->base, true);
-	uint32_t txrx_irq = irq_status & (SPI_MIS_RX | SPI_MIS_TX);
+	uint32_t irq_status;
+	uint32_t txrx_irq;
+
+	if (!data->power_enabled) {
+		return;
+	}
+	irq_status = SPIIntStatus(cfg->base, true);
+	txrx_irq = irq_status & (SPI_MIS_RX | SPI_MIS_TX);
+
+	if (!data->transfer_active) {
+		SPIDisableInt(cfg->base, SPI_INT_ALL);
+		SPIClearInt(cfg->base, SPI_INT_ALL);
+		return;
+	}
 
 	if (txrx_irq) {
 		SPIClearInt(cfg->base, txrx_irq);
@@ -441,7 +604,7 @@ static void spi_cc35xx_isr(const struct device *dev)
 			SPIDisableInt(cfg->base, txrx_irq);
 
 			if (txrx_irq & SPI_MIS_RX) {
-				spi_context_complete(ctx, dev, 0);
+				spi_cc35xx_complete(dev, 0);
 			} else {
 				SPIClearInt(cfg->base, SPI_MIS_IDLE_SET);
 				SPIEnableInt(cfg->base, SPI_MIS_IDLE_SET);
@@ -455,18 +618,15 @@ static void spi_cc35xx_isr(const struct device *dev)
 	if (irq_status & SPI_MIS_IDLE) {
 		SPIDisableInt(cfg->base, SPI_MIS_IDLE);
 		SPIClearInt(cfg->base, SPI_MIS_IDLE);
-		spi_context_cs_control(ctx, false);
-		spi_context_complete(ctx, dev, 0);
+		spi_cc35xx_complete(dev, 0);
+		return;
 	}
 
 	if (irq_status & SPI_MIS_RXOVF) {
 		SPIClearInt(cfg->base, SPI_MIS_RXOVF);
 		LOG_ERR("%s: RX overflow occurred", dev->name);
-		spi_cc35xx_read_rx_fifo(dev);
-		/* flush RX FIFO to clear overflow condition */
-		spi_cc35xx_flush_fifo(dev);
-		spi_context_cs_control(ctx, false);
-		spi_context_complete(ctx, dev, -EIO);
+		spi_cc35xx_complete(dev, -EIO);
+		return;
 	}
 
 #ifdef CONFIG_SPI_CC35XX_DMA_DRIVEN
@@ -499,18 +659,28 @@ static void spi_cc35xx_isr(const struct device *dev)
 
 		if (!spi_context_rx_buf_on(ctx) && !spi_context_tx_buf_on(ctx)) {
 			/* nothing left to rx or tx, we're done! */
-			spi_cc35xx_dma_stop(dev);
-			spi_context_complete(&data->ctx, dev, 0);
+			spi_cc35xx_complete(dev, 0);
 
 			return;
 		}
 
 		if (rx_done) {
-			spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_RX);
-		}
+			int ret = spi_cc35xx_dma_transmit_next_packet(dev,
+							    SPI_CC35XX_TRANSFER_DIR_RX);
 
+			if (ret != 0) {
+				spi_cc35xx_complete(dev, ret);
+				return;
+			}
+		}
 		if (tx_done) {
-			spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_TX);
+			int ret = spi_cc35xx_dma_transmit_next_packet(dev,
+							    SPI_CC35XX_TRANSFER_DIR_TX);
+
+			if (ret != 0) {
+				spi_cc35xx_complete(dev, ret);
+				return;
+			}
 		}
 		return;
 	}
@@ -525,16 +695,21 @@ static void spi_cc35xx_isr(const struct device *dev)
 
 		if (!spi_context_rx_buf_on(ctx) && !spi_context_tx_buf_on(ctx)) {
 			/* nothing left to rx or tx, we're done! */
-			if (!(ctx->config->operation & SPI_HOLD_ON_CS)) {
-				spi_context_cs_control(&data->ctx, false);
+			if (SPIBusy(cfg->base)) {
+				SPIClearInt(cfg->base, SPI_MIS_IDLE_SET);
+				SPIEnableInt(cfg->base, SPI_MIS_IDLE_SET);
+			} else {
+				spi_cc35xx_complete(dev, 0);
 			}
-			spi_cc35xx_dma_stop(dev);
-			spi_context_complete(&data->ctx, dev, 0);
 
 			return;
 		}
 
-		spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_BOTH);
+		int ret = spi_cc35xx_dma_transmit_next_packet(dev, SPI_CC35XX_TRANSFER_DIR_BOTH);
+
+		if (ret != 0) {
+			spi_cc35xx_complete(dev, ret);
+		}
 	}
 #endif /* CONFIG_SPI_CC35XX_DMA_DRIVEN */
 }
@@ -670,7 +845,6 @@ static int spi_cc35xx_dma_start(const struct device *dev, enum transfer_directio
 }
 static int spi_cc35xx_dma_init(const struct device *dev)
 {
-	const struct spi_cc35xx_config *cfg = dev->config;
 	struct spi_cc35xx_data *data = dev->data;
 
 	if (data->dma_rx.dev_dma != NULL) {
@@ -726,10 +900,18 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 		const struct spi_cc35xx_config *cfg = dev->config;                                 \
 		int err;                                                                           \
                                                                                                    \
+		err = cc35xx_pm_resource_get(cfg->power_resource);                                 \
+		if (err < 0) {                                                                     \
+			return err;                                                                \
+		}                                                                                  \
+		data->power_enabled = true;                                                       \
 		data->ctx.config = NULL;                                                           \
 		err = spi_context_cs_configure_all(&data->ctx);                                    \
-		if (err < 0)                                                                       \
+		if (err < 0) {                                                                     \
+			(void)cc35xx_pm_resource_put(cfg->power_resource);                         \
+			data->power_enabled = false;                                               \
 			return err;                                                                \
+		}                                                                                  \
                                                                                                    \
 		spi_context_unlock_unconditionally(&data->ctx);                                    \
 		SPIDisable(cfg->base);                                                             \
@@ -738,13 +920,17 @@ static int spi_cc35xx_dma_init(const struct device *dev)
 			    DEVICE_DT_INST_GET(n), 0);                                             \
 		irq_enable(cfg->irq_num);                                                          \
 		err = SPI_CC35XX_DMA_INIT_FUNC(dev);                                               \
-		if (err < 0)                                                                       \
+		if (err < 0) {                                                                     \
+			(void)cc35xx_pm_resource_put(cfg->power_resource);                         \
+			data->power_enabled = false;                                               \
 			return err;                                                                \
+		}                                                                                  \
                                                                                                    \
 		return 0;                                                                          \
 	}
 
 #define SPI_CC35XX_DEVICE_INIT(n)                                                                  \
+	PM_DEVICE_DT_INST_DEFINE(n, spi_cc35xx_pm_action);                                         \
 	DEVICE_DT_INST_DEFINE(n, spi_cc35xx_init_##n, PM_DEVICE_DT_INST_GET(n),                    \
 			      &spi_cc35xx_data_##n, &spi_cc35xx_config_##n, POST_KERNEL,           \
 			      CONFIG_SPI_INIT_PRIORITY, &spi_cc35xx_driver_api)
@@ -755,6 +941,8 @@ static int spi_cc35xx_dma_init(const struct device *dev)
                                                                                                    \
 	static const struct spi_cc35xx_config spi_cc35xx_config_##n = {                            \
 		.base = DT_INST_REG_ADDR(n),                                                       \
+		.power_resource = DT_INST_REG_ADDR(n) == SPI0_BASE ? CC35XX_PM_RESOURCE_SPI0       \
+								 : CC35XX_PM_RESOURCE_SPI1,        \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),                                         \
 		.sys_clk_freq = DT_INST_PROP_BY_PHANDLE(n, clocks, clock_frequency),               \
 		.irq_num = DT_INST_IRQN(n),                                                        \

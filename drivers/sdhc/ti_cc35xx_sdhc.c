@@ -13,6 +13,9 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <zephyr/dt-bindings/pinctrl/ti-cc35xx-pinctrl.h>
 
 #include "ti_cc35xx_sdhc.h"
@@ -41,9 +44,19 @@ struct ti_cc35xx_sdhc_config {
 	bool card_always_present;
 };
 
+/* Host controller registers lost while the clock is gated, restored in this order */
+static const uint32_t context_offsets[] = {
+	TI_CC35XX_CORE_REG_SYSCFG_ADDR,   TI_CC35XX_CORE_REG_SYSTEST_ADDR,
+	TI_CC35XX_CORE_REG_CONFIG_ADDR,   TI_CC35XX_CORE_REG_PWRCNT_ADDR,
+	TI_CC35XX_SDHC_REG_CAPA_ADDR,     TI_CC35XX_SDHC_REG_HOSTCTL_ADDR,
+	TI_CC35XX_SDHC_REG_SYSCTRL_ADDR,  TI_CC35XX_SDHC_REG_INTENAB_ADDR,
+	TI_CC35XX_SDHC_REG_INTSIGEN_ADDR,
+};
+
 struct ti_cc35xx_sdhc_data {
 	struct sdhc_io host_io;
 	struct k_event irq_event;
+	uint32_t context[ARRAY_SIZE(context_offsets)];
 };
 
 enum sdhc_cmd_type {
@@ -700,8 +713,13 @@ static int ti_cc35xx_sdhc_request(const struct device *dev, struct sdhc_command 
 {
 	int ret;
 
+	/* Keep the controller clocked while the request is in progress */
+	pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+
 	if (!data) {
-		return send_cmd_no_data(dev, cmd->opcode, cmd);
+		ret = send_cmd_no_data(dev, cmd->opcode, cmd);
+		goto out;
 	}
 
 	switch (cmd->opcode) {
@@ -719,6 +737,10 @@ static int ti_cc35xx_sdhc_request(const struct device *dev, struct sdhc_command 
 	default:
 		ret = send_cmd_data(dev, cmd->opcode, cmd, data, TI_CC35XX_SDHC_CMD_READ);
 	}
+
+out:
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
 
 	return ret;
 }
@@ -750,6 +772,70 @@ static int ti_cc35xx_sdhc_card_busy(const struct device *dev)
 						       : TI_CC35XX_SDHC_CARD_NOT_BUSY;
 }
 
+#ifdef CONFIG_PM_DEVICE
+static int ti_cc35xx_sdhc_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct ti_cc35xx_sdhc_config *config = dev->config;
+	struct ti_cc35xx_sdhc_data *data = dev->data;
+	uint32_t sysctrl = 0;
+	uint32_t intsigen = 0;
+	uint32_t val;
+	size_t i;
+	int ret;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		/* A completed command can leave the card holding the data line busy */
+		val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_PSTAT_ADDR);
+		if (val & (TI_CC35XX_SDHC_REG_PSTAT_CMDINH | TI_CC35XX_SDHC_REG_PSTAT_DATCMDINH |
+			   TI_CC35XX_SDHC_REG_PSTAT_DATALN)) {
+			return -EBUSY;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(context_offsets); i++) {
+			data->context[i] = sys_read32(config->reg_base + context_offsets[i]);
+		}
+		sys_write32(0, config->reg_base + TI_CC35XX_SDHC_REG_INTSIGEN_ADDR);
+
+		return cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_SDMMC);
+	case PM_DEVICE_ACTION_RESUME:
+		ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_SDMMC);
+		if (ret != 0) {
+			return ret;
+		}
+
+		for (i = 0; i < ARRAY_SIZE(context_offsets); i++) {
+			val = data->context[i];
+			if (context_offsets[i] == TI_CC35XX_SDHC_REG_SYSCTRL_ADDR) {
+				/* Stabilize the internal clock before enabling the SD clock */
+				sysctrl = val & ~TI_CC35XX_SDHC_REG_SYSCTRL_CLKSTAB;
+				val = sysctrl & ~TI_CC35XX_SDHC_REG_SYSCTRL_CLKEN;
+			} else if (context_offsets[i] == TI_CC35XX_SDHC_REG_INTSIGEN_ADDR) {
+				intsigen = val;
+				continue;
+			}
+			sys_write32(val, config->reg_base + context_offsets[i]);
+		}
+
+		if ((sysctrl & TI_CC35XX_SDHC_REG_SYSCTRL_INTCLKEN) &&
+		    !WAIT_FOR(sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR) &
+				      TI_CC35XX_SDHC_REG_SYSCTRL_CLKSTAB,
+			      TI_CC35XX_SDHC_WAIT_STATUS_TIMEOUT_MS * USEC_PER_MSEC,
+			      k_busy_wait(1))) {
+			(void)cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_SDMMC);
+			return -ETIMEDOUT;
+		}
+
+		sys_write32(sysctrl, config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
+		sys_write32(intsigen, config->reg_base + TI_CC35XX_SDHC_REG_INTSIGEN_ADDR);
+
+		return 0;
+	default:
+		return -ENOTSUP;
+	}
+}
+#endif /* CONFIG_PM_DEVICE */
+
 static int ti_cc35xx_sdhc_init(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
@@ -762,6 +848,12 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 	ret = pinctrl_apply_state(config->pin_cfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		LOG_ERR("Failed to configure pins");
+		return ret;
+	}
+
+	ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_SDMMC);
+	if (ret < 0) {
+		LOG_ERR("Failed to enable clock");
 		return ret;
 	}
 
@@ -848,8 +940,9 @@ static DEVICE_API(sdhc, sdhc_api) = {
 		.props.f_min = DT_INST_PROP_OR(inst, min_bus_freq, KHZ(400)),                      \
 		.props.power_delay = DT_INST_PROP_OR(inst, power_delay_ms, 500),                   \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(inst, &ti_cc35xx_sdhc_init, NULL, &sdhc_##inst##_data,               \
-			      &sdhc_##inst##_config, POST_KERNEL, CONFIG_SDHC_INIT_PRIORITY,       \
-			      &sdhc_api);
+	PM_DEVICE_DT_INST_DEFINE(inst, ti_cc35xx_sdhc_pm_action);                                  \
+	DEVICE_DT_INST_DEFINE(inst, &ti_cc35xx_sdhc_init, PM_DEVICE_DT_INST_GET(inst),             \
+			      &sdhc_##inst##_data, &sdhc_##inst##_config, POST_KERNEL,             \
+			      CONFIG_SDHC_INIT_PRIORITY, &sdhc_api);
 
 DT_INST_FOREACH_STATUS_OKAY(TI_CC35XX_SDHC_INIT)

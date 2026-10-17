@@ -9,8 +9,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/arch/cpu.h>
 #include <zephyr/device.h>
-#include <zephyr/drivers/uart.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/uart.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
+#include <zephyr/sys/sys_io.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/dt-bindings/pinctrl/ti-cc35xx-pinctrl.h>
 
@@ -34,6 +38,13 @@ LOG_MODULE_REGISTER(uart_cc35xx);
 
 #define UART_CC35XX_IRQ_ENABLED                                                                    \
 	UTIL_OR(IS_ENABLED(CONFIG_UART_INTERRUPT_DRIVEN), IS_ENABLED(CONFIG_UART_ASYNC_API))
+
+enum uart_cc35xx_activity {
+	UART_CC35XX_IRQ_TX,
+	UART_CC35XX_IRQ_RX,
+	UART_CC35XX_ASYNC_TX,
+	UART_CC35XX_ASYNC_RX,
+};
 
 #ifdef CONFIG_UART_ASYNC_API
 /*
@@ -73,6 +84,8 @@ struct uart_cc35xx_dma_stream {
 struct uart_cc35xx_dev_config {
 	unsigned long base;    /* UART peripheral base address */
 	uint32_t sys_clk_freq; /* Source clock frequency in Hz (from DT clocks node) */
+	bool loopback;         /* Internal TX->RX loopback (DT 'loopback') */
+	uint32_t irq_num;      /* UART interrupt line */
 	const struct pinctrl_dev_config *pcfg; /* Pin-control configuration (TX/RX/CTS/RTS mux) */
 #if defined(CONFIG_UART_INTERRUPT_DRIVEN) || defined(CONFIG_UART_ASYNC_API)
 	uart_irq_config_func_t irq_config_func; /* Board-level IRQ connect + enable function */
@@ -89,6 +102,19 @@ struct uart_cc35xx_dev_data {
 	bool flow_ctrl;           /* true = RTS/CTS hardware flow control enabled */
 	int id;                   /* Instance index (from DT) */
 	struct k_spinlock lock;   /* Spinlock protecting shared state */
+	bool power_enabled;       /* Clock resource held and registers valid */
+	atomic_t activity;        /* Bitmask of enum uart_cc35xx_activity */
+	uint32_t poll_users;      /* Nested poll_in/poll_out users */
+#ifdef CONFIG_PM_DEVICE
+	uint32_t saved_ibrd;
+	uint32_t saved_fbrd;
+	uint32_t saved_lcrh;
+	uint32_t saved_ctl;
+	uint32_t saved_ifls;
+	uint32_t saved_imsc;
+	uint32_t saved_dmactl;
+	bool irq_enabled;
+#endif /* CONFIG_PM_DEVICE */
 #ifdef CONFIG_UART_INTERRUPT_DRIVEN
 	uart_irq_callback_user_data_t callback; /* Upper-layer IRQ callback */
 	void *user_data;                        /* Opaque pointer passed to callback */
@@ -122,6 +148,82 @@ struct uart_cc35xx_dev_data {
 	size_t tx_buflen;      /* Length of tx_buf in bytes */
 #endif                         /* CONFIG_UART_ASYNC_API */
 };
+
+/* Block standby while a transfer direction is active. */
+static inline void uart_cc35xx_activity_get(struct uart_cc35xx_dev_data *data,
+					    enum uart_cc35xx_activity activity)
+{
+	unsigned int key = irq_lock();
+
+	if (!atomic_test_and_set_bit(&data->activity, activity)) {
+#ifdef CONFIG_PM
+		pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif /* CONFIG_PM */
+	}
+	irq_unlock(key);
+}
+
+static inline void uart_cc35xx_activity_put(struct uart_cc35xx_dev_data *data,
+					    enum uart_cc35xx_activity activity)
+{
+	unsigned int key = irq_lock();
+
+	if (atomic_test_and_clear_bit(&data->activity, activity)) {
+#ifdef CONFIG_PM
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+#endif /* CONFIG_PM */
+	}
+	irq_unlock(key);
+}
+
+static bool uart_cc35xx_poll_get(struct uart_cc35xx_dev_data *data)
+{
+	unsigned int key = irq_lock();
+
+	if (!data->power_enabled) {
+		irq_unlock(key);
+		return false;
+	}
+	if (data->poll_users++ == 0U) {
+#ifdef CONFIG_PM
+		pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif /* CONFIG_PM */
+	}
+	irq_unlock(key);
+	return true;
+}
+
+static void uart_cc35xx_poll_put(struct uart_cc35xx_dev_data *data)
+{
+	unsigned int key = irq_lock();
+
+	if (--data->poll_users == 0U) {
+#ifdef CONFIG_PM
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+#endif /* CONFIG_PM */
+	}
+	irq_unlock(key);
+}
+
+static enum cc35xx_pm_resource uart_cc35xx_power_id(const struct device *dev)
+{
+	const struct uart_cc35xx_dev_config *config = dev->config;
+
+	switch (config->base) {
+	case UARTLIN0_BASE:
+		return CC35XX_PM_RESOURCE_UARTLIN0;
+	case UARTLIN1_BASE:
+		return CC35XX_PM_RESOURCE_UARTLIN1;
+	case UARTLIN2_BASE:
+		return CC35XX_PM_RESOURCE_UARTLIN2;
+	default:
+		return CC35XX_PM_RESOURCE_COUNT;
+	}
+}
 
 #ifdef CONFIG_UART_ASYNC_API
 
@@ -179,6 +281,7 @@ static void uart_cc35xx_irq_tx_enable(const struct device *dev)
 		flags |= UART_INT_CTS;
 	}
 
+	uart_cc35xx_activity_get(data, UART_CC35XX_IRQ_TX);
 	UARTEnableInt(config->base, flags);
 }
 
@@ -196,6 +299,7 @@ static void uart_cc35xx_irq_tx_disable(const struct device *dev)
 	}
 
 	UARTDisableInt(config->base, flags);
+	uart_cc35xx_activity_put(data, UART_CC35XX_IRQ_TX);
 }
 
 /*
@@ -224,7 +328,9 @@ static int uart_cc35xx_irq_tx_ready(const struct device *dev)
 static void uart_cc35xx_irq_rx_enable(const struct device *dev)
 {
 	const struct uart_cc35xx_dev_config *config = dev->config;
+	struct uart_cc35xx_dev_data *data = dev->data;
 
+	uart_cc35xx_activity_get(data, UART_CC35XX_IRQ_RX);
 	UARTEnableInt(config->base, UART_INT_RX | UART_INT_RT);
 }
 
@@ -232,8 +338,10 @@ static void uart_cc35xx_irq_rx_enable(const struct device *dev)
 static void uart_cc35xx_irq_rx_disable(const struct device *dev)
 {
 	const struct uart_cc35xx_dev_config *config = dev->config;
+	struct uart_cc35xx_dev_data *data = dev->data;
 
 	UARTDisableInt(config->base, UART_INT_RX | UART_INT_RT);
+	uart_cc35xx_activity_put(data, UART_CC35XX_IRQ_RX);
 }
 
 /*
@@ -511,6 +619,7 @@ static void uart_cc35xx_dma_tx_callback(struct uart_cc35xx_dev_data *data, int s
 
 	key = irq_lock();
 	uart_cc35xx_async_tx_disable_dma(data);
+	uart_cc35xx_activity_put(data, UART_CC35XX_ASYNC_TX);
 
 	if (data->tx_buflen) {
 		if (data->async_callback) {
@@ -665,36 +774,47 @@ static void uart_cc35xx_isr(const struct device *dev)
 static int uart_cc35xx_poll_in(const struct device *dev, unsigned char *c)
 {
 	const struct uart_cc35xx_dev_config *config = dev->config;
+	struct uart_cc35xx_dev_data *data = dev->data;
+	int ret = -1;
 
-	if (!UARTCharAvailable(config->base)) {
+	if (!uart_cc35xx_poll_get(data)) {
 		return -1;
 	}
 
-	*c = UARTGetCharNonBlocking(config->base);
+	if (UARTCharAvailable(config->base)) {
+		*c = UARTGetCharNonBlocking(config->base);
+		ret = 0;
+	}
+	uart_cc35xx_poll_put(data);
 
-	return 0;
+	return ret;
 }
 
 /*
  * uart_cc35xx_poll_out - Blocking TX byte write.
  *
  * Blocks until space is available in the TX FIFO, then writes the byte.
- * When CONFIG_PM_DEVICE is enabled, also waits for the shift register to
+ * When power management is enabled, also waits for the shift register to
  * drain so the CPU cannot enter standby mid-transmission.
  */
 static void uart_cc35xx_poll_out(const struct device *dev, unsigned char c)
 {
 	const struct uart_cc35xx_dev_config *config = dev->config;
+	struct uart_cc35xx_dev_data *data = dev->data;
 
+	if (!uart_cc35xx_poll_get(data)) {
+		return;
+	}
 	UARTPutChar(config->base, c);
 
-#ifdef CONFIG_PM_DEVICE
+#if defined(CONFIG_PM) || defined(CONFIG_PM_DEVICE)
 	/* Wait for character to be transmitted to ensure CPU
 	 * does not enter standby when UART is busy
 	 */
 	while (UARTBusy(config->base)) {
 	}
-#endif /* CONFIG_PM_DEVICE */
+#endif /* CONFIG_PM || CONFIG_PM_DEVICE */
+	uart_cc35xx_poll_put(data);
 }
 
 #ifdef CONFIG_UART_ASYNC_API
@@ -756,6 +876,7 @@ static int uart_cc35xx_tx_halt(struct uart_cc35xx_dev_data *data)
 
 	data->tx_buf = NULL;
 	data->tx_buflen = 0;
+	uart_cc35xx_activity_put(data, UART_CC35XX_ASYNC_TX);
 	irq_unlock(key);
 
 	if (data->async_callback) {
@@ -810,6 +931,10 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 		irq_unlock(key);
 		return -EBUSY;
 	}
+	if (!data->power_enabled) {
+		irq_unlock(key);
+		return -EHOSTDOWN;
+	}
 
 	/* Host DMA cannot read external flash; stage such data in internal SRAM. */
 	if (addr < sram_start || addr >= sram_end || buf_size > sram_end - addr) {
@@ -828,6 +953,7 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 	data->dma_tx.blk_cfg.block_size = buf_size;
 	data->tx_buf = tx_data;
 	data->tx_buflen = buf_size;
+	uart_cc35xx_activity_get(data, UART_CC35XX_ASYNC_TX);
 
 	UARTDisableDma(config->base, UART_DMA_TX);
 	ret = dma_config(data->dma_tx.dev_dma, data->dma_tx.dma_channel, &data->dma_tx.dma_cfg);
@@ -840,6 +966,7 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 		uart_cc35xx_async_tx_disable_dma(data);
 		data->tx_buf = NULL;
 		data->tx_buflen = 0;
+		uart_cc35xx_activity_put(data, UART_CC35XX_ASYNC_TX);
 	} else {
 		UARTEnableDma(config->base, UART_DMA_TX);
 		if (timeout != SYS_FOREVER_US) {
@@ -974,6 +1101,12 @@ static int uart_cc35xx_async_rx_enable(const struct device *dev, uint8_t *rx_buf
 		goto unlock;
 	}
 
+	if (!data->power_enabled) {
+		ret = -EHOSTDOWN;
+		goto unlock;
+	}
+	uart_cc35xx_activity_get(data, UART_CC35XX_ASYNC_RX);
+
 	/* Initialise RX state for the new buffer */
 	data->rx_session++;
 	data->rx_buf = rx_buf;
@@ -987,6 +1120,7 @@ static int uart_cc35xx_async_rx_enable(const struct device *dev, uint8_t *rx_buf
 	if (ret != 0) {
 		data->rx_buf = NULL;
 		data->rx_buflen = 0;
+		uart_cc35xx_activity_put(data, UART_CC35XX_ASYNC_RX);
 		goto unlock;
 	}
 
@@ -1111,6 +1245,7 @@ static int uart_cc35xx_rx_shutdown(const struct device *dev, int reason)
 	}
 
 	data->rx_stopping = false;
+	uart_cc35xx_activity_put(data, UART_CC35XX_ASYNC_RX);
 
 	/* Signal that reception has fully stopped; the callback may restart RX */
 	if (data->async_callback) {
@@ -1260,6 +1395,16 @@ static int uart_cc35xx_configure(const struct device *dev, const struct uart_con
 	const struct uart_cc35xx_dev_config *config = dev->config;
 	struct uart_cc35xx_dev_data *data = dev->data;
 	uint32_t conf = 0;
+	unsigned int key;
+	bool flow_ctrl;
+
+	if (cfg->baudrate == 0U) {
+		return -EINVAL;
+	}
+
+	if (!data->power_enabled) {
+		return -EHOSTDOWN;
+	}
 
 	/* Map Zephyr data-bits enum to driverlib word-length constant */
 	switch (cfg->data_bits) {
@@ -1309,16 +1454,27 @@ static int uart_cc35xx_configure(const struct device *dev, const struct uart_con
 	/* Map Zephyr flow-control enum; DTR/DSR is not supported by this HW */
 	switch (cfg->flow_ctrl) {
 	case UART_CFG_FLOW_CTRL_NONE:
-		data->flow_ctrl = false;
+		flow_ctrl = false;
 		break;
 	case UART_CFG_FLOW_CTRL_RTS_CTS:
-		data->flow_ctrl = true;
+		flow_ctrl = true;
 		break;
 	case UART_CFG_FLOW_CTRL_DTR_DSR:
 		return -ENOTSUP;
 	default:
 		return -EINVAL;
 	}
+
+	key = irq_lock();
+	if (!data->power_enabled) {
+		irq_unlock(key);
+		return -EHOSTDOWN;
+	}
+	if (atomic_get(&data->activity) != 0 || data->poll_users != 0U || UARTBusy(config->base)) {
+		irq_unlock(key);
+		return -EBUSY;
+	}
+	data->flow_ctrl = flow_ctrl;
 
 	/* Disables UART before setting control registers */
 	UARTDisable(config->base);
@@ -1340,6 +1496,8 @@ static int uart_cc35xx_configure(const struct device *dev, const struct uart_con
 
 	/* Cache the new configuration for config_get() */
 	data->uart_config = *cfg;
+	data->baud_rate = cfg->baudrate;
+	irq_unlock(key);
 	return 0;
 }
 
@@ -1367,15 +1525,21 @@ static int uart_cc35xx_init(const struct device *dev)
 	const struct uart_cc35xx_dev_config *config = dev->config;
 	int ret;
 
+	/* Enable the peripheral clock through the shared PM resource count */
+	ret = cc35xx_pm_resource_get(uart_cc35xx_power_id(dev));
+	if (ret != 0) {
+		return ret;
+	}
+	data->power_enabled = true;
+
 	/* Apply pin-control (TX/RX/CTS/RTS mux) */
 	ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
-		return ret;
+		goto fail;
 	}
 	data->dev = dev;
 
-	/* Clock + default 8N1 configuration */
-	UARTClockCtrl(config->base, true);
+	/* Default 8N1 configuration */
 	UARTDisable(config->base);
 	UARTConfigSetExpClk(config->base, config->sys_clk_freq, data->baud_rate,
 			    UART_CONFIG_WLEN_8 | UART_CONFIG_PAR_NONE | UART_CONFIG_STOP_ONE);
@@ -1388,6 +1552,9 @@ static int uart_cc35xx_init(const struct device *dev)
 		.flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
 	};
 #endif
+	sys_write32((sys_read32(config->base + UARTLIN_O_CTL) & ~UARTLIN_CTL_LBE_M) |
+			    (config->loopback ? UARTLIN_CTL_LBE_EN : UARTLIN_CTL_LBE_DIS),
+		    config->base + UARTLIN_O_CTL);
 	/* Start with flow control and all interrupts disabled */
 	UARTDisableCts(config->base);
 	UARTDisableRts(config->base);
@@ -1401,7 +1568,8 @@ static int uart_cc35xx_init(const struct device *dev)
 	if (data->dma_rx.dev_dma != NULL) {
 		if (!device_is_ready(data->dma_rx.dev_dma)) {
 			LOG_ERR("RX DMA channel not ready");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto fail;
 		}
 		k_work_init_delayable(&data->dma_rx.timeout_work, uart_cc35xx_async_rx_timeout);
 		/* Link the single block descriptor into the DMA config chain */
@@ -1413,7 +1581,8 @@ static int uart_cc35xx_init(const struct device *dev)
 	if (data->dma_tx.dev_dma != NULL) {
 		if (!device_is_ready(data->dma_tx.dev_dma)) {
 			LOG_ERR("TX DMA channel not ready");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto fail;
 		}
 		k_work_init_delayable(&data->dma_tx.timeout_work, uart_cc35xx_async_tx_timeout);
 		data->dma_tx.dma_cfg.head_block = &data->dma_tx.blk_cfg;
@@ -1435,7 +1604,89 @@ static int uart_cc35xx_init(const struct device *dev)
 	config->irq_config_func(dev);
 #endif
 	return 0;
+
+fail:
+	(void)cc35xx_pm_resource_put(uart_cc35xx_power_id(dev));
+	data->power_enabled = false;
+	return ret;
 }
+
+#ifdef CONFIG_PM_DEVICE
+static int uart_cc35xx_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct uart_cc35xx_dev_config *config = dev->config;
+	struct uart_cc35xx_dev_data *data = dev->data;
+	unsigned int key = irq_lock();
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (!data->power_enabled) {
+			break;
+		}
+		/* Active DMA and IRQ reception must remain powered until stopped. */
+		if (atomic_get(&data->activity) != 0 || data->poll_users != 0U ||
+		    UARTBusy(config->base) || UARTCharAvailable(config->base)) {
+			ret = -EBUSY;
+			break;
+		}
+		data->saved_ibrd = sys_read32(config->base + UARTLIN_O_IBRD);
+		data->saved_fbrd = sys_read32(config->base + UARTLIN_O_FBRD);
+		data->saved_lcrh = sys_read32(config->base + UARTLIN_O_LCRH);
+		data->saved_ctl = sys_read32(config->base + UARTLIN_O_CTL);
+		data->saved_ifls = sys_read32(config->base + UARTLIN_O_IFLS);
+		data->saved_imsc = sys_read32(config->base + UARTLIN_O_IMSC);
+		data->saved_dmactl = sys_read32(config->base + UARTLIN_O_DMACTL);
+		data->irq_enabled = irq_is_enabled(config->irq_num) != 0;
+		irq_disable(config->irq_num);
+		UARTDisableInt(config->base, UART_INT_ALL);
+		UARTDisable(config->base);
+		ret = cc35xx_pm_resource_put(uart_cc35xx_power_id(dev));
+		if (ret != 0) {
+			sys_write32(data->saved_ctl, config->base + UARTLIN_O_CTL);
+			sys_write32(data->saved_imsc, config->base + UARTLIN_O_IMSC);
+			if (data->irq_enabled) {
+				irq_enable(config->irq_num);
+			}
+			break;
+		}
+		data->power_enabled = false;
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		if (data->power_enabled) {
+			break;
+		}
+		ret = cc35xx_pm_resource_get(uart_cc35xx_power_id(dev));
+		if (ret != 0) {
+			break;
+		}
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+		if (ret != 0) {
+			(void)cc35xx_pm_resource_put(uart_cc35xx_power_id(dev));
+			break;
+		}
+		UARTDisable(config->base);
+		/* LCRH latches the restored baud divisors. Enable IRQs last. */
+		sys_write32(data->saved_ibrd, config->base + UARTLIN_O_IBRD);
+		sys_write32(data->saved_fbrd, config->base + UARTLIN_O_FBRD);
+		sys_write32(data->saved_lcrh, config->base + UARTLIN_O_LCRH);
+		sys_write32(data->saved_ifls, config->base + UARTLIN_O_IFLS);
+		sys_write32(data->saved_dmactl, config->base + UARTLIN_O_DMACTL);
+		sys_write32(data->saved_ctl, config->base + UARTLIN_O_CTL);
+		sys_write32(data->saved_imsc, config->base + UARTLIN_O_IMSC);
+		data->power_enabled = true;
+		if (data->irq_enabled) {
+			irq_enable(config->irq_num);
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+	irq_unlock(key);
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
 
 /*
  * uart_cc35xx_driver_api - Zephyr UART driver API filled with the
@@ -1515,6 +1766,8 @@ static DEVICE_API(uart, uart_cc35xx_driver_api) = {
 	static const struct uart_cc35xx_dev_config uart_cc35xx_dev_cfg_##index = { \
 		.base = DT_INST_REG_ADDR(index), \
 		.sys_clk_freq = DT_INST_PROP_BY_PHANDLE(index, clocks, clock_frequency), \
+		.loopback = DT_INST_PROP(index, loopback), \
+		.irq_num = DT_INST_IRQN(index), \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(index), \
 		IF_ENABLED(UART_CC35XX_IRQ_ENABLED, \
 		    (.irq_config_func = uart_cc35xx_cfg_func_##index,)) }; \
@@ -1523,7 +1776,9 @@ static DEVICE_API(uart, uart_cc35xx_driver_api) = {
 		.id = index, \
 		UART_CC35XX_DMA_CHANNEL(index, tx, MEMORY_TO_PERIPHERAL, 1, 1) \
 			UART_CC35XX_DMA_CHANNEL(index, rx, PERIPHERAL_TO_MEMORY, 1, 1)}; \
-	DEVICE_DT_INST_DEFINE(index, uart_cc35xx_init, NULL, &uart_cc35xx_dev_data_##index, \
+	PM_DEVICE_DT_INST_DEFINE(index, uart_cc35xx_pm_action); \
+	DEVICE_DT_INST_DEFINE(index, uart_cc35xx_init, PM_DEVICE_DT_INST_GET(index), \
+			      &uart_cc35xx_dev_data_##index, \
 			      &uart_cc35xx_dev_cfg_##index, PRE_KERNEL_1, \
 			      CONFIG_SERIAL_INIT_PRIORITY, (void *)&uart_cc35xx_driver_api);
 /* clang-format on */

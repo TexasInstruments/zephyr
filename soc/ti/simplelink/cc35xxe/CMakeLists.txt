@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-zephyr_sources(soc.c clock.c)
+zephyr_sources(soc.c clock.c gptimer_pm.c)
 zephyr_sources_ifdef(CONFIG_PM power.c)
 zephyr_include_directories(.)
 

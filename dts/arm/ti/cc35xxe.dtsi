@@ -58,10 +58,27 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		cpu@0 {
+		cpu0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-m33";
 			reg = <0>;
+			cpu-power-states = <&cc35xx_runtime_idle &cc35xx_standby>;
+		};
+
+		power-states {
+			cc35xx_runtime_idle: runtime-idle {
+				compatible = "zephyr,power-state";
+				power-state-name = "runtime-idle";
+				min-residency-us = <100>;
+				exit-latency-us = <0>;
+			};
+
+			cc35xx_standby: standby {
+				compatible = "zephyr,power-state";
+				power-state-name = "standby";
+				min-residency-us = <16000>;
+				exit-latency-us = <15000>;
+			};
 		};
 	};
 

@@ -4,6 +4,7 @@ config ADC_CC35XX
 	bool "CC35XX ADC driver"
 	default y
 	depends on DT_HAS_TI_CC35XX_ADC_ENABLED
+	select PINCTRL
 	help
 	  This option enables the CC35XX ADC driver.
 
@@ -14,5 +15,7 @@ config ADC_CC35XX_DMA_DRIVEN
 	help
 	  DMA driven mode offloads data transfer tasks from the CPU
 	  and requires fewer interrupts to handle the ADC sequence mode.
+	  The FIFO packs pairs of samples: DMA sequences require an even
+	  channel count and a four-byte-aligned destination buffer.
 	  When DMA mode is used, the ADC internal gain is not compensated
 	  for measurement adjustment.

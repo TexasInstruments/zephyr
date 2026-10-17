@@ -10,6 +10,9 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <zephyr/init.h>
 #include <zephyr/irq.h>
 #include <zephyr/kernel.h>
@@ -32,6 +35,7 @@
 /* hardware supports MEMCTL0..5 for sequence */
 #define CC35XX_SEQUENCE_MAX 6
 
+#define ADC_CONTEXT_ENABLE_ON_COMPLETE
 #define ADC_CONTEXT_USES_KERNEL_TIMER
 #include "adc_context.h"
 
@@ -65,6 +69,8 @@ struct adc_cc35xx_data {
 	} channel_config[CC35XX_CHAN_COUNT];
 	size_t active_channels;
 	uint32_t clkdiv;
+	bool active;
+	bool power_enabled;
 #ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
 	struct adc_cc35xx_dma_stream dma;
 #endif /* CONFIG_ADC_CC35XX_DMA_DRIVEN */
@@ -76,6 +82,43 @@ struct adc_cc35xx_cfg {
 	uint32_t clkdiv;
 	uint16_t sample_period;
 };
+
+static void adc_cc35xx_hw_init(void)
+{
+	ADCStopConversion();
+	ADCDisableConversion();
+	ADCSetSamplingClk(ADC_SAMPLE_CLK_SOC_CLK);
+	ADCDisableInterrupt(ADC_INT_ALL);
+	ADCClearInterrupt(ADC_INT_ALL);
+}
+
+static void adc_context_on_complete(struct adc_context *ctx, int status)
+{
+	struct adc_cc35xx_data *data = CONTAINER_OF(ctx, struct adc_cc35xx_data, ctx);
+	unsigned int key;
+
+	ARG_UNUSED(status);
+	adc_context_disable_timer(ctx);
+	ADCStopConversion();
+	ADCDisableConversion();
+	ADCDisableInterrupt(ADC_INT_ALL);
+	ADCClearInterrupt(ADC_INT_ALL);
+#ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
+	ADCDisableDmaTrigger();
+	(void)dma_stop(data->dma.dev_dma, data->dma.dma_channel);
+	sys_clear_bits(ADC_BASE + ADC_O_CTL2, ADC_CTL2_FIFOEN_ENABLE);
+#endif
+	/* Keep the sequence protected across repeat sampling and timer intervals. */
+	key = irq_lock();
+	if (data->active) {
+		data->active = false;
+#ifdef CONFIG_PM
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+#endif
+	}
+	irq_unlock(key);
+}
 
 #ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
 static int adc_cc35xx_fifo_enable(const struct device *dev, bool enable)
@@ -118,9 +161,9 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 
 	sys_write32(ADC_INT_CHAN_MASK, ADC_BASE + ADC_O_INTEVT2CLR);
 	ret = dma_config(data->dma.dev_dma, data->dma.dma_channel, &data->dma.dma_cfg);
-	if (ret) {
+	if (ret != 0) {
 		LOG_ERR("Error configuring DMA for ADC, error: %d", ret);
-		return;
+		goto dma_error;
 	}
 	ADCEnableDmaTrigger();
 	ADCEnableInterrupt(ADC_INT_DMADONE);
@@ -140,8 +183,7 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 
 	return;
 dma_error:
-	ADCDisableInterrupt(ADC_INT_DMADONE);
-	ADCDisableDmaTrigger();
+	adc_context_complete(ctx, ret);
 }
 
 static void adc_context_stop_sampling(struct adc_context *ctx)
@@ -172,9 +214,10 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 	 */
 	channel_irq = ADC_INT_MEMRES_00 << (data->active_channels - 1);
 
+	ADCClearInterrupt(ADC_INT_CHAN_MASK);
+	ADCEnableInterrupt(channel_irq);
 	ADCEnableConversion();
 	ADCStartConversion();
-	ADCEnableInterrupt(channel_irq);
 }
 #endif /* CONFIG_ADC_CC35XX_DMA_DRIVEN */
 
@@ -240,7 +283,9 @@ static int adc_cc35xx_channel_setup(const struct device *dev,
 		return -EINVAL;
 	}
 
+	adc_context_lock(&data->ctx, false, NULL);
 	data->channel_config[ch].vref = vref;
+	adc_context_release(&data->ctx, 0);
 
 	return 0;
 }
@@ -250,53 +295,75 @@ static int adc_cc35xx_read(const struct device *dev, const struct adc_sequence *
 {
 	struct adc_cc35xx_data *data = dev->data;
 	const struct adc_cc35xx_cfg *config = dev->config;
+	size_t active_channels;
 	size_t exp_size;
+	unsigned int key;
 	int ret;
 
-	if (sequence->resolution != 12) {
-		LOG_ERR("Only 12 bit resolution is supported, requested resolution is %d",
-			sequence->resolution);
+	if (sequence->resolution != 12 || sequence->oversampling != 0U ||
+	    sequence->calibrate) {
+		return -ENOTSUP;
+	}
+	if (sequence->channels == 0U ||
+	    (sequence->channels & ~BIT_MASK(CC35XX_CHAN_COUNT)) != 0U) {
 		return -EINVAL;
 	}
+	active_channels = POPCOUNT(sequence->channels);
+	if (active_channels > CC35XX_SEQUENCE_MAX) {
+		return -ERANGE;
+	}
+#ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
+	/* FIFODATA packs two samples into each 32-bit DMA transaction. */
+	if ((active_channels % 2U) != 0U) {
+		return -ENOTSUP;
+	}
+	if (!IS_ALIGNED((uintptr_t)sequence->buffer, sizeof(uint32_t))) {
+		return -EINVAL;
+	}
+#endif
+	exp_size = active_channels * sizeof(uint16_t);
+	if (sequence->options != NULL) {
+		exp_size *= 1U + sequence->options->extra_samplings;
+	}
+	if (sequence->buffer == NULL || !IS_ALIGNED((uintptr_t)sequence->buffer,
+						 sizeof(uint16_t))) {
+		return -EINVAL;
+	}
+	if (sequence->buffer_size < exp_size) {
+		return -ENOMEM;
+	}
 
-#ifndef CONFIG_ADC_CC35XX_DMA_DRIVEN
+	adc_context_lock(&data->ctx, asynchronous, sig);
+	key = irq_lock();
+	if (!data->power_enabled) {
+		irq_unlock(key);
+		adc_context_release(&data->ctx, -EIO);
+		return -EIO;
+	}
+	data->active = true;
+#ifdef CONFIG_PM
+	pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+#endif
+	irq_unlock(key);
+
 	ADCDisableConversion();
-#endif /* CONFIG_ADC_CC35XX_DMA_DRIVEN */
-
-	data->active_channels = 0;
-	for (int ch = 0; ch < CC35XX_CHAN_COUNT; ++ch) {
-		if (sequence->channels & BIT(ch)) {
+	ADCSetSamplingClk(ADC_SAMPLE_CLK_SOC_CLK);
+	data->active_channels = 0U;
+	for (uint32_t ch = 0U; ch < CC35XX_CHAN_COUNT; ++ch) {
+		if ((sequence->channels & BIT(ch)) != 0U) {
 			ADCSetInput(data->channel_config[ch].vref, ch, ADC_FULL_SCALE_RANGE_0V0_3V3,
 				    data->active_channels);
 			data->active_channels++;
 		}
 	}
-	exp_size = data->active_channels * sizeof(uint16_t);
-
-	if (data->active_channels == 0) {
-		LOG_ERR("No channels selected for conversion");
-		return -EINVAL;
-	}
-
-	if (data->active_channels > CC35XX_SEQUENCE_MAX) {
-		LOG_ERR("Cannot convert more than 6 channels in a sequence");
-		return -ERANGE;
-	}
-
-	if (sequence->buffer_size < exp_size) {
-		LOG_ERR("Required buffer size is %u, but %u got", exp_size, sequence->buffer_size);
-		return -ENOMEM;
-	}
-
 	data->buffer = sequence->buffer;
-
-	ADCSetMemctlRange(0, data->active_channels - 1);
+	ADCSetMemctlRange(0, data->active_channels - 1U);
 	ADCSetSampleDuration(data->clkdiv, config->sample_period);
 	ADCSetSamplingMode(ADC_SAMPLE_MODE_AUTO);
 	ADCSetSequence(ADC_SEQUENCE_SEQUENCE);
 	ADCSetTriggerSource(ADC_TRIGGER_SOURCE_SOFTWARE);
 
-	adc_context_lock(&data->ctx, asynchronous, sig);
 	adc_context_start_read(&data->ctx, sequence);
 	ret = adc_context_wait_for_completion(&data->ctx);
 	adc_context_release(&data->ctx, ret);
@@ -344,14 +411,14 @@ static void adc_cc35xx_isr(const struct device *dev)
 		ADCDisableDmaTrigger();
 
 		adc_cc35xx_fifo_enable(dev, false);
-
-		adc_context_on_sampling_done(&data->ctx, data->dev);
 	}
 
 	if (irq_status & ADC_INT_CHAN_MASK) {
-
 		ADCDisableInterrupt(ADC_INT_CHAN_MASK);
 		ADCClearInterrupt(ADC_INT_CHAN_MASK);
+	}
+	if ((irq_status & ADC_INT_DMADONE) != 0U) {
+		adc_context_on_sampling_done(&data->ctx, data->dev);
 	}
 }
 #else
@@ -428,28 +495,81 @@ static int adc_cc35xx_init(const struct device *dev)
 	}
 
 	data->clkdiv = adc_cc35xx_sclkdiv_reg_val(config->clkdiv);
-	ADCSetSamplingClk(ADC_SAMPLE_CLK_SOC_CLK);
-	ADCDisableInterrupt(ADC_INT_ALL);
-	sys_write32(ADC_CLKCFG_EN, config->base + ADC_O_CLKCFG);
+#ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
+	if (!device_is_ready(data->dma.dev_dma)) {
+		return -ENODEV;
+	}
+	data->dma.blk_cfg.source_address = config->base + ADC_O_FIFODATA;
+	data->dma.dma_cfg.head_block = &data->dma.blk_cfg;
+	data->dma.dma_cfg.user_data = (void *)data;
+#endif /* CONFIG_ADC_CC35XX_DMA_DRIVEN */
+
+	ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_ADC);
+	if (ret != 0) {
+		return ret;
+	}
+	data->power_enabled = true;
+	adc_cc35xx_hw_init();
 	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), adc_cc35xx_isr,
 		    DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
-
-#ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
-	if (data->dma.dev_dma != NULL) {
-		if (!device_is_ready(data->dma.dev_dma)) {
-			return -ENODEV;
-		}
-		data->dma.blk_cfg.source_address = config->base + ADC_O_FIFODATA;
-		data->dma.dma_cfg.head_block = &data->dma.blk_cfg;
-		data->dma.dma_cfg.user_data = (void *)data;
-	}
-#endif /* CONFIG_ADC_CC35XX_DMA_DRIVEN */
-
 	adc_context_unlock_unconditionally(&data->ctx);
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_DEVICE
+static int adc_cc35xx_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct adc_cc35xx_cfg *config = dev->config;
+	struct adc_cc35xx_data *data = dev->data;
+	unsigned int key = irq_lock();
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (data->active) {
+			ret = -EBUSY;
+			break;
+		}
+		if (!data->power_enabled) {
+			break;
+		}
+		irq_disable(DT_INST_IRQN(0));
+		adc_cc35xx_hw_init();
+		ret = cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_ADC);
+		if (ret == 0) {
+			data->power_enabled = false;
+		} else {
+			irq_enable(DT_INST_IRQN(0));
+		}
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		if (data->power_enabled) {
+			break;
+		}
+		ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_ADC);
+		if (ret != 0) {
+			break;
+		}
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+		if (ret != 0) {
+			(void)cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_ADC);
+			break;
+		}
+		/* Channel references stay in RAM; each read rebuilds the sequence. */
+		adc_cc35xx_hw_init();
+		data->power_enabled = true;
+		irq_enable(DT_INST_IRQN(0));
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+	irq_unlock(key);
+	return ret;
+}
+#endif
 
 static DEVICE_API(adc, cc35xx_driver_api) = {
 	.channel_setup = adc_cc35xx_channel_setup,
@@ -494,7 +614,9 @@ static DEVICE_API(adc, cc35xx_driver_api) = {
 		ADC_CONTEXT_INIT_LOCK(adc_cc35xx_data_##n, ctx),                                   \
 		ADC_CONTEXT_INIT_SYNC(adc_cc35xx_data_##n, ctx),                                   \
 		ADC_CC35XX_DMA_CHANNEL(n, rx, 1, 1)};                                              \
-	DEVICE_DT_INST_DEFINE(n, &adc_cc35xx_init, NULL, &adc_cc35xx_data_##n,                     \
+	PM_DEVICE_DT_INST_DEFINE(n, adc_cc35xx_pm_action);                                      \
+	DEVICE_DT_INST_DEFINE(n, &adc_cc35xx_init, PM_DEVICE_DT_INST_GET(n),                      \
+			      &adc_cc35xx_data_##n,                                               \
 			      &adc_cc35xx_cfg_##n, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY,          \
 			      &cc35xx_driver_api);
 

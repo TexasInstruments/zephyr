@@ -12,6 +12,7 @@
 #include <zephyr/irq.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/gpio/gpio_utils.h>
+#include <zephyr/pm/device.h>
 
 #include <GPIO.h>
 #include <inc/hw_types.h>
@@ -24,12 +25,6 @@
  * Below defines are copied from:
  * modules/hal/ti/simplelink_wifi/source/ti/drivers/gpio/GPIOWFF3.c
  */
-
-/* Missing defines from hw_hostmcu_aon.h */
-#define HOSTMCU_AON_CFGWICSNS_GPIO_AND_EN (1U << 1)
-#define HOSTMCU_AON_CFGWICSNS_GPIO_OR_EN  (1U << 2)
-#define HOSTMCU_AON_CFGWUTP_GPIO_AND_FAST (1U << 1)
-#define HOSTMCU_AON_CFGWUTP_GPIO_OR_FAST  (1U << 2)
 
 /* The size of each IO region in IOMUX id 4KB */
 #define IOMUX_IO_REGION_SIZE (4096U)
@@ -332,6 +327,7 @@ static void cc35xx_ll_gpio_set_interrupt_config(uint8_t index, uint32_t config)
 {
 	uintptr_t key;
 	uint32_t evtctlRegAddr;
+	uint32_t currentRegisterConfig;
 
 	/* The EVTCTL contains all the interrupt configuration */
 	evtctlRegAddr = IOMUX_EVTCTL_ADDR(index);
@@ -341,17 +337,18 @@ static void cc35xx_ll_gpio_set_interrupt_config(uint8_t index, uint32_t config)
 
 	/* Invert the EVTCTL mask, mask out current interrupt config and apply the new one */
 	key = irq_lock();
-	uint32_t currentRegisterConfig = sys_read32(evtctlRegAddr);
+	cc35xx_ll_gpio_disable_int(index);
+	currentRegisterConfig = sys_read32(evtctlRegAddr);
 
 	currentRegisterConfig &= ~(GPIOWFF3_CFG_EVTCTL_M >> GPIOWFF3_CFG_EVTCTL_S);
 	sys_write32((currentRegisterConfig | maskedConfig), evtctlRegAddr);
-	irq_unlock(key);
-
-	if (config & GPIO_CFG_INT_ENABLE) {
+	cc35xx_ll_gpio_clear_int(index);
+	if ((config & GPIO_CFG_INT_ENABLE) != 0U) {
 		cc35xx_ll_gpio_enable_int(index);
 	} else {
 		cc35xx_ll_gpio_disable_int(index);
 	}
+	irq_unlock(key);
 }
 
 static int cc35xx_gpio_port_get_raw(const struct device *dev, gpio_port_value_t *value)
@@ -608,6 +605,10 @@ static int cc35xx_gpio_pin_interrupt_configure(const struct device *dev, gpio_pi
 	const struct cc35xx_gpio_port_config *const port_cfg = dev->config;
 	uint32_t gpio_index = pin + port_cfg->gpio_index_offset;
 
+	if (pin >= port_cfg->ngpios) {
+		return -EINVAL;
+	}
+
 	if (mode == GPIO_INT_MODE_LEVEL) {
 		return -ENOTSUP;
 	}
@@ -645,10 +646,9 @@ static int cc35xx_gpio_manage_callback(const struct device *dev, struct gpio_cal
 static void cc35xx_gpio_port_isr(const struct device *dev, uint32_t event_mask)
 {
 	uint32_t flag_index;
+	uint32_t pending = event_mask;
 	const struct cc35xx_gpio_port_config *port_cfg = dev->config;
 	struct cc35xx_gpio_port_data *port_data = dev->data;
-
-	gpio_fire_callbacks(&port_data->callbacks, dev, event_mask);
 
 	while (event_mask) {
 		/* MASK_TO_PIN returns the highest set bit */
@@ -656,6 +656,7 @@ static void cc35xx_gpio_port_isr(const struct device *dev, uint32_t event_mask)
 		cc35xx_ll_gpio_clear_int(flag_index + port_cfg->gpio_index_offset);
 		event_mask &= ~GPIO_PIN_TO_MASK(flag_index);
 	}
+	gpio_fire_callbacks(&port_data->callbacks, dev, pending);
 }
 
 static void cc35xx_gpio_isr(const struct device *dev)
@@ -684,7 +685,6 @@ static void cc35xx_gpio_isr(const struct device *dev)
 static int cc35xx_gpio_init(const struct device *dev)
 {
 	static bool gpio_init_done;
-	uint32_t val;
 
 	if (gpio_init_done) {
 		return 0;
@@ -705,21 +705,6 @@ static int cc35xx_gpio_init(const struct device *dev)
 	sys_write32(0, (SOC_AON_BASE + SOC_AON_O_GPIOFNC0S));
 	sys_write32(0, (SOC_AON_BASE + SOC_AON_O_GPIOFNC1S));
 
-	/* Configure the GPIO OR event as a sleep wakeup source */
-	val = sys_read32(HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWICSNS);
-	val |= HOSTMCU_AON_CFGWICSNS_GPIO_OR_EN;
-	sys_write32(val, (HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWICSNS));
-
-	/* Disable GPIO AND event as a sleep wakeup source */
-	val = sys_read32(HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWICSNS);
-	val &= ~(HOSTMCU_AON_CFGWICSNS_GPIO_AND_EN);
-	sys_write32(val, (HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWICSNS));
-
-	/* Configure the GPIO OR event to be a fast wakeup source */
-	val = sys_read32(HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWUTP);
-	val |= HOSTMCU_AON_CFGWUTP_GPIO_OR_FAST;
-	sys_write32(val, (HOSTMCU_AON_BASE + HOSTMCU_AON_O_CFGWUTP));
-
 	IRQ_CONNECT(DT_IRQN(DT_DRV_INST(0)), DT_IRQ(DT_DRV_INST(0), priority), cc35xx_gpio_isr,
 		    DEVICE_DT_GET(DT_INST(0, DT_DRV_COMPAT)), 0);
 
@@ -729,6 +714,22 @@ static int cc35xx_gpio_init(const struct device *dev)
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_DEVICE
+static int cc35xx_gpio_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	ARG_UNUSED(dev);
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+	case PM_DEVICE_ACTION_RESUME:
+		/* Pad configuration and wake routing are retained across standby. */
+		return 0;
+	default:
+		return -ENOTSUP;
+	}
+}
+#endif /* CONFIG_PM_DEVICE */
 
 static DEVICE_API(gpio, cc35xx_gpio_drv_api) = {
 	.pin_configure = cc35xx_gpio_pin_configure,
@@ -757,8 +758,9 @@ static DEVICE_API(gpio, cc35xx_gpio_drv_api) = {
 		.ngpios = DT_PROP(DT_DRV_INST(inst), ngpios),                                      \
 		.gpio_index_offset = DT_PROP(DT_DRV_INST(inst), gpio_index_offset),                \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(inst, cc35xx_gpio_init, NULL, &cc35xx_gpio_port_data_##inst,         \
-			      &cc35xx_gpio_port_config_##inst, PRE_KERNEL_1,                       \
-			      CONFIG_GPIO_INIT_PRIORITY, &cc35xx_gpio_drv_api);
+	PM_DEVICE_DT_INST_DEFINE(inst, cc35xx_gpio_pm_action);                                     \
+	DEVICE_DT_INST_DEFINE(inst, cc35xx_gpio_init, PM_DEVICE_DT_INST_GET(inst),                 \
+			      &cc35xx_gpio_port_data_##inst, &cc35xx_gpio_port_config_##inst,      \
+			      PRE_KERNEL_1, CONFIG_GPIO_INIT_PRIORITY, &cc35xx_gpio_drv_api);
 
 DT_INST_FOREACH_STATUS_OKAY(CC35XX_GPIO_PORT_DEFINE)

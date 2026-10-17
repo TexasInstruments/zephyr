@@ -158,6 +158,7 @@ struct ti_cc35xx_i2s_data {
 	bool is_dma_frame_count_fixed;
 	uint32_t ws_divider;
 	uint32_t sck_divider;
+	bool pm_locked;
 };
 
 struct ti_cc35xx_i2s_cfg {

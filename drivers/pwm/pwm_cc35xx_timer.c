@@ -9,6 +9,9 @@
 #include <stdint.h>
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 
 #include <inc/hw_gptimer.h>
 #include <inc/hw_memmap.h>
@@ -22,6 +25,9 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME, CONFIG_PWM_LOG_LEVEL);
 #define TI_CC35XX_CNTR_START   0x01
 #define TI_CC35XX_CNTR_STOP    0x00
 
+#define GPTIMER_PM_RESOURCE(base)                                                                  \
+	((base) == GPTIMER0_BASE ? CC35XX_PM_RESOURCE_GPTIMER0 : CC35XX_PM_RESOURCE_GPTIMER1)
+
 struct pwm_cc35xx_config {
 	const uint32_t base;
 	const struct pinctrl_dev_config *pcfg;
@@ -30,12 +36,19 @@ struct pwm_cc35xx_config {
 	uint8_t channel;
 };
 
+struct pwm_cc35xx_data {
+	bool active;
+	bool powered;
+};
+
 static int pwm_cc35xx_set_cycles(const struct device *dev, uint32_t channel, uint32_t period,
 				 uint32_t pulse, pwm_flags_t flags)
 {
 	const struct pwm_cc35xx_config *config = dev->config;
+	struct pwm_cc35xx_data *data = dev->data;
 	uint32_t chcfg = GPTIMER_C1CFG_OUT0_EN << channel | 0xa;
 	uint32_t reg_ctl_val = sys_read32(config->base + GPTIMER_O_CTL);
+	unsigned int key;
 
 	ARG_UNUSED(flags);
 
@@ -45,6 +58,19 @@ static int pwm_cc35xx_set_cycles(const struct device *dev, uint32_t channel, uin
 	}
 
 	LOG_DBG("set cycles period[%x] pulse[%x]", period, pulse);
+
+	/* The timer stops in standby, so keep the system out of it while the output toggles. */
+	key = irq_lock();
+	if (pulse != 0U && !data->active) {
+		pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		data->active = true;
+	} else if (pulse == 0U && data->active) {
+		data->active = false;
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	}
+	irq_unlock(key);
 
 	sys_write32(period, config->base + GPTIMER_O_TGT);
 	sys_write32(pulse, config->base + GPTIMER_O_CXCC(channel));
@@ -68,6 +94,42 @@ static int pwm_cc35xx_get_cycles_per_sec(const struct device *dev, uint32_t chan
 	return 0;
 }
 
+#ifdef CONFIG_PM_DEVICE
+static int pwm_cc35xx_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct pwm_cc35xx_config *config = dev->config;
+	struct pwm_cc35xx_data *data = dev->data;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (data->active) {
+			return -EBUSY;
+		}
+		if (data->powered) {
+			ret = cc35xx_pm_resource_put(GPTIMER_PM_RESOURCE(config->base));
+			if (ret == 0) {
+				data->powered = false;
+			}
+		}
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		if (!data->powered) {
+			ret = cc35xx_pm_resource_get(GPTIMER_PM_RESOURCE(config->base));
+			if (ret == 0) {
+				data->powered = true;
+			}
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
+
 static DEVICE_API(pwm, pwm_cc35xx_api) = {
 	.set_cycles = pwm_cc35xx_set_cycles,
 	.get_cycles_per_sec = pwm_cc35xx_get_cycles_per_sec,
@@ -85,7 +147,11 @@ static DEVICE_API(pwm, pwm_cc35xx_api) = {
 			LOG_ERR("[ERR] failed to setup PWM pinctrl");                              \
 			return ret;                                                                \
 		}                                                                                  \
-		return 0;                                                                          \
+		ret = cc35xx_pm_resource_get(GPTIMER_PM_RESOURCE(config->base));                   \
+		if (ret == 0) {                                                                    \
+			((struct pwm_cc35xx_data *)dev->data)->powered = true;                     \
+		}                                                                                  \
+		return ret;                                                                        \
 	}
 
 #define PWM_CC35XX_INIT(n)                                                                         \
@@ -100,7 +166,10 @@ static DEVICE_API(pwm, pwm_cc35xx_api) = {
 		.prescale = DT_PROP(DT_INST_PARENT(n), clk_prescale),                              \
 		.channel = n,                                                                      \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(n, &pwm_cc35xx_init_##n, NULL, NULL, &cc35xx_pwm_config_##n,         \
-			      POST_KERNEL, CONFIG_PWM_INIT_PRIORITY, &pwm_cc35xx_api);
+	static struct pwm_cc35xx_data cc35xx_pwm_data_##n;                                         \
+	PM_DEVICE_DT_INST_DEFINE(n, pwm_cc35xx_pm_action);                                         \
+	DEVICE_DT_INST_DEFINE(n, &pwm_cc35xx_init_##n, PM_DEVICE_DT_INST_GET(n),                   \
+			      &cc35xx_pwm_data_##n, &cc35xx_pwm_config_##n, POST_KERNEL,           \
+			      CONFIG_PWM_INIT_PRIORITY, &pwm_cc35xx_api);
 
 DT_INST_FOREACH_STATUS_OKAY(PWM_CC35XX_INIT);

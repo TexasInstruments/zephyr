@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2025 Texas Instruments Incorporated - https://www.ti.com/
+ * Copyright (C) 2025-26 Texas Instruments Incorporated - https://www.ti.com/
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -296,4 +296,10 @@ zephyr_udc0: &main_usb0 {
 	status = "okay";
 	ti,syscon-phy-pll-refclk = <&usb0_phy_ctrl>;
 	ti,vbus-divider;
+};
+
+&main_spi0 {
+	pinctrl-0 = <&main_spi0_clk &main_spi0_cs0 &main_spi0_d0 &main_spi0_d1>;
+	pinctrl-names = "default";
+	status = "okay";
 };

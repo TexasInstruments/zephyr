@@ -150,6 +150,11 @@ struct ti_cc35xx_i2s_stream {
 };
 
 struct ti_cc35xx_i2s_data {
+	struct k_mutex api_mutex;
+	struct k_spinlock pm_lock;
+	bool powered;
+	bool api_busy;
+	bool policy_held;
 	enum i2s_dir dir;
 	bool invert_ws;
 	struct ti_cc35xx_i2s_stream stream_tx;

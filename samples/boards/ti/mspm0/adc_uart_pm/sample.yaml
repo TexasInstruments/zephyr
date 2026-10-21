@@ -1,0 +1,24 @@
+sample:
+  name: MSPM0 ADC, UART, and power management
+  description: Periodically sample an ADC while using RUN0/SLEEP0 and device runtime PM
+common:
+  tags:
+    - adc
+    - pm
+    - uart
+  platform_allow:
+    - lp_mspm0g3519/mspm0g3519
+    - lp_mspm0l2228/mspm0l2228
+  integration_platforms:
+    - lp_mspm0g3519/mspm0g3519
+    - lp_mspm0l2228/mspm0l2228
+  depends_on:
+    - adc
+    - counter
+  harness: console
+  harness_config:
+    type: one_line
+    regex:
+      - "ADC0.[04]: raw=[0-9]+"
+tests:
+  sample.boards.ti.mspm0.adc_uart_pm: {}

@@ -1,0 +1,65 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+
+/ {
+	aliases {
+		wake-timer = &counterg0;
+	};
+
+	chosen {
+		zephyr,system-timer-companion = &counterg0;
+	};
+
+	zephyr,user {
+		io-channels = <&adc0 4>;
+	};
+};
+
+&cpu0 {
+	cpu-power-states = <&run0>;
+};
+
+&run0 {
+	exit-latency-us = <1>;
+	min-residency-us = <1000>;
+};
+
+/* Timer G0 uses 32.768 kHz LFCLK with a /256 prescaler. */
+&timg0 {
+	status = "okay";
+
+	counterg0: counterg0 {
+		status = "okay";
+	};
+};
+
+/* ADC0.4 is available on PB25. */
+&adc0 {
+	clocks = <&ckm MSPM0_CLOCK_ULPCLK>;
+	ti,clk-divider = <1>;
+	max-result-reg = <12>;
+	pinctrl-0 = <&analog_pb25>;
+	pinctrl-names = "default";
+	status = "okay";
+	zephyr,pm-device-runtime-auto;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@4 {
+		reg = <4>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,vref-mv = <3300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 5)>;
+		zephyr,resolution = <12>;
+	};
+};
+
+&uart0 {
+	zephyr,pm-device-runtime-auto;
+};

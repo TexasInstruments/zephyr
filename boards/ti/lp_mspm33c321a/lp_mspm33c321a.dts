@@ -145,10 +145,6 @@
 	pinctrl-names = "default";
 };
 
-&wdt0 {
-	status = "okay";
-};
-
 &unicomm12 {
 	status = "okay";
 };

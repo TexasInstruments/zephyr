@@ -119,10 +119,6 @@
 	ti,divider = <2>;
 };
 
-&wdt0 {
-	status = "okay";
-};
-
 &unicomm4 {
 	status = "okay";
 };

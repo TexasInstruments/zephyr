@@ -16,6 +16,14 @@
 #include <zephyr/sys/atomic.h>
 #include <zephyr/logging/log.h>
 
+/* True for the instance chosen as the system-timer low-power companion. */
+#if DT_HAS_CHOSEN(zephyr_system_timer_companion)
+#define COUNTER_MSPM_TIMER_IS_COMPANION(n)                                                         \
+	DT_SAME_NODE(DT_DRV_INST(n), DT_CHOSEN(zephyr_system_timer_companion))
+#else
+#define COUNTER_MSPM_TIMER_IS_COMPANION(n) 0
+#endif /* DT_HAS_CHOSEN(zephyr_system_timer_companion) */
+
 LOG_MODULE_REGISTER(mspm0_counter, CONFIG_COUNTER_LOG_LEVEL);
 
 /* GPTIMER register map — TRM Chapter 34 */
@@ -187,6 +195,7 @@ struct counter_mspm0_config {
 	uint32_t prescaler;
 	unsigned int irqn;
 	void (*irq_config_func)(void);
+	bool is_companion;
 };
 
 /* Software-pending interrupt for late alarm detection */
@@ -471,6 +480,13 @@ static int counter_mspm0_init(const struct device *dev)
 
 	config->irq_config_func();
 
+	/* Start the counter since its expected to be on when its used as lpm
+	 * companion.
+	 */
+	if (config->is_companion) {
+		counter_mspm0_start(dev);
+	}
+
 	return 0;
 }
 
@@ -537,6 +553,7 @@ static void counter_mspm0_isr(void *arg)
 	}
 }
 
+/* clang-format off */
 #define MSPM0_COUNTER_IRQ_REGISTER(n)							\
 	static void mspm0_ ## n ##_irq_register(void)					\
 	{										\
@@ -560,7 +577,7 @@ static void counter_mspm0_isr(void *arg)
 			.clk = DT_CLOCKS_CELL_BY_IDX(DT_INST_PARENT(n), 0, clk),	\
 			},								\
 		.irq_config_func = (mspm0_ ## n ##_irq_register),			\
-		.clk_sel = MSPM0_CLOCK_PERIPH_REG_MASK(				\
+		.clk_sel = MSPM0_CLOCK_PERIPH_REG_MASK(					\
 				DT_CLOCKS_CELL_BY_IDX(DT_INST_PARENT(n), 0, clk)),	\
 		.clk_div_reg = DT_PROP(DT_INST_PARENT(n), ti_clk_div) - 1U,		\
 		.prescaler = DT_PROP(DT_INST_PARENT(n), ti_clk_prescaler),		\
@@ -568,7 +585,8 @@ static void counter_mspm0_isr(void *arg)
 		.counter_info = {.max_top_value = (DT_INST_PROP(n, resolution) == 32)	\
 							? UINT32_MAX : UINT16_MAX,	\
 				 .flags = COUNTER_CONFIG_INFO_COUNT_UP,			\
-				 .channels = DT_INST_PROP(n, channels)},			\
+				 .channels = DT_INST_PROP(n, channels)},		\
+		.is_companion = COUNTER_MSPM_TIMER_IS_COMPANION(n),			\
 	};										\
 											\
 	DEVICE_DT_INST_DEFINE(n,							\
@@ -578,4 +596,5 @@ static void counter_mspm0_isr(void *arg)
 			      &counter_mspm0_config_ ## n,				\
 			      POST_KERNEL, CONFIG_COUNTER_INIT_PRIORITY,		\
 			      &mspm0_counter_api);
+/* clang-format on */
 DT_INST_FOREACH_STATUS_OKAY(COUNTER_DEVICE_INIT_MSPM0)

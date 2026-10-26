@@ -341,13 +341,13 @@ struct net_buf *hci_evt_create(uint8 *pHciPkt, uint16 pktLen)
 	}
 
 	if (buf != NULL) {
-		net_buf_add_mem(buf, pHciPkt, pktLen);
+		size_t len = pktLen - 1;               /* pHciPkt[0] is the H4 type byte */
 
-		/* Skip the native H4_EVT OpCode as
-		 * - HCI_RAW adds it in bt_recv
-		 * - HCI_CORE doesn't expect it at all
-		 */
-		net_buf_pull_u8(buf);
+		if (len > net_buf_tailroom(buf)) {
+			net_buf_unref(buf);                /* Advertising reports are discardable */
+			return NULL;
+		}
+		net_buf_add_mem(buf, &pHciPkt[1], len);
 	}
 	return buf;
 }

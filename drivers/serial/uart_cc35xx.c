@@ -266,16 +266,9 @@ static void uart_cc35xx_irq_err_disable(const struct device *dev)
 	UARTDisableInt(config->base, UART_INT_OE | UART_INT_BE | UART_INT_PE | UART_INT_FE);
 }
 
-/*
- * uart_cc35xx_irq_update - Latch / refresh interrupt state before callbacks.
- *
- * Always returns 1 (no latching required for this hardware).
- */
-static int uart_cc35xx_irq_update(const struct device *dev)
+static void uart_cc35xx_irq_update(const struct device *dev)
 {
 	ARG_UNUSED(dev);
-
-	return 1;
 }
 
 /*

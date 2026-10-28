@@ -127,7 +127,7 @@ jobs:
     needs: twister-build-prep
     if: needs.twister-build-prep.outputs.size != 0
     container:
-      image: artifactory.itg.ti.com/docker-public/zephyrprojectrtos/ci:latest 
+      image: artifactory.itg.ti.com/docker-public/zephyrprojectrtos/ci:latest
       options: '--entrypoint /bin/bash'
     strategy:
       fail-fast: false

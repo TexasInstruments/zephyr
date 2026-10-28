@@ -613,5 +613,5 @@ static struct hsm_ti_cc35xx_data hsm_ti_cc35xx_data = {
 	.entropy.sem = Z_SEM_INITIALIZER(hsm_ti_cc35xx_data.entropy.sem, 0, 1),
 };
 
-DEVICE_DT_INST_DEFINE(0, hsm_ti_cc35xx_init, PM_DEVICE_DT_INST_GET(0), &hsm_ti_cc35xx_data, NULL,
-		      PRE_KERNEL_1, CONFIG_TI_CC35XX_HSM_INIT_PRIORITY, &hsm_ti_cc35xx_driver_api);
+DEVICE_DT_INST_DEFINE(0, hsm_ti_cc35xx_init, NULL, &hsm_ti_cc35xx_data, NULL, PRE_KERNEL_1,
+		      CONFIG_TI_CC35XX_HSM_INIT_PRIORITY, &hsm_ti_cc35xx_driver_api);

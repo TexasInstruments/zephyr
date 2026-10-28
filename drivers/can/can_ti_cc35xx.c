@@ -7,7 +7,7 @@
 #include "can_ti_cc35xx.h"
 
 #include <zephyr/drivers/can.h>
-#include <zephyr/drivers/can/can_mcan.h>
+#include "can_mcan.h"
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/device.h>
 #include <zephyr/irq.h>
@@ -229,7 +229,7 @@ static const struct can_mcan_ops can_ti_cc35xx_ops = {
 		CAN_MCAN_DT_CONFIG_INST_GET(inst, &can_ti_cc35xx_config_##inst,                    \
 					    &can_ti_cc35xx_ops, &can_ti_cc35xx_cbs_##inst);        \
                                                                                                    \
-	static struct can_mcan_data can_mcan_data_##inst = CAN_MCAN_DATA_INITIALIZER(NULL);        \
+	CAN_MCAN_DATA_DEFINE(can_mcan_data_##inst, NULL);                                          \
                                                                                                    \
 	DEVICE_DT_INST_DEFINE(inst, can_ti_cc35xx_init, NULL, &can_mcan_data_##inst,               \
 			      &can_mcan_config_##inst, POST_KERNEL, CONFIG_CAN_INIT_PRIORITY,      \

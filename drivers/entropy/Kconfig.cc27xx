@@ -8,6 +8,7 @@ config ENTROPY_CC27XX_RNG
 	default y
 	depends on DT_HAS_TI_CC27XX_RNG_ENABLED
 	select ENTROPY_HAS_DRIVER
+	select ENTROPY_NEEDS_PRNG
 	help
 	  This option enables the driver for the Random Number Generator (RNG)
 	  for TI SimpleLink CC27xx SoCs. This uses noise from Radio during startup

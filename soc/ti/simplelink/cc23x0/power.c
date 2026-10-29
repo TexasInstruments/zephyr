@@ -336,4 +336,8 @@ static int power_initialize(void)
 	return 0;
 }
 
-SYS_INIT(power_initialize, POST_KERNEL, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+/*
+ * Run before the entropy driver (CONFIG_ENTROPY_INIT_PRIORITY), which needs the
+ * power driver to capture radio noise.
+ */
+SYS_INIT(power_initialize, POST_KERNEL, 30);

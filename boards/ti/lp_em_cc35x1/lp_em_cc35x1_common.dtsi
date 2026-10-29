@@ -194,7 +194,7 @@
 };
 
 &i2c1 {
-	status = "disabled";
+	status = "okay";
 	pinctrl-0 = <&i2c1_default>;
 	pinctrl-names = "default";
 
@@ -260,7 +260,7 @@
 &pwm4 {
 	pinctrl-0 = <&pwm4_default>;
 	pinctrl-names = "default";
-	status = "disabled";
+	status = "okay";
 };
 
 &wdt0 {

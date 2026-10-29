@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2026 Conclusive Engineering Sp. z o.o.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&sdhc {
+	pinctrl-0 = <&sdhc_mmc_default>;
+	pinctrl-names = "default";
+	card-always-present;
+	status = "okay";
+
+	sdmmc {
+		compatible = "zephyr,sdmmc-disk";
+		disk-name = "SD";
+		status = "okay";
+	};
+};

@@ -304,6 +304,7 @@
 
 	sdmmc {
 		compatible = "zephyr,sdmmc-disk";
+		status = "disabled";
 		disk-name = "SD";
 	};
 };

@@ -127,6 +127,12 @@ static int dma_cc35xx_config(const struct device *dev, uint32_t channel, struct 
 		return -EINVAL;
 	}
 
+	if (config->block_count > 1 || config->head_block->next_block != NULL ||
+	    config->head_block->source_gather_en || config->head_block->dest_scatter_en ||
+	    config->source_chaining_en || config->dest_chaining_en) {
+		return -ENOTSUP;
+	}
+
 	periph_index = CC35xx_DMA_GET_PERIPH_INDEX(config->dma_slot);
 	dma_config = DMA_CONFIG_CLEAR_AT_JOB_START;
 

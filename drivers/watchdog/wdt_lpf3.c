@@ -119,6 +119,11 @@ static int wdt_ti_lpf3_setup(const struct device *dev, uint8_t options)
 		return -EBUSY;
 	}
 
+	/* Hardware has no capability to pause the watchdog while the CPU is asleep */
+	if (options & WDT_OPT_PAUSE_IN_SLEEP) {
+		return -ENOTSUP;
+	}
+
 	/* Unlock the watchdog */
 	WDT_UNLOCK(config->base);
 
@@ -158,7 +163,7 @@ static int wdt_ti_lpf3_setup(const struct device *dev, uint8_t options)
 
 static int wdt_ti_lpf3_disable(const struct device *dev)
 {
-	return -ENOTSUP;
+	return -EPERM;
 }
 
 static int wdt_ti_lpf3_feed(const struct device *dev, int channel_id)

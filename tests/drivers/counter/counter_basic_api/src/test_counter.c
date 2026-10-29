@@ -202,6 +202,12 @@ static const struct device *const devices[] = {
 #ifdef CONFIG_COUNTER_MSPM0_TIMER
 	DEVS_FOR_DT_COMPAT(ti_mspm0_timer_counter)
 #endif
+#ifdef CONFIG_COUNTER_CC23X0_RTC
+	DEVS_FOR_DT_COMPAT(ti_cc23x0_rtc)
+#endif
+#ifdef CONFIG_COUNTER_LGPT_LPF3
+	DEVS_FOR_DT_COMPAT(ti_lpf3_lgpt)
+#endif
 #ifdef CONFIG_COUNTER_CC35XX_LGPT
 	DEVS_FOR_DT_COMPAT(ti_cc35xx_lgpt)
 #endif

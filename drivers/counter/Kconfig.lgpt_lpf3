@@ -1,0 +1,11 @@
+# Copyright (c) 2024 BayLibre, SAS
+# Copyright (c) 2025 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+config COUNTER_LGPT_LPF3
+	bool "TI LPF3 (CC23x0/CC27xx) Counter driver based on the LGPT Timer"
+	default y
+	depends on DT_HAS_TI_LPF3_LGPT_ENABLED
+	help
+	  Enable counter driver based on LGPT timer for TI LPF3 devices
+	  (CC23x0 and CC27xx).

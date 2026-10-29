@@ -40,6 +40,13 @@ if BT
 		default BT_RECV_WORKQ_BT if BT_MESH
 		default BT_RECV_WORKQ_SYS
 	endchoice
+
+	# With BT_HOST_CRYPTO_PRNG, bt_rand() runs the PSA legacy RNG on the
+	# caller's stack. Besides main() (see MAIN_STACK_SIZE below), it is
+	# called from the context that processes BT RX events (SMP pairing),
+	# which is the system workqueue with BT_RECV_WORKQ_SYS (the default above).
+	config SYSTEM_WORKQUEUE_STACK_SIZE
+		default 1536 if BT_HOST_CRYPTO_PRNG && BT_RECV_WORKQ_SYS
 endif # BT
 
 if BT_MESH
@@ -95,6 +102,13 @@ if MBEDTLS
 		default y
 	config TEST_EXTRA_STACK_SIZE
 	default 1024
+
+	# Seeding the PSA legacy RNG (entropy + HMAC_DRBG) needs about 1.5 KB of
+	# stack, more than the 1 KB kernel default. With MBEDTLS_INIT this happens
+	# in psa_crypto_init() during SYS_INIT, which runs on the main stack.
+	# bt_rand() (BT_HOST_CRYPTO_PRNG) can also reseed from main().
+	config MAIN_STACK_SIZE
+		default 2048 if MBEDTLS_PSA_CRYPTO_LEGACY_RNG && (MBEDTLS_INIT || BT_HOST_CRYPTO_PRNG)
 endif # MBEDTLS
 
 # Object tracking for semaphores is currently not supported

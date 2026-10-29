@@ -23,4 +23,10 @@ config NUM_IRQS
 config BUILD_OUTPUT_BIN
 	default n
 
+# The entropy driver must be ready before the Mbed TLS SYS_INIT
+# (KERNEL_INIT_PRIORITY_DEFAULT), so psa_crypto_init() seeds its DRBG
+# from it. It needs power_initialize(), which runs at priority 30.
+config ENTROPY_INIT_PRIORITY
+	default 39
+
 endif

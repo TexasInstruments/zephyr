@@ -547,3 +547,216 @@ static void *suite_setup(void)
 }
 
 ZTEST_SUITE(spi_controller_peripheral, NULL, suite_setup, before, after, NULL);
+
+#ifdef CONFIG_SPI_CONTROLLER_PERIPHERAL_EXTENDED_TESTS
+
+
+static void check_buffers_ext(struct spi_buf_set *tx_set, struct spi_buf_set *rx_set)
+{
+	static uint8_t tx_data[256];
+	static uint8_t rx_data[256];
+	int tx_len;
+	int rx_len;
+
+	tx_len = cpy_data(tx_data, sizeof(tx_data), tx_set);
+	rx_len = cpy_data(rx_data, sizeof(rx_data), rx_set);
+
+	zassert_mem_equal(tx_data, rx_data, MIN(tx_len, rx_len));
+}
+static void setup_slave_unequal_single_buffers(size_t master_len, size_t slave_tx_len,
+					       size_t slave_rx_len)
+{
+	tdata.bufs[0].buf = buf_alloc(master_len, true);
+	tdata.bufs[0].len = master_len;
+	tdata.sets[0].buffers = &tdata.bufs[0];
+	tdata.sets[0].count = 1;
+	tdata.mtx_set = &tdata.sets[0];
+
+	tdata.bufs[1].buf = buf_alloc(master_len, true);
+	tdata.bufs[1].len = master_len;
+	tdata.sets[1].buffers = &tdata.bufs[1];
+	tdata.sets[1].count = 1;
+	tdata.mrx_set = &tdata.sets[1];
+
+	tdata.bufs[2].buf = buf_alloc(slave_tx_len, false);
+	tdata.bufs[2].len = slave_tx_len;
+	tdata.sets[2].buffers = &tdata.bufs[2];
+	tdata.sets[2].count = 1;
+	tdata.stx_set = &tdata.sets[2];
+
+	tdata.bufs[3].buf = buf_alloc(slave_rx_len, false);
+	tdata.bufs[3].len = slave_rx_len;
+	tdata.sets[3].buffers = &tdata.bufs[3];
+	tdata.sets[3].count = 1;
+	tdata.srx_set = &tdata.sets[3];
+}
+
+static void setup_slave_tx_shorter_than_rx_chunked(void)
+{
+	setup_slave_unequal_single_buffers(16, 8, 16);
+
+	tdata.bufs[2].buf = &spis_buffer[0];
+	tdata.bufs[2].len = 5;
+	tdata.bufs[3].buf = &spis_buffer[5];
+	tdata.bufs[3].len = 3;
+	tdata.sets[2].buffers = &tdata.bufs[2];
+	tdata.sets[2].count = 2;
+
+	tdata.bufs[4].buf = &spis_buffer[8];
+	tdata.bufs[4].len = 16;
+	tdata.sets[3].buffers = &tdata.bufs[4];
+	tdata.sets[3].count = 1;
+	tdata.srx_set = &tdata.sets[3];
+}
+
+static void setup_slave_tx_shorter_than_rx_asymmetric_chunks(void)
+{
+	setup_slave_unequal_single_buffers(16, 12, 16);
+
+	tdata.bufs[2].buf = &spis_buffer[0];
+	tdata.bufs[2].len = 5;
+	tdata.bufs[3].buf = &spis_buffer[5];
+	tdata.bufs[3].len = 7;
+	tdata.sets[2].buffers = &tdata.bufs[2];
+	tdata.sets[2].count = 2;
+
+	tdata.bufs[4].buf = &spis_buffer[12];
+	tdata.bufs[4].len = 9;
+	tdata.bufs[5].buf = &spis_buffer[21];
+	tdata.bufs[5].len = 7;
+	tdata.sets[3].buffers = &tdata.bufs[4];
+	tdata.sets[3].count = 2;
+	tdata.srx_set = &tdata.sets[3];
+}
+
+static void prepare(void *not_used)
+{
+	ARG_UNUSED(not_used);
+
+	memset(&tdata, 0, sizeof(tdata));
+	for (size_t i = 0; i < sizeof(spim_buffer); i++) {
+		spim_buffer[i] = (uint8_t)i;
+	}
+	for (size_t i = 0; i < sizeof(spis_buffer); i++) {
+		spis_buffer[i] = (uint8_t)(i + 0x80);
+	}
+
+	k_work_init_delayable(&tdata.test_work, work_handler);
+	k_sem_init(&tdata.sem, 0, 1);
+}
+
+static void run_test_ext(bool async)
+{
+	int rv;
+	int periph_rv;
+	int srx_len;
+	/* Reinitializing for next call */
+
+	if (async) {
+		async_evt.signal->signaled = 0U;
+		async_evt.state = K_POLL_STATE_NOT_READY;
+	}
+	tdata.async = async;
+	rv = k_work_schedule(&tdata.test_work, K_MSEC(10));
+	zassert_equal(rv, 1);
+
+	if (!async) {
+		periph_rv = spi_transceive(spis_dev, &spis_config, tdata.stx_set, tdata.srx_set);
+		if (periph_rv == -ENOTSUP) {
+			ztest_test_skip();
+		}
+	} else {
+		rv = spi_transceive_signal(spis_dev, &spis_config, tdata.stx_set, tdata.srx_set,
+					   &async_sig);
+		if (rv == -ENOTSUP) {
+			ztest_test_skip();
+		}
+		zassert_equal(rv, 0);
+
+		/* Transfer not finished yet */
+		rv = k_sem_take(&tdata.sem, K_NO_WAIT);
+		zassert_equal(rv, -EBUSY);
+
+		rv = k_poll(&async_evt, 1, K_MSEC(300));
+		zassert_false(rv, "one or more events are not ready");
+
+		periph_rv = async_evt.signal->result;
+	}
+
+	rv = k_sem_take(&tdata.sem, K_MSEC(500));
+	zassert_equal(rv, 0);
+
+	srx_len = peripheral_rx_len(tdata.mtx_set, tdata.srx_set);
+	zassert_equal(periph_rv, srx_len, "Got: %d but expected:%d", periph_rv, srx_len);
+
+	check_buffers_ext(tdata.mtx_set, tdata.srx_set);
+	check_buffers_ext(tdata.stx_set, tdata.mrx_set);
+}
+
+static void test_slave_tx_shorter_than_rx(bool async)
+{
+	setup_slave_unequal_single_buffers(16, 8, 16);
+	run_test_ext(async);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_tx_shorter_than_rx)
+{
+	test_slave_tx_shorter_than_rx(false);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_tx_shorter_than_rx_async)
+{
+	test_slave_tx_shorter_than_rx(true);
+}
+
+static void test_slave_rx_shorter_than_tx(bool async)
+{
+	setup_slave_unequal_single_buffers(16, 16, 8);
+	run_test_ext(async);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_rx_shorter_than_tx)
+{
+	test_slave_rx_shorter_than_tx(false);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_rx_shorter_than_tx_async)
+{
+	test_slave_rx_shorter_than_tx(true);
+}
+
+static void test_slave_tx_shorter_than_rx_chunked(bool async)
+{
+	setup_slave_tx_shorter_than_rx_chunked();
+	run_test_ext(async);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_tx_shorter_than_rx_chunked)
+{
+	test_slave_tx_shorter_than_rx_chunked(false);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_tx_shorter_than_rx_chunked_async)
+{
+	test_slave_tx_shorter_than_rx_chunked(true);
+}
+
+static void test_slave_tx_shorter_than_rx_asymmetric_chunks(bool async)
+{
+	setup_slave_tx_shorter_than_rx_asymmetric_chunks();
+	run_test_ext(async);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_tx_shorter_than_rx_asymmetric_chunks)
+{
+	test_slave_tx_shorter_than_rx_asymmetric_chunks(false);
+}
+
+ZTEST(spi_controller_peripheral_ext, test_slave_tx_shorter_than_rx_asymmetric_chunks_async)
+{
+	test_slave_tx_shorter_than_rx_asymmetric_chunks(true);
+}
+
+ZTEST_SUITE(spi_controller_peripheral_ext, NULL, NULL, prepare, after, NULL);
+
+#endif /* CONFIG_SPI_CONTROLLER_PERIPHERAL_EXTENDED_TESTS */

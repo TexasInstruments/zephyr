@@ -1,0 +1,27 @@
+# Copyright (c) 2024 BayLibre, SAS
+# Copyright (c) 2025 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+description: TI LPF3 (CC23x0/CC27xx) LGPT counter driver
+
+compatible: "ti,lpf3-lgpt"
+
+include: base.yaml
+
+properties:
+  freq:
+    type: int
+    description: clock frequency (only used for external clock sources)
+
+  interrupts:
+    required: true
+
+  clk-prescale:
+    type: int
+    required: true
+    description: Counter clock prescale
+
+  max-top-value:
+    type: int
+    required: true
+    description: Max allowed value for counter

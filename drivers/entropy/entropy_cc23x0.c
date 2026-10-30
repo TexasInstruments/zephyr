@@ -26,6 +26,8 @@
 #define ENTROPY_HEALTH_BIMODAL_THRESHOLD 369
 /* Window size for Adaptive Proportion Test */
 #define ENTROPY_HEALTH_APT_WINDOW_SIZE   512
+/* Number of noise captures to try for each 32 bytes of entropy */
+#define ENTROPY_NOISE_MAX_ATTEMPTS       10
 
 #if (CONFIG_ENTROPY_CC23X0_ENTROPY_BYTE_LENGTH < ENTROPY_LENGTH_BYTES_MIN) ||                      \
 	(CONFIG_ENTROPY_CC23X0_ENTROPY_BYTE_LENGTH % SHA256_DIGEST_LENGTH_BYTES != 0)
@@ -290,14 +292,26 @@ static int entropy_cc23x0_init(const struct device *dev)
 	 * The entropy is generated using SHA2 Operation.
 	 */
 	for (int i = 0; i < entropy_iter; i++) {
-		/* Clear noise data array and retrieve RCL noise */
-		memset(rcl_noise, 0, noise_length);
-		rcl_status =
-			get_rcl_noise(rcl_noise, CONFIG_ENTROPY_CC23X0_NOISE_INPUT_WORD_LENGTH);
+		/* The health tests occasionally reject a noise buffer, so capture new
+		 * noise and test it again, up to ENTROPY_NOISE_MAX_ATTEMPTS times.
+		 */
+		for (int attempt = 0; attempt < ENTROPY_NOISE_MAX_ATTEMPTS; attempt++) {
+			/* Clear noise data array and retrieve RCL noise */
+			memset(rcl_noise, 0, noise_length);
+			rcl_status = get_rcl_noise(rcl_noise,
+						   CONFIG_ENTROPY_CC23X0_NOISE_INPUT_WORD_LENGTH);
 
-		if (CONFIG_ENTROPY_CC23X0_RCT_ENABLED || CONFIG_ENTROPY_CC23X0_APT_ENABLED) {
-			/* Perform Health Checks on the noise data before generating entropy */
-			rcl_status = entropy_health_tests(rcl_noise);
+			if ((rcl_status == 0) && (CONFIG_ENTROPY_CC23X0_RCT_ENABLED ||
+						  CONFIG_ENTROPY_CC23X0_APT_ENABLED)) {
+				/* Perform Health Checks on the noise data before generating
+				 * entropy
+				 */
+				rcl_status = entropy_health_tests(rcl_noise);
+			}
+
+			if (rcl_status == 0) {
+				break;
+			}
 		}
 
 		if (rcl_status == 0) {

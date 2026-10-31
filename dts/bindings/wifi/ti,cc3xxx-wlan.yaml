@@ -1,0 +1,15 @@
+# Copyright (c) 2026 Conclusive Engineering Sp. z o.o.
+# SPDX-License-Identifier: Apache-2.0
+
+description: Texas Instruments CC3XXX Wi-Fi controller
+
+compatible: "ti,cc3xxx-wlan"
+
+properties:
+  heap-regions:
+    description: |
+      An array of one or more phandles pointing to the physical internal SRAM nodes
+      backing the Wi-Fi heap management subsystem. All referenced memory blocks
+      must be configured as non-cacheable.
+    type: phandles
+    required: true

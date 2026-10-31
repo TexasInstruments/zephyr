@@ -219,6 +219,13 @@ static void single_read(enum uart_config_data_bits data_bits)
 	uint32_t sent_bytes = 0;
 	int rv;
 
+	/* CC35xx UART driver does not support Static buffers (from FLASH) for TX,
+	 * so skip this case. CC23X0 and cc27XX SoCs don't support non forever timeouts.
+	 */
+#if CONFIG_SOC_CC3551E || CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
+
 	memset(&tdata, 0, sizeof(tdata));
 	tdata.supply_second_buffer = true;
 
@@ -301,6 +308,10 @@ ZTEST_USER(uart_async_multi_rx, test_multiple_rx_enable)
 	int ret;
 
 	BUILD_ASSERT(sizeof(tx_buf) <= sizeof(tdata.rx_first_buffer), "Invalid buf size");
+
+#if CONFIG_SOC_CC3551E || CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
 
 	/* Enable RX without a timeout. */
 	ret = uart_rx_enable(uart_dev, tdata.rx_first_buffer, rx_buf_size, SYS_FOREVER_US);
@@ -432,6 +443,10 @@ ZTEST_USER(uart_async_chain_read, test_chained_read)
 	uint32_t rx_timeout_ms = 50;
 	int err;
 
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
+
 	err = uart_rx_enable(uart_dev, chained_read_buf[rx_buf_idx++], sizeof(chained_read_buf_0),
 			     rx_timeout_ms * USEC_PER_MSEC);
 	zassert_equal(err, 0);
@@ -506,6 +521,9 @@ ZTEST_USER(uart_async_double_buf, test_double_buffer)
 	__aligned(sizeof(void *)) uint8_t tx_buf[4];
 #endif /* NOCACHE_MEM */
 
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
 	zassert_equal(uart_rx_enable(uart_dev, double_buffer[0], sizeof(double_buffer[0]),
 				     25 * USEC_PER_MSEC),
 		      0, "Failed to enable receiving");
@@ -609,6 +627,10 @@ ZTEST_USER(uart_async_read_abort, test_read_abort)
 	__aligned(sizeof(void *)) uint8_t tx_buf[100];
 #endif /* NOCACHE_MEM */
 
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
+
 	memset(rx_buf, 0, sizeof(rx_buf));
 	memset(tx_buf, 1, sizeof(tx_buf));
 
@@ -710,7 +732,10 @@ ZTEST_USER(uart_async_write_abort, test_write_abort)
 #else
 	__aligned(sizeof(void *)) uint8_t tx_buf[100];
 #endif /* NOCACHE_MEM */
-
+	
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
 	memset(test_rx_buf, 0, sizeof(test_rx_buf));
 	memset(tx_buf, 1, sizeof(tx_buf));
 
@@ -867,6 +892,10 @@ ZTEST_USER(uart_async_chain_write, test_chained_write)
 	__aligned(sizeof(void *)) uint8_t rx_buf[20];
 #endif /* NOCACHE_MEM */
 
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
+
 	memset(rx_buf, 0, sizeof(rx_buf));
 
 	uart_rx_enable(uart_dev, rx_buf, sizeof(rx_buf), 50 * USEC_PER_MSEC);
@@ -949,6 +978,10 @@ ZTEST_USER(uart_async_long_buf, test_long_buffers)
 {
 	size_t tx_len1 = TX_LONG_BUFFER / 2;
 	size_t tx_len2 = TX_LONG_BUFFER;
+
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
 
 	memset(long_rx_buf, 0, sizeof(long_rx_buf));
 	memset(long_tx_buf, 1, sizeof(long_tx_buf));
@@ -1050,6 +1083,10 @@ static void test_uart_async_var_buf(size_t buf_len, size_t tx_len)
 #else
 	static ZTEST_BMEM uint8_t tx_buffer[VAR_LENGTH_TX_BUF_SIZE];
 #endif /* NOCACHE_MEM */
+
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+	ztest_test_skip();
+#endif
 
 	for (size_t i = 0; i < VAR_LENGTH_TX_BUF_SIZE; ++i) {
 		tx_buffer[i] = tx_len;

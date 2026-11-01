@@ -1,0 +1,125 @@
+/**
+ * Copyright (c) 2026 Conclusive Engineering sp. z o. o.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/memory-attr/memory-attr.h>
+#include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
+
+/ {
+	chosen {
+		zephyr,sram = &ocram2;
+		zephyr,bt-hci = &hci0;
+	};
+};
+
+&w25q64jvxgim {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		slot0_partition: partition@0 {
+			label = "image-0";
+			reg = <0x00000000 0x00780000>;
+		};
+
+		storage_partition: partition@780000 {
+			label = "storage";
+			reg = <0x00780000 DT_SIZE_K(256)>;
+		};
+
+		wifi_nvs_partition: partition@7c0000 {
+			label = "wifi-nvs";
+			reg = <0x007C0000 DT_SIZE_K(256)>;
+		};
+	};
+};
+
+&lpspi1 {
+	status = "disabled";
+};
+
+&lpspi2 {
+	status = "disabled";
+};
+
+&lpspi3 {
+	status = "disabled";
+};
+
+&lpspi4 {
+	status = "disabled";
+};
+
+&lpuart4 {
+	status = "disabled";
+};
+
+&pinctrl {
+	pinmux_lpspi3: pinmux_lpspi3 {
+		group0 {
+			pinmux = <&iomuxc_gpio_ad_b1_12_lpspi3_pcs0>,
+				 <&iomuxc_gpio_ad_b1_15_lpspi3_sck>,
+				 <&iomuxc_gpio_ad_b1_13_lpspi3_sdi>,
+				 <&iomuxc_gpio_ad_b1_14_lpspi3_sdo>;
+			drive-strength = "r0-3";
+			slew-rate = "fast";
+			nxp,speed = "50-mhz";
+		};
+	};
+
+	pinmux_lpuart2: pinmux_lpuart2 {
+		group0 {
+			pinmux = <&iomuxc_gpio_ad_b1_02_lpuart2_tx>,
+				 <&iomuxc_gpio_ad_b1_03_lpuart2_rx>,
+				 <&iomuxc_gpio_ad_b1_01_lpuart2_rts_b>,
+				 <&iomuxc_gpio_ad_b1_00_lpuart2_cts_b>;
+			drive-strength = "r0-3";
+			slew-rate = "fast";
+		};
+	};
+};
+
+/*
+ * The TI SimpleLink SDK expects the RAM regions to be non-cacheable.
+ */
+&dtcm {
+	zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE) )>;
+};
+
+&ocram {
+	zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE) )>;
+};
+
+&usdhc1 {
+	status = "okay";
+	/delete-node/ mmc;
+
+	min-bus-freq = <400000>;
+	max-bus-freq = <4000000>;
+
+	pwr-gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
+
+	wlan0: cc33xx-wifi {
+		status = "okay";
+		compatible = "ti,cc33xx-sdio", "ti,cc3xxx-wlan";
+		heap-regions = <&ocram &dtcm>;
+		wifi-host-wake-gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
+		bus-width = <4>;
+	};
+};
+
+&lpuart2 {
+	status = "okay";
+	pinctrl-0 = <&pinmux_lpuart2>;
+	pinctrl-names = "default", "sleep";
+	current-speed = <115200>;
+	hw-flow-control;
+
+	hci0: hci0 {
+		compatible = "ti,cc33xx-uart", "ti,cc3xxx-bt-hci";
+		status = "okay";
+	};
+};

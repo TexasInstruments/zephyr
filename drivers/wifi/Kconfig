@@ -17,6 +17,7 @@ source "subsys/net/Kconfig.template.log_config.net"
 config WIFI_INIT_PRIORITY
 	int "Wi-Fi driver init priority"
 	default 86 if WIFI_AIROC && AIROC_WIFI_BUS_SDIO
+	default 86 if WIFI_TI_CC33XX && DT_HAS_TI_CC33XX_SDIO_ENABLED
 	default 80
 	help
 	  Wi-Fi device driver initialization priority.
@@ -46,7 +47,7 @@ source "drivers/wifi/nrf_wifi/Kconfig.nrfwifi"
 source "drivers/wifi/nxp/Kconfig.nxp"
 source "drivers/wifi/simplelink/Kconfig.simplelink"
 source "drivers/wifi/siwx91x/Kconfig.siwx91x"
-source "drivers/wifi/ti_cc35xx/Kconfig.ti_cc35xx"
+source "drivers/wifi/ti_cc3xxx/Kconfig.ti_cc3xxx"
 source "drivers/wifi/winc1500/Kconfig.winc1500"
 # zephyr-keep-sorted-stop
 

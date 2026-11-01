@@ -1,0 +1,177 @@
+# Texas Instruments CC3XXX Wi-Fi driver options
+
+# Copyright (c) 2025-2026 Conclusive Engineering sp. z o. o.
+# SPDX-License-Identifier: Apache-2.0
+
+menuconfig WIFI_TI_CC3XXX
+	bool "Texas Instruments CC3XXX Wi-Fi driver support"
+	select WIFI_USE_NATIVE_NETWORKING
+	select WIFI_OFFLOAD
+	select NET_L2_WIFI_MGMT
+	select DYNAMIC_THREAD
+	select DYNAMIC_THREAD_ALLOC
+	select THREAD_STACK_INFO
+	select POSIX_API
+	select SHARED_MULTI_HEAP
+	select FLASH
+	select FLASH_MAP
+	select NVS
+	select INIT_STACKS
+
+if WIFI_TI_CC3XXX
+
+config WIFI_TI_CC3XXX_MTU
+	int "Maximum size of a packet, in bytes"
+	# MTU (ipv4) per: http://www.ti.com/lit/ug/swru455d/swru455d.pdf:
+	default 1472
+	help
+	  Set the maximum size of a network packet going through the chip.
+	  This sets the size of each buffer, in each buffer pool.
+	  Do not modify it unless you know what you are doing.
+
+config WIFI_TI_CC3XXX_TX_CTRL_BLK_NUM
+	int "Number of TX control block entries"
+	default 120
+	range 32 120
+	help
+	  Number of TX packet descriptors the WiFi stack can queue
+	  simultaneously. Each entry uses ~344 bytes of heap.
+	  Increase for high-throughput workloads.
+
+config WIFI_TI_CC3XXX_NVS_INIT_PRIORITY
+	int "NVS init priority"
+	default 60
+	help
+	  SYS_INIT priority for the WiFi NVS init.
+	  Must be lower than the WiFi driver init priority (80).
+
+config WIFI_TI_CC33XX
+	bool
+	default y if (DT_HAS_TI_CC33XX_SPI_ENABLED || DT_HAS_TI_CC33XX_SDIO_ENABLED)
+	select EVENTS if DT_HAS_TI_CC33XX_SDIO_ENABLED
+	select SPI if DT_HAS_TI_CC33XX_SPI_ENABLED
+	select SDHC if DT_HAS_TI_CC33XX_SDIO_ENABLED
+	select SDIO_STACK if DT_HAS_TI_CC33XX_SDIO_ENABLED
+	select GPIO
+	select ENTROPY_GENERATOR
+	select WIFI_TI_CC33XX_USE_ZEPHYR_MBEDTLS
+	select MBEDTLS
+	select MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+	select MBEDTLS_SSL_PROTO_TLS1_2
+	select MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
+	select MBEDTLS_X509_CRT_PARSE_C
+	select MBEDTLS_PKCS5_C
+	select MBEDTLS_PK_WRITE_C
+	select MBEDTLS_CTR_DRBG_C
+	select MBEDTLS_ENTROPY_C
+	select MBEDTLS_MD_C
+	select MBEDTLS_PSA_CRYPTO_C if !BUILD_WITH_TFM
+	select MBEDTLS_KEY_EXCHANGE_PSK_ENABLED
+	select MBEDTLS_HAVE_TIME_DATE
+	select PSA_WANT_ALG_ECDSA
+	select PSA_WANT_ALG_SHA_1
+	select PSA_WANT_ALG_SHA_256
+	select PSA_WANT_ALG_SHA_384
+	select PSA_WANT_ALG_SHA_512
+	select PSA_WANT_ALG_MD5
+	select PSA_WANT_ALG_HMAC
+	select PSA_WANT_ALG_ECB_NO_PADDING
+	select PSA_WANT_ALG_CBC_NO_PADDING
+	select PSA_WANT_ALG_CTR
+	select PSA_WANT_ALG_ECDH
+	select PSA_WANT_KEY_TYPE_AES
+	select PSA_WANT_KEY_TYPE_RSA_PUBLIC_KEY
+	select PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_IMPORT
+	select PSA_WANT_ALG_RSA_PKCS1V15_SIGN
+	select PSA_WANT_ALG_RSA_PKCS1V15_CRYPT
+	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_IMPORT
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_DERIVE
+	select PSA_WANT_ECC_SECP_R1_256
+
+config WIFI_TI_CC35XX
+	bool
+	default y if DT_HAS_TI_CC35XX_WLAN_ENABLED
+	depends on SOC_CC35XXE_HAS_WIFI || !SOC_SERIES_CC35XXE
+
+endif # WIFI_TI_CC3XXX
+
+if WIFI_TI_CC35XX
+
+choice WIFI_TI_CC35XX_MBEDTLS_PLATFORM
+	prompt "CC35XX Wi-Fi mbedTLS platform"
+	default WIFI_TI_CC35XX_USE_ZEPHYR_MBEDTLS
+	help
+	  Select the mbedTLS implementation used by the CC35XX Wi-Fi host stack.
+
+config WIFI_TI_CC35XX_USE_ZEPHYR_MBEDTLS
+	bool "Use Zephyr mbedTLS for CC35XX Wi-Fi crypto"
+	select ENTROPY_CC35XX_RNG
+	select MBEDTLS
+	select MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+	select MBEDTLS_MD_C
+	select MBEDTLS_PSA_CRYPTO_C if !BUILD_WITH_TFM
+	select PSA_WANT_ALG_CBC_NO_PADDING
+	select PSA_WANT_ALG_CTR
+	select PSA_WANT_ALG_ECDH
+	select PSA_WANT_ALG_ECB_NO_PADDING
+	select PSA_WANT_ALG_FFDH
+	select PSA_WANT_ALG_HMAC
+	select PSA_WANT_ALG_MD5
+	select PSA_WANT_ALG_SHA_1
+	select PSA_WANT_ALG_SHA_256
+	select PSA_WANT_ALG_SHA_384
+	select PSA_WANT_ALG_SHA_512
+	select PSA_WANT_ECC_SECP_R1_256
+	select PSA_WANT_KEY_TYPE_AES
+	select PSA_WANT_KEY_TYPE_DH_KEY_PAIR_GENERATE
+	select PSA_WANT_KEY_TYPE_DH_PUBLIC_KEY
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_DERIVE
+	select PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY
+	select PSA_WANT_KEY_TYPE_HMAC
+	help
+	  Build the CC35XX Wi-Fi host crypto glue against Zephyr mbedTLS.
+
+config WIFI_TI_CC35XX_USE_TI_MBEDTLS
+	bool "Use TI SDK mbedTLS for CC35XX Wi-Fi crypto"
+	select TI_CC35XX_HSM
+	select TI_CC35XX_HSM_ITS
+	help
+	  Build the CC35XX Wi-Fi host crypto glue against the mbedTLS
+	  implementation bundled with the TI SimpleLink SDK. This cannot be
+	  combined with Zephyr mbedTLS or PSA Crypto in the same image.
+
+endchoice
+
+endif # WIFI_TI_CC35XX
+
+if WIFI_TI_CC33XX
+
+config WIFI_TI_CC33XX_USE_ZEPHYR_MBEDTLS
+	bool
+	depends on WIFI_TI_CC33XX
+	help
+	  CC33XX Wi-Fi host crypto glue is always built against Zephyr mbedTLS.
+	  Selected by WIFI_TI_CC33XX.
+
+config WIFI_TI_CC33XX_USE_ZEPHYR_PSA_AES
+	bool "Use Zephyr PSA Crypto API for AES in CC33XX"
+	depends on WIFI_TI_CC33XX_USE_ZEPHYR_MBEDTLS
+	default y
+	select PSA_WANT_ALG_ECB_NO_PADDING
+	select PSA_WANT_ALG_CBC_NO_PADDING
+	select PSA_WANT_ALG_CTR
+	select PSA_WANT_KEY_TYPE_AES
+	help
+	  Use PSA Crypto API instead of the legacy mbedtls_aes_* API for
+	  AES operations in the CC33XX WPA crypto backend.
+
+config WIFI_TI_CC33XX_USE_TI_DYNAMIC_DPL_OBJECTS
+	bool "Use dynamic allocation for TI DPL objects"
+	default y
+	help
+	  Enable dynamic memory allocation for objects created by the TI DPL.
+
+endif # WIFI_TI_CC33XX

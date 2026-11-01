@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Conclusive Engineering Sp. z o.o.
+# SPDX-License-Identifier: Apache-2.0
+
+include: [sdhc.yaml, "ti,cc3xxx-wlan.yaml"]
+
+description: Texas Instruments CC33XX Wi-Fi controller
+
+compatible: "ti,cc33xx-sdio"
+
+properties:
+  wifi-host-wake-gpios:
+    description: |
+      Host wake-up gpio. Signal from the CC33XX Wi-Fi device
+      to the host indicating that the device requires attention.
+    type: phandle-array
+
+  bus-width:
+    description: |
+      Specifies the physical data bus width allocated for the SDIO interface.
+      Must match the actual number of data traces (DAT0-DAT3) routed on the PCB
+      between the host controller and the CC33XX chip.
+    type: int
+    enum:
+      - 1
+      - 4
+    default: 4

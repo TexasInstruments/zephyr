@@ -7,6 +7,8 @@
 #include <mem.h>
 #include <freq.h>
 #include <arm/armv8-m.dtsi>
+#include <zephyr/dt-bindings/memory-attr/memory-attr.h>
+#include <zephyr/dt-bindings/memory-attr/memory-attr-arm.h>
 
 #define INT_SP_UART_0_INT_REQ       16
 #define INT_SP_UART_1_INT_REQ       17
@@ -172,6 +174,7 @@
 			status = "disabled";
 			compatible = "zephyr,memory-region", "arm,dtcm";
 			reg = <0x24000000 DT_SIZE_K(128)>;
+			zephyr,memory-attr = <( DT_MEM_ARM(ATTR_MPU_RAM_NOCACHE) )>;
 			zephyr,memory-region = "DTCM";
 		};
 
@@ -211,13 +214,14 @@
 		};
 
 		wlan0: hif@408a0000 {
-			compatible = "ti,cc35xx-wlan";
+			compatible = "ti,cc35xx-wlan", "ti,cc3xxx-wlan";
 			reg = <0x408a0000 DT_SIZE_K(64)>;
 			interrupts = <EXP_NAB_HOST 3>;
+			heap-regions = <&dtcm>;
 			status = "disabled";
 
 			hci0: hci0 {
-				compatible = "ti,cc35xx-bt-hci";
+				compatible = "ti,cc35xx-bt-hci", "ti,cc3xxx-bt-hci";
 				status = "disabled";
 			};
 		};

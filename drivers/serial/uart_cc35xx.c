@@ -269,13 +269,10 @@ static void uart_cc35xx_irq_err_disable(const struct device *dev)
 /*
  * uart_cc35xx_irq_update - Latch / refresh interrupt state before callbacks.
  *
- * Always returns 1 (no latching required for this hardware).
  */
-static int uart_cc35xx_irq_update(const struct device *dev)
+static void uart_cc35xx_irq_update(const struct device *dev)
 {
 	ARG_UNUSED(dev);
-
-	return 1;
 }
 
 /*

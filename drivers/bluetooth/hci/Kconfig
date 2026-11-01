@@ -244,7 +244,7 @@ config BT_HCI_TI_CC33XX
 	bool "Texas Instruments CC33xx family Bluetooth Controller"
 	default y if DT_HAS_TI_CC33XX_UART_ENABLED
 	depends on BT_HCI_TI_CC3XXX
-	select UART_INTERRUPT_DRIVEN
+	select BT_UART
 	select RING_BUFFER
 	select ENTROPY_GENERATOR
 	help

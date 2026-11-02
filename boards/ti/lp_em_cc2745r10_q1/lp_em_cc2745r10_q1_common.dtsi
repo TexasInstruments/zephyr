@@ -70,21 +70,21 @@
 
 &flash0 {
 	partitions {
-		/* 40 KiB (0xa000) for MCUboot */
+		/* 48 KiB (0xc000) for MCUboot */
 		boot_partition: partition@0 {
 			label = "mcuboot";
-			reg = <0x00000000 0x0000a000>;
+			reg = <0x00000000 0x0000c000>;
 		};
 
-		/* 446464 Bytes (0x6d000) per slot for application */
-		slot0_partition: partition@a000 {
+		/* 432 KiB (0x6c000) per slot for application */
+		slot0_partition: partition@c000 {
 			label = "image-0";
-			reg = <0x0000a000 0x0006d000>;
+			reg = <0x0000c000 0x0006c000>;
 		};
 
-		slot1_partition: partition@77000 {
+		slot1_partition: partition@78000 {
 			label = "image-1";
-			reg = <0x00077000 0x0006d000>;
+			reg = <0x00078000 0x0006c000>;
 		};
 	};
 };

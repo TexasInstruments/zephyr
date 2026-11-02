@@ -10,9 +10,9 @@
 &flash0 {
 	partitions {
 		/* 892928 Bytes (0xda000) per slot for application */
-		slot0_partition: partition@a000 {
+		slot0_partition: partition@c000 {
 			label = "image-0";
-			reg = <0x0000a000 0x000da000>;
+			reg = <0x0000c000 0x000da000>;
 		};
 	};
 };

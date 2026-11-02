@@ -7,8 +7,8 @@ config ENTROPY_CC23X0_RNG
 	bool "TI SimpleLink CC23x0 Random Number Generator (RNG)"
 	default y
 	depends on DT_HAS_TI_CC23X0_RNG_ENABLED
+	depends on RCL_DRIVER
 	select ENTROPY_HAS_DRIVER
-	select ENTROPY_NEEDS_PRNG
 	help
 	  This option enables the driver for the Random Number Generator (RNG)
 	  for TI SimpleLink CC23x0 SoCs. This uses noise from Radio during startup

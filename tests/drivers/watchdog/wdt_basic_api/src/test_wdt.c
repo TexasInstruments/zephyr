@@ -158,8 +158,8 @@
 #define TEST_WDT_WAIT_MODE 1
 #endif
 
-#ifndef WDT_TEST_BAD_MAX_WINDOW
-#define WDT_TEST_BAD_MAX_WINDOW 1
+#ifndef TEST_WDT_BAD_MAX_WINDOW
+#define TEST_WDT_BAD_MAX_WINDOW 1
 #endif
 
 static struct wdt_timeout_cfg m_cfg_wdt0;

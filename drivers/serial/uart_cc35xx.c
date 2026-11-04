@@ -110,6 +110,8 @@ struct uart_cc35xx_dev_data {
 	size_t rx_buf_filled;     /* Bytes already written into rx_buf*/
 	size_t rx_processed;      /* Bytes already reported to the user via UART_RX_RDY */
 	int64_t rx_last_activity; /* Last observed RX progress, in microseconds */
+	uint32_t rx_session;      /* Incremented whenever RX is enabled or disabled */
+	bool rx_stopping;         /* RX buffers are being released */
 	uint8_t *rx_next_buf;     /* Next RX buffer queued by the user (via rx_buf_rsp) */
 	size_t rx_next_buflen;    /* Length of rx_next_buf in bytes */
 
@@ -328,6 +330,18 @@ static void uart_cc35xx_notify_rx_processed(struct uart_cc35xx_dev_data *data)
 }
 
 /*
+ * uart_cc35xx_rx_current - Check that a callback did not disable or restart RX.
+ *
+ * Callbacks may disable RX and enable it again, even with the same buffer,
+ * so compare both the session and the buffer captured before the callback.
+ */
+static bool uart_cc35xx_rx_current(struct uart_cc35xx_dev_data *data, uint32_t session,
+				   uint8_t *buf)
+{
+	return !data->rx_stopping && data->rx_session == session && data->rx_buf == buf;
+}
+
+/*
  * uart_cc35xx_rx_collect - Update the fill position from the DMA progress.
  *
  * With 'stop', DMA is stopped first and the HW FIFO is drained, which also
@@ -386,7 +400,7 @@ static void uart_cc35xx_rx_schedule(struct uart_cc35xx_dev_data *data)
 {
 	int32_t interval = 1000;
 
-	if (data->rx_buflen == 0 || data->dma_rx.timeout == SYS_FOREVER_US) {
+	if (data->rx_buflen == 0 || data->rx_stopping || data->dma_rx.timeout == SYS_FOREVER_US) {
 		return;
 	}
 
@@ -405,11 +419,12 @@ static void uart_cc35xx_rx_schedule(struct uart_cc35xx_dev_data *data)
  */
 static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
 {
+	uint32_t session = data->rx_session;
 	uint8_t *current = data->rx_buf;
 	struct uart_event evt;
 
 	uart_cc35xx_notify_rx_processed(data);
-	if (data->rx_buf != current) {
+	if (!uart_cc35xx_rx_current(data, session, current)) {
 		return;
 	}
 
@@ -435,7 +450,7 @@ static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
 	if (data->async_callback) {
 		data->async_callback(data->dev, &evt, data->async_user_data);
 	}
-	if (data->rx_buf != current) {
+	if (!uart_cc35xx_rx_current(data, session, current)) {
 		return;
 	}
 
@@ -446,7 +461,8 @@ static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
 		data->async_callback(data->dev, &evt, data->async_user_data);
 	}
 
-	if (data->rx_buf == current && uart_cc35xx_async_rx_enable_dma(data) != 0) {
+	if (uart_cc35xx_rx_current(data, session, current) &&
+	    uart_cc35xx_async_rx_enable_dma(data) != 0) {
 		uart_cc35xx_async_rx_disable(data->dev);
 	}
 }
@@ -497,13 +513,15 @@ static void uart_cc35xx_dma_tx_callback(struct uart_cc35xx_dev_data *data, int s
  */
 static void uart_cc35xx_dma_rx_callback(struct uart_cc35xx_dev_data *data, int status)
 {
+	uint32_t session;
 	uint8_t *current;
 	unsigned int key;
 
 	key = irq_lock();
+	session = data->rx_session;
 	current = data->rx_buf;
 
-	if (data->rx_buflen == 0) {
+	if (data->rx_buflen == 0 || data->rx_stopping) {
 		/* No active buffer */
 		goto out;
 	}
@@ -523,7 +541,8 @@ static void uart_cc35xx_dma_rx_callback(struct uart_cc35xx_dev_data *data, int s
 	}
 
 	/* Re-arm the DMA for the continued transfer */
-	if (data->rx_buf == current && uart_cc35xx_async_rx_enable_dma(data) != 0) {
+	if (uart_cc35xx_rx_current(data, session, current) &&
+	    uart_cc35xx_async_rx_enable_dma(data) != 0) {
 		uart_cc35xx_async_rx_disable(data->dev);
 	}
 out:
@@ -807,7 +826,7 @@ static int uart_cc35xx_async_rx_buf_rsp(const struct device *dev, uint8_t *buf, 
 
 	key = irq_lock();
 
-	if (data->rx_buflen == 0) {
+	if (data->rx_buflen == 0 || data->rx_stopping) {
 		/* RX is not currently active */
 		ret = -EACCES;
 		goto unlock;
@@ -903,12 +922,13 @@ static int uart_cc35xx_async_rx_enable(const struct device *dev, uint8_t *rx_buf
 
 	key = irq_lock();
 
-	if (data->rx_buflen) {
+	if (data->rx_buflen || data->rx_stopping) {
 		ret = -EBUSY;
 		goto unlock;
 	}
 
 	/* Initialise RX state for the new buffer */
+	data->rx_session++;
 	data->rx_buf = rx_buf;
 	data->rx_buflen = buf_size;
 	data->rx_dma_block_size = buf_size;
@@ -979,10 +999,13 @@ static int uart_cc35xx_async_rx_disable(const struct device *dev)
 
 	key = irq_lock();
 
-	if (data->rx_buflen == 0) {
+	if (data->rx_buflen == 0 || data->rx_stopping) {
 		ret = -EINVAL;
 		goto unlock;
 	}
+
+	data->rx_stopping = true;
+	data->rx_session++;
 
 	/* Collect data received so far, including the HW FIFO */
 	ret = uart_cc35xx_rx_collect(data, true, false);
@@ -1028,7 +1051,9 @@ static int uart_cc35xx_async_rx_disable(const struct device *dev)
 		data->rx_buflen = 0;
 	}
 
-	/* Signal that reception has fully stopped */
+	data->rx_stopping = false;
+
+	/* Signal that reception has fully stopped; the callback may restart RX */
 	if (data->async_callback) {
 		evt.type = UART_RX_DISABLED;
 
@@ -1073,15 +1098,17 @@ static void uart_cc35xx_async_rx_timeout(struct k_work *work)
 		CONTAINER_OF(dwork, struct uart_cc35xx_dma_stream, timeout_work);
 	struct uart_cc35xx_dev_data *data =
 		CONTAINER_OF(rx_stream, struct uart_cc35xx_dev_data, dma_rx);
+	uint32_t session;
 	uint8_t *current;
 	unsigned int key;
 	int64_t now;
 	bool full;
 
 	key = irq_lock();
+	session = data->rx_session;
 	current = data->rx_buf;
 
-	if (data->rx_buflen == 0 || data->dma_rx.timeout == SYS_FOREVER_US) {
+	if (data->rx_buflen == 0 || data->rx_stopping || data->dma_rx.timeout == SYS_FOREVER_US) {
 		goto out;
 	}
 
@@ -1114,7 +1141,8 @@ static void uart_cc35xx_async_rx_timeout(struct k_work *work)
 		uart_cc35xx_notify_rx_processed(data);
 	}
 
-	if (data->rx_buf == current && uart_cc35xx_async_rx_enable_dma(data) != 0) {
+	if (uart_cc35xx_rx_current(data, session, current) &&
+	    uart_cc35xx_async_rx_enable_dma(data) != 0) {
 		uart_cc35xx_async_rx_disable(data->dev);
 	}
 out:

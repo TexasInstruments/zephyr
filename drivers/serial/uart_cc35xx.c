@@ -1206,8 +1206,18 @@ static int uart_cc35xx_init(const struct device *dev)
 
 	/* Clock + default 8N1 configuration */
 	UARTClockCtrl(config->base, true);
+	UARTDisable(config->base);
 	UARTConfigSetExpClk(config->base, config->sys_clk_freq, data->baud_rate,
 			    UART_CONFIG_WLEN_8 | UART_CONFIG_PAR_NONE | UART_CONFIG_STOP_ONE);
+#ifdef CONFIG_UART_USE_RUNTIME_CONFIGURE
+	data->uart_config = (struct uart_config){
+		.baudrate = data->baud_rate,
+		.parity = UART_CFG_PARITY_NONE,
+		.stop_bits = UART_CFG_STOP_BITS_1,
+		.data_bits = UART_CFG_DATA_BITS_8,
+		.flow_ctrl = UART_CFG_FLOW_CTRL_NONE,
+	};
+#endif
 	/* Start with flow control and all interrupts disabled */
 	UARTDisableCts(config->base);
 	UARTDisableRts(config->base);

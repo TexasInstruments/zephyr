@@ -799,6 +799,9 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 	unsigned int key;
 	int ret;
 
+	if (data->dma_tx.dev_dma == NULL) {
+		return -ENOTSUP;
+	}
 	if (tx_data == NULL || buf_size == 0 || buf_size > HOST_DMA_CH0TCTL_TRANSB_M) {
 		return -EINVAL;
 	}
@@ -960,6 +963,10 @@ static int uart_cc35xx_async_rx_enable(const struct device *dev, uint8_t *rx_buf
 	struct uart_event evt;
 	unsigned int key;
 	int ret = 0;
+
+	if (data->dma_rx.dev_dma == NULL) {
+		return -ENOTSUP;
+	}
 
 	key = irq_lock();
 

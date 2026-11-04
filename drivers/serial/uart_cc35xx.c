@@ -99,7 +99,6 @@ struct uart_cc35xx_dev_data {
 #ifdef CONFIG_UART_ASYNC_API
 	struct uart_cc35xx_dma_stream dma_rx; /* RX DMA stream state */
 	struct uart_cc35xx_dma_stream dma_tx; /* TX DMA stream state */
-	uint8_t fifo_state;                   /* Reserved for future FIFO level tracking */
 
 	uart_callback_t async_callback; /* Upper-layer async event callback */
 	void *async_user_data;          /* Opaque pointer passed to async_callback */
@@ -1398,8 +1397,6 @@ static int uart_cc35xx_init(const struct device *dev)
 	UARTEnable(config->base);
 
 #ifdef CONFIG_UART_ASYNC_API
-	data->fifo_state = 0;
-
 	/* Validate and initialise RX DMA */
 	if (data->dma_rx.dev_dma != NULL) {
 		if (!device_is_ready(data->dma_rx.dev_dma)) {

@@ -113,6 +113,7 @@ struct uart_cc35xx_dev_data {
 	int64_t rx_last_activity; /* Last observed RX progress, in microseconds */
 	uint32_t rx_session;      /* Incremented whenever RX is enabled or disabled */
 	bool rx_stopping;         /* RX buffers are being released */
+	uint8_t *rx_prev_buf;     /* Full buffer whose UART_RX_BUF_RELEASED is pending */
 	uint8_t *rx_next_buf;     /* Next RX buffer queued by the user (via rx_buf_rsp) */
 	size_t rx_next_buflen;    /* Length of rx_next_buf in bytes */
 
@@ -414,31 +415,55 @@ static void uart_cc35xx_rx_schedule(struct uart_cc35xx_dev_data *data)
 }
 
 /*
- * uart_cc35xx_rx_advance - Switch from a full RX buffer to the next one.
- *
- * Only a full buffer is released; a timeout keeps the current one.
- * Without a next buffer, reception stops.
+ * uart_cc35xx_rx_release_prev - Release the previous, full RX buffer.
  */
-static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
+static void uart_cc35xx_rx_release_prev(struct uart_cc35xx_dev_data *data)
 {
-	uint32_t session = data->rx_session;
-	uint8_t *current = data->rx_buf;
 	struct uart_event evt;
 
-	uart_cc35xx_notify_rx_processed(data);
-	if (!uart_cc35xx_rx_current(data, session, current)) {
-		return;
-	}
-
-	if (data->rx_next_buflen == 0) {
-		uart_cc35xx_async_rx_disable(data->dev);
+	if (data->rx_prev_buf == NULL) {
 		return;
 	}
 
 	evt.type = UART_RX_BUF_RELEASED;
-	evt.data.rx_buf.buf = data->rx_buf;
+	evt.data.rx_buf.buf = data->rx_prev_buf;
+	data->rx_prev_buf = NULL;
+
+	if (data->async_callback) {
+		data->async_callback(data->dev, &evt, data->async_user_data);
+	}
+}
+
+/*
+ * uart_cc35xx_rx_advance - Switch from a full RX buffer to the next one.
+ *
+ * Only a full buffer is released; a timeout keeps the current one. DMA is
+ * armed on the next buffer before any callback, since the FIFO holds only
+ * eight bytes. Without a next buffer, reception stops.
+ */
+static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
+{
+	uint32_t session = data->rx_session;
+	uint8_t *current;
+	struct uart_event evt;
+	int ret;
+
+	if (data->rx_next_buflen == 0) {
+		current = data->rx_buf;
+		uart_cc35xx_notify_rx_processed(data);
+		if (uart_cc35xx_rx_current(data, session, current)) {
+			uart_cc35xx_async_rx_disable(data->dev);
+		}
+		return;
+	}
+
+	evt.type = UART_RX_RDY;
+	evt.data.rx.buf = data->rx_buf;
+	evt.data.rx.offset = data->rx_processed;
+	evt.data.rx.len = data->rx_buf_filled - data->rx_processed;
 
 	/* Swap in the next buffer and restart DMA */
+	data->rx_prev_buf = data->rx_buf;
 	data->rx_buf = data->rx_next_buf;
 	data->rx_buflen = data->rx_next_buflen;
 
@@ -448,11 +473,21 @@ static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
 	data->rx_processed = 0;
 	current = data->rx_buf;
 
-	/* The previous buffer is done – release it to the user */
-	if (data->async_callback) {
+	ret = uart_cc35xx_async_rx_enable_dma(data);
+
+	if (evt.data.rx.len != 0 && data->async_callback) {
 		data->async_callback(data->dev, &evt, data->async_user_data);
 	}
+	/* A shutdown from the callback has already released the previous buffer */
 	if (!uart_cc35xx_rx_current(data, session, current)) {
+		return;
+	}
+	uart_cc35xx_rx_release_prev(data);
+	if (!uart_cc35xx_rx_current(data, session, current)) {
+		return;
+	}
+	if (ret != 0) {
+		uart_cc35xx_async_rx_disable(data->dev);
 		return;
 	}
 
@@ -461,11 +496,6 @@ static void uart_cc35xx_rx_advance(struct uart_cc35xx_dev_data *data)
 		evt.type = UART_RX_BUF_REQUEST;
 
 		data->async_callback(data->dev, &evt, data->async_user_data);
-	}
-
-	if (uart_cc35xx_rx_current(data, session, current) &&
-	    uart_cc35xx_async_rx_enable_dma(data) != 0) {
-		uart_cc35xx_async_rx_disable(data->dev);
 	}
 }
 
@@ -1030,6 +1060,8 @@ static int uart_cc35xx_rx_shutdown(const struct device *dev, int reason)
 
 		data->async_callback(dev, &evt, data->async_user_data);
 	}
+
+	uart_cc35xx_rx_release_prev(data);
 
 	/* Report any data that was received but not yet notified */
 	uart_cc35xx_notify_rx_processed(data);

@@ -332,7 +332,7 @@ static bool uart_cc35xx_notify_rx_processed(struct uart_cc35xx_dev_data *data, s
 }
 
 /*
- * uart_cc35xx_dma_tx_callback - Called from the ISR when TX DMA completes.
+ * uart_cc35xx_dma_tx_callback - Called from the ISR when transmission completes.
  *
  * Stops the DMA channel, fires a UART_TX_DONE event, and clears the
  * TX buffer state so that a new transmission can be started.
@@ -487,7 +487,7 @@ out:
  * When the async API is in use, the ISR:
  *  - Logs and clears any framing/parity/break errors.
  *  - Dispatches to the RX DMA callback on RXDMADONE / OE / RT.
- *  - Dispatches to the TX DMA callback on TXDMADONE.
+ *  - Dispatches to the TX completion callback on EOT.
  */
 static void uart_cc35xx_isr(const struct device *dev)
 {
@@ -523,8 +523,19 @@ static void uart_cc35xx_isr(const struct device *dev)
 		uart_cc35xx_dma_rx_callback(data, status);
 	}
 
-	/* TX DMA done: notify upper layer that transmission completed */
+	/* Wait for the FIFO and shift register to drain after DMA completes. */
 	if (status & UART_INT_TXDMADONE) {
+		UARTDisableDma(config->base, UART_DMA_TX);
+		UARTDisableInt(config->base, UART_INT_TXDMADONE);
+		UARTClearInt(config->base, UART_INT_TXDMADONE | UART_INT_EOT);
+		if (UARTBusy(config->base)) {
+			UARTEnableInt(config->base, UART_INT_EOT);
+		} else {
+			uart_cc35xx_dma_tx_callback(data, status);
+		}
+	}
+
+	if (status & UART_INT_EOT) {
 		uart_cc35xx_dma_tx_callback(data, status);
 	}
 #endif /* CONFIG_UART_ASYNC_API */
@@ -587,8 +598,8 @@ static int uart_cc35xx_async_tx_disable_dma(struct uart_cc35xx_dev_data *data)
 	k_work_cancel_delayable(&data->dma_tx.timeout_work);
 
 	UARTDisableDma(config->base, UART_DMA_TX);
-	UARTDisableInt(config->base, UART_INT_TXDMADONE);
-	UARTClearInt(config->base, UART_INT_TXDMADONE);
+	UARTDisableInt(config->base, UART_INT_TXDMADONE | UART_INT_EOT);
+	UARTClearInt(config->base, UART_INT_TXDMADONE | UART_INT_EOT);
 
 	dma_stop(data->dma_tx.dev_dma, data->dma_tx.dma_channel);
 
@@ -698,7 +709,7 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 
 	/* Arm the UART DMA TX trigger and clear any stale interrupt */
 	UARTEnableDma(config->base, UART_DMA_TX);
-	UARTClearInt(config->base, UART_INT_TXDMADONE);
+	UARTClearInt(config->base, UART_INT_TXDMADONE | UART_INT_EOT);
 	UARTEnableInt(config->base, UART_INT_TXDMADONE);
 
 	/* Start DMA channel */

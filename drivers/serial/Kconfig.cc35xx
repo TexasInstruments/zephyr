@@ -12,3 +12,12 @@ config UART_CC35XX
 	select PINCTRL
 	help
 	  This option enables the CC35XX UART driver
+
+config UART_CC35XX_DMA_SCRATCH_BUFFER_SIZE
+	int "CC35xx UART DMA scratch buffer size"
+	depends on UART_CC35XX && UART_ASYNC_API
+	default 256
+	range 1 4096
+	help
+	  Size of the per-instance SRAM scratch buffer used when TX data
+	  for a DMA transfer is not directly accessible by the DMA engine.

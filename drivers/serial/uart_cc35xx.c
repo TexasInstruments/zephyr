@@ -44,7 +44,8 @@ LOG_MODULE_REGISTER(uart_cc35xx);
 	((((struct uart_cc35xx_dev_config *)(data->dev->config))->base) + reg)
 
 /* RX interrupts handled by the async API */
-#define UART_CC35XX_RX_INT (UART_INT_RXDMADONE | UART_INT_OE | UART_INT_RT)
+#define UART_CC35XX_RX_INT                                                                         \
+	(UART_INT_RXDMADONE | UART_INT_OE | UART_INT_RT | UART_INT_PE | UART_INT_FE | UART_INT_BE)
 
 /* Size of HAL internal buffers for DMA operations */
 #define CC35XX_UART_RX_BUF 32
@@ -129,6 +130,7 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 static int uart_cc35xx_async_tx_abort(const struct device *dev);
 static int uart_cc35xx_async_rx_disable_dma(struct uart_cc35xx_dev_data *data);
 static int uart_cc35xx_async_rx_disable(const struct device *dev);
+static int uart_cc35xx_rx_shutdown(const struct device *dev, int reason);
 static int uart_cc35xx_async_rx_enable_dma(struct uart_cc35xx_dev_data *data);
 static int uart_cc35xx_async_tx_disable_dma(struct uart_cc35xx_dev_data *data);
 #endif /* CONFIG_UART_ASYNC_API */
@@ -505,17 +507,19 @@ static void uart_cc35xx_dma_tx_callback(struct uart_cc35xx_dev_data *data, int s
 }
 
 /*
- * uart_cc35xx_dma_rx_callback - Called from the ISR on RX DMA done / timeout / overrun.
+ * uart_cc35xx_dma_rx_callback - Called from the ISR on RX DMA done / timeout / error.
  *
  * Stops DMA, collects the bytes it transferred and drains the HW FIFO. A
  * full buffer is replaced by the next one; otherwise DMA continues in the
- * current buffer.
+ * current buffer. Line errors stop reception with UART_RX_STOPPED.
  */
 static void uart_cc35xx_dma_rx_callback(struct uart_cc35xx_dev_data *data, int status)
 {
+	const struct uart_cc35xx_dev_config *config = data->dev->config;
 	uint32_t session;
 	uint8_t *current;
 	unsigned int key;
+	int reason = 0;
 
 	key = irq_lock();
 	session = data->rx_session;
@@ -523,6 +527,24 @@ static void uart_cc35xx_dma_rx_callback(struct uart_cc35xx_dev_data *data, int s
 
 	if (data->rx_buflen == 0 || data->rx_stopping) {
 		/* No active buffer */
+		goto out;
+	}
+
+	if (status & UART_INT_OE) {
+		reason |= UART_ERROR_OVERRUN;
+	}
+	if (status & UART_INT_PE) {
+		reason |= UART_ERROR_PARITY;
+	}
+	if (status & UART_INT_FE) {
+		reason |= UART_ERROR_FRAMING;
+	}
+	if (status & UART_INT_BE) {
+		reason |= UART_BREAK;
+	}
+	if (reason != 0) {
+		UARTClearRxError(config->base);
+		uart_cc35xx_rx_shutdown(data->dev, reason);
 		goto out;
 	}
 
@@ -559,7 +581,7 @@ out:
  * fifo_fill / fifo_read as needed.
  *
  * When the async API is in use, the ISR:
- *  - Logs and clears any framing/parity/break errors.
+ *  - Reports RX errors through UART_RX_STOPPED.
  *  - Dispatches to the RX DMA callback on RXDMADONE / OE / RT.
  *  - Dispatches to the TX completion callback on EOT.
  */
@@ -568,7 +590,6 @@ static void uart_cc35xx_isr(const struct device *dev)
 	struct uart_cc35xx_dev_data *data = dev->data;
 #ifdef CONFIG_UART_ASYNC_API
 	const struct uart_cc35xx_dev_config *config = dev->config;
-	uint32_t errStatus, event;
 	/* Read masked interrupt status once to avoid race between reads */
 	uint32_t status = UARTIntStatus(config->base, true);
 #endif /* CONFIG_UART_ASYNC_API */
@@ -582,18 +603,8 @@ static void uart_cc35xx_isr(const struct device *dev)
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
 
 #ifdef CONFIG_UART_ASYNC_API
-	/* Handle line / framing errors */
-	if ((status & (UART_INT_BE | UART_INT_PE | UART_INT_FE))) {
-		errStatus = UARTGetRxError(config->base);
-		event = __builtin_clz(errStatus & UARTLIN_RSRECR_OE_M);
-		LOG_ERR("Error Status 0x%08x event 0x%08x", errStatus, event);
-		if (errStatus) {
-			UARTClearRxError(config->base);
-		}
-	}
-
-	/* RX DMA done, overrun, or receive-timeout: process received data */
-	if (status & (UART_INT_RXDMADONE | UART_INT_OE | UART_INT_RT)) {
+	/* RX DMA done, receive-timeout or line error: process received data */
+	if (status & UART_CC35XX_RX_INT) {
 		uart_cc35xx_dma_rx_callback(data, status);
 	}
 
@@ -981,15 +992,15 @@ static int uart_cc35xx_async_rx_disable_dma(struct uart_cc35xx_dev_data *data)
 }
 
 /*
- * uart_cc35xx_async_rx_disable - Stop async (DMA) reception.
+ * uart_cc35xx_rx_shutdown - Stop async (DMA) reception.
  *
  * Stops DMA, reports any partially received data, releases the current
  * and (if present) the next buffer to the upper layer, then fires
- * UART_RX_DISABLED.
+ * UART_RX_DISABLED. A nonzero 'reason' is reported with UART_RX_STOPPED.
  *
  * Returns -EINVAL if RX was not active.
  */
-static int uart_cc35xx_async_rx_disable(const struct device *dev)
+static int uart_cc35xx_rx_shutdown(const struct device *dev, int reason)
 {
 	struct uart_cc35xx_dev_data *data = dev->data;
 	const struct uart_cc35xx_dev_config *config = dev->config;
@@ -1009,6 +1020,16 @@ static int uart_cc35xx_async_rx_disable(const struct device *dev)
 
 	/* Collect data received so far, including the HW FIFO */
 	ret = uart_cc35xx_rx_collect(data, true, false);
+
+	if (reason != 0 && data->async_callback) {
+		evt.type = UART_RX_STOPPED;
+		evt.data.rx_stop.reason = reason;
+		evt.data.rx_stop.data.buf = data->rx_buf;
+		evt.data.rx_stop.data.offset = data->rx_processed;
+		evt.data.rx_stop.data.len = data->rx_buf_filled - data->rx_processed;
+
+		data->async_callback(dev, &evt, data->async_user_data);
+	}
 
 	/* Report any data that was received but not yet notified */
 	uart_cc35xx_notify_rx_processed(data);
@@ -1064,6 +1085,16 @@ unlock:
 	irq_unlock(key);
 
 	return ret;
+}
+
+/*
+ * uart_cc35xx_async_rx_disable - Stop async (DMA) reception.
+ *
+ * Returns -EINVAL if RX was not active.
+ */
+static int uart_cc35xx_async_rx_disable(const struct device *dev)
+{
+	return uart_cc35xx_rx_shutdown(dev, 0);
 }
 
 /*

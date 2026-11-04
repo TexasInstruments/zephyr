@@ -25,6 +25,9 @@
 #include <inc/hw_memmap.h>
 #include <inc/hw_ints.h>
 #include <inc/hw_uartlin.h>
+#ifdef CONFIG_UART_ASYNC_API
+#include <inc/hw_host_dma.h>
+#endif
 #include <driverlib/uart.h>
 
 LOG_MODULE_REGISTER(uart_cc35xx);
@@ -107,6 +110,7 @@ struct uart_cc35xx_dev_data {
 	size_t rx_next_buflen;    /* Length of rx_next_buf in bytes */
 
 	/* TX buffer management */
+	uint8_t tx_scratch_buf[CONFIG_UART_CC35XX_DMA_SCRATCH_BUFFER_SIZE];
 	const uint8_t *tx_buf; /* Active TX buffer provided by the user */
 	size_t tx_buflen;      /* Length of tx_buf in bytes */
 #endif                         /* CONFIG_UART_ASYNC_API */
@@ -678,53 +682,60 @@ static int uart_cc35xx_async_tx(const struct device *dev, const uint8_t *tx_data
 {
 	struct uart_cc35xx_dev_data *data = dev->data;
 	const struct uart_cc35xx_dev_config *config = dev->config;
+	uintptr_t addr = POINTER_TO_UINT(tx_data);
+	uintptr_t sram_start = CONFIG_SRAM_BASE_ADDRESS;
+	uintptr_t sram_end = sram_start + CONFIG_SRAM_SIZE * 1024UL;
 	unsigned int key;
 	int ret;
 
-	key = irq_lock();
+	if (tx_data == NULL || buf_size == 0 || buf_size > HOST_DMA_CH0TCTL_TRANSB_M) {
+		return -EINVAL;
+	}
 
-	if (data->tx_buflen) {
+	key = irq_lock();
+	if (data->tx_buflen != 0) {
 		irq_unlock(key);
 		return -EBUSY;
 	}
 
-	/* Set up the DMA block: memory → UART DR (fixed destination address) */
+	/* Host DMA cannot read external flash; stage such data in internal SRAM. */
+	if (addr < sram_start || addr >= sram_end || buf_size > sram_end - addr) {
+		if (buf_size > sizeof(data->tx_scratch_buf)) {
+			irq_unlock(key);
+			return -ENOTSUP;
+		}
+		memcpy(data->tx_scratch_buf, tx_data, buf_size);
+		addr = POINTER_TO_UINT(data->tx_scratch_buf);
+	}
+
 	data->dma_tx.blk_cfg.dest_address = UART_CC35XX_REG_GET(data, UARTLIN_O_DR);
-	data->dma_tx.blk_cfg.source_address = (uint32_t)tx_data,
+	data->dma_tx.blk_cfg.source_address = addr;
 	data->dma_tx.blk_cfg.dest_addr_adj = DMA_ADDR_ADJ_NO_CHANGE;
 	data->dma_tx.blk_cfg.source_addr_adj = DMA_ADDR_ADJ_INCREMENT;
 	data->dma_tx.blk_cfg.block_size = buf_size;
-
 	data->tx_buf = tx_data;
 	data->tx_buflen = buf_size;
-	irq_unlock(key);
 
-	/* Reset the DMA trigger before reconfiguring */
 	UARTDisableDma(config->base, UART_DMA_TX);
-
 	ret = dma_config(data->dma_tx.dev_dma, data->dma_tx.dma_channel, &data->dma_tx.dma_cfg);
-	if (ret) {
-		return ret;
+	if (ret == 0) {
+		UARTClearInt(config->base, UART_INT_TXDMADONE | UART_INT_EOT);
+		UARTEnableInt(config->base, UART_INT_TXDMADONE);
+		ret = dma_start(data->dma_tx.dev_dma, data->dma_tx.dma_channel);
 	}
-
-	/* Arm the UART DMA TX trigger and clear any stale interrupt */
-	UARTEnableDma(config->base, UART_DMA_TX);
-	UARTClearInt(config->base, UART_INT_TXDMADONE | UART_INT_EOT);
-	UARTEnableInt(config->base, UART_INT_TXDMADONE);
-
-	/* Start DMA channel */
-	ret = dma_start(data->dma_tx.dev_dma, data->dma_tx.dma_channel);
-	if (ret) {
-		return ret;
+	if (ret != 0) {
+		uart_cc35xx_async_tx_disable_dma(data);
+		data->tx_buf = NULL;
+		data->tx_buflen = 0;
+	} else {
+		UARTEnableDma(config->base, UART_DMA_TX);
+		if (timeout != SYS_FOREVER_US) {
+			data->dma_tx.timeout = timeout;
+			k_work_reschedule(&data->dma_tx.timeout_work, K_USEC(timeout));
+		}
 	}
-
-	/* Schedule timeout work (if a finite timeout was requested) */
-	if (timeout != SYS_FOREVER_US) {
-		data->dma_tx.timeout = timeout;
-
-		k_work_reschedule(&data->dma_tx.timeout_work, K_USEC(timeout));
-	}
-	return 0;
+	irq_unlock(key);
+	return ret;
 }
 
 /*

@@ -1,0 +1,16 @@
+name: Manual Test Workflow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  print-message-1:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Hello from Job 1"
+
+  print-message-2:
+    runs-on: ubuntu-24.04
+    needs: [print-message-1]
+    steps:
+      - run: echo "Hello from Job 2"

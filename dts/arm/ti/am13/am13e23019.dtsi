@@ -430,3 +430,10 @@
 		 <&gpio_pd4>, <&gpio_pd5>, <&gpio_pd6>, <&gpio_pd7>,
 		 <&gpio_pd8>, <&gpio_pd9>, <&non_bonded>, <&gpio_pd11>;
 };
+
+&dma {
+	dma-channels = <12>;
+	ti,num-full-channels = <6>;
+	ti,gather-mode;
+	status = "okay";
+};

@@ -1,0 +1,11 @@
+identifier: lp_am13e232
+name: TI AM13E232 Launchpad
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+ram: 96
+flash: 512
+supported:
+  - uart
+vendor: ti

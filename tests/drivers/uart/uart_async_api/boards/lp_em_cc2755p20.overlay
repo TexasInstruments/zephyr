@@ -6,18 +6,13 @@
 
 #include <zephyr/dt-bindings/pinctrl/cc27xx-pinctrl.h>
 
+/ {
+	chosen {
+		zephyr,console = &uart0;
+	};
+};
+
 &pinctrl {
-	uart1_tx_default: uart1_tx_default {
-		pinmux = <21 DIO21_UART1_TXD>;
-		bias-disable;
-	};
-
-	uart1_rx_default: uart1_rx_default {
-		pinmux = <22 DIO22_UART1_RXD>;
-		bias-pull-down;
-		input-enable;
-	};
-
 	uart1_rts_default: uart1_rts_default {
 		pinmux = <23 DIO23_UART1_RTS>;
 		bias-disable;
@@ -27,12 +22,6 @@
 		pinmux = <24 DIO24_UART1_CTS>;
 		bias-pull-down;
 		input-enable;
-	};
-};
-
-/ {
-	chosen {
-		zephyr,console = &uart0;
 	};
 };
 

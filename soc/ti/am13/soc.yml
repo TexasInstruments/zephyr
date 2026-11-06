@@ -7,3 +7,4 @@ family:
   - name: am13e
     socs:
     - name: am13e23019
+    - name: am13e232

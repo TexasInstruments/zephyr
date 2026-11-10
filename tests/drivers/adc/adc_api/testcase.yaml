@@ -58,6 +58,7 @@ tests:
       - CONFIG_COUNTER=y
       - CONFIG_SYSTEM_TIMER_LPM_COMPANION_COUNTER=y
       - CONFIG_PM_PREWAKEUP_CONV_MODE_CEIL=y
+      - CONFIG_IDLE_STACK_SIZE=512
   drivers.adc.b_u585i_iot02a_adc4:
     extra_args:
       - platform:b_u585i_iot02a/stm32u585xx:DTC_OVERLAY_FILE="boards/b_u585i_iot02a_adc4.overlay"
@@ -201,6 +202,7 @@ tests:
       - CONFIG_COUNTER=y
       - CONFIG_SYSTEM_TIMER_LPM_COMPANION_COUNTER=y
       - CONFIG_PM_PREWAKEUP_CONV_MODE_CEIL=y
+      - CONFIG_IDLE_STACK_SIZE=512
     depends_on:
       - dma
     platform_allow:

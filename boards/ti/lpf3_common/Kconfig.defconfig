@@ -120,13 +120,13 @@ config TRACING_SEMAPHORE
 		default n
 
 config PM_DEVICE_RUNTIME
-		default y
+		default y if PM_DEVICE
 
 config PM_DEVICE_RUNTIME_DEDICATED_WQ_STACK_SIZE
 		default 768
 
 config PM_DEVICE_SYSTEM_MANAGED
-		default y
+		default y if PM_DEVICE
 
 config PM_DEVICE
 		default y

@@ -142,3 +142,4 @@ References
 
 .. _TI LP_MSPM0G3519 Product Page:
    https://www.ti.com/tool/LP-MSPM0G3519
+

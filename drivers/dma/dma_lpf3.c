@@ -24,6 +24,7 @@ LOG_MODULE_REGISTER(dma_lpf3, CONFIG_DMA_LOG_LEVEL);
 #include <zephyr/sys/util.h>
 
 #include <driverlib/clkctl.h>
+#include <soc.h>
 #include <driverlib/udma.h>
 #include <driverlib/evtsvt.h>
 
@@ -45,7 +46,8 @@ LOG_MODULE_REGISTER(dma_lpf3, CONFIG_DMA_LOG_LEVEL);
  * Both channel types support any transfer direction (M2M, M2P, P2M). The
  * direction is determined by how the source/destination addresses are set up.
  *
- * For CC23XX: DCH channels 0-5, ECH channels 6-7.
+ * For CC23X0: DCH channels 0-5, ECH channels 6-7.
+ * For CC23X1: DCH channels 0-7, ECH channels 8-11.
  * For CC27XX: DCH channels 0-7, ECH channels 8-11.
  */
 
@@ -55,6 +57,12 @@ LOG_MODULE_REGISTER(dma_lpf3, CONFIG_DMA_LOG_LEVEL);
 #define DMA_LPF3_ECH_CH_MAX    11
 #define DMA_LPF3_EVT_PUB_MIN   0x2
 #define DMA_LPF3_EVT_PUB_MAX   0x4C
+#elif CONFIG_SOC_SERIES_CC23X1
+#define DMA_LPF3_PERIPH_CH_MAX 7
+#define DMA_LPF3_ECH_CH_MIN    8
+#define DMA_LPF3_ECH_CH_MAX    11
+#define DMA_LPF3_EVT_PUB_MIN   0x2
+#define DMA_LPF3_EVT_PUB_MAX   0x47
 #elif CONFIG_SOC_SERIES_CC23X0
 #define DMA_LPF3_PERIPH_CH_MAX 5
 #define DMA_LPF3_ECH_CH_MIN    6
@@ -67,10 +75,10 @@ LOG_MODULE_REGISTER(dma_lpf3, CONFIG_DMA_LOG_LEVEL);
 #define DMA_LPF3_NUM_CHANNELS  (DMA_LPF3_ECH_CH_MAX + 1)
 
 /*
- * Only valid for DCH channels (0-5 on CC23X0, 0-7 on CC27XX). On CC27XX, the
- * EVTSVT registers for ECH channels 8-11 are not sequential (CH10 and CH11
- * precede CH8 and CH9 in the address map), so this formula must not be used
- * for ECH channels.
+ * Only valid for DCH channels (0-5 on CC23X0, 0-7 on CC23X1 and CC27XX). On
+ * CC23X1 and CC27XX, the EVTSVT registers for ECH channels 8-11 are not
+ * sequential (CH10 and CH11 precede CH8 and CH9 in the address map), so this
+ * formula must not be used for ECH channels.
  */
 #define DMA_LPF3_CHXSEL_REG(ch) HWREG(EVTSVT_BASE + EVTSVT_O_DMACH0SEL + sizeof(uint32_t) * (ch))
 
@@ -79,11 +87,11 @@ LOG_MODULE_REGISTER(dma_lpf3, CONFIG_DMA_LOG_LEVEL);
 #endif
 
 static const uint32_t dma_lpf3_evtsvt_offsets[] = {
-#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC27XX
+#if CONFIG_SOC_SERIES_CC23X0 || CONFIG_SOC_SERIES_CC23X1 || CONFIG_SOC_SERIES_CC27XX
 	EVTSVT_O_DMACH0SEL, EVTSVT_O_DMACH1SEL, EVTSVT_O_DMACH2SEL,  EVTSVT_O_DMACH3SEL,
 	EVTSVT_O_DMACH4SEL, EVTSVT_O_DMACH5SEL, EVTSVT_O_DMACH6SEL,  EVTSVT_O_DMACH7SEL,
 #endif
-#if CONFIG_SOC_SERIES_CC27XX
+#if CONFIG_SOC_SERIES_CC23X1 || CONFIG_SOC_SERIES_CC27XX
 	EVTSVT_O_DMACH8SEL, EVTSVT_O_DMACH9SEL, EVTSVT_O_DMACH10SEL, EVTSVT_O_DMACH11SEL,
 #endif
 };
@@ -510,7 +518,7 @@ static bool dma_lpf3_chan_filter(const struct device *dev, int channel, void *fi
 
 static int dma_lpf3_enable(struct dma_lpf3_data *data)
 {
-	CLKCTLEnable(CLKCTL_BASE, CLKCTL_DMA);
+	CLKCTL_ENABLE(CLKCTL_BASE, CLKCTL_DMA);
 	uDMAEnable();
 	/* Set base address for channel control table (descriptors) */
 	uDMASetControlBase(data->desc);
@@ -558,7 +566,7 @@ static int dma_lpf3_pm_action(const struct device *dev, enum pm_device_action ac
 		}
 
 		uDMADisable();
-		CLKCTLDisable(CLKCTL_BASE, CLKCTL_DMA);
+		CLKCTL_DISABLE(CLKCTL_BASE, CLKCTL_DMA);
 
 		return 0;
 	case PM_DEVICE_ACTION_RESUME:

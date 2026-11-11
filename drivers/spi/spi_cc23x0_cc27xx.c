@@ -26,6 +26,7 @@ LOG_MODULE_REGISTER(spi_cc23x0_cc27xx, CONFIG_SPI_LOG_LEVEL);
 #include <zephyr/sys/util.h>
 
 #include <driverlib/clkctl.h>
+#include <soc.h>
 #include <driverlib/gpio.h>
 #include <driverlib/spi.h>
 #include <driverlib/udma.h>
@@ -494,7 +495,7 @@ static int spi_cc23x0_cc27xx_configure(const struct device *dev, const struct sp
 	}
 
 	/* Enable clock for SPI IP. */
-	CLKCTLEnable(CLKCTL_BASE, cfg->clock_id);
+	CLKCTL_ENABLE(CLKCTL_BASE, cfg->clock_id);
 
 	/* Disable SPI before making configuration changes */
 	SPIDisable(cfg->base);
@@ -1197,13 +1198,13 @@ static int spi_cc23x0_cc27xx_pm_action(const struct device *dev, enum pm_device_
 		}
 #endif
 		SPIDisable(cfg->base);
-		CLKCTLDisable(CLKCTL_BASE, cfg->clock_id);
+		CLKCTL_DISABLE(CLKCTL_BASE, cfg->clock_id);
 		if (data->ctx.config != NULL) {
 			spi_cc23x0_cc27xx_pinctrl_apply_sleep_state(dev, data->ctx.config);
 		}
 		return 0;
 	case PM_DEVICE_ACTION_RESUME:
-		CLKCTLEnable(CLKCTL_BASE, cfg->clock_id);
+		CLKCTL_ENABLE(CLKCTL_BASE, cfg->clock_id);
 		if (data->ctx.config != NULL) {
 			spi_cc23x0_cc27xx_pinctrl_apply_active_state(dev, data->ctx.config);
 			/* Disable SPI to clear any stale hardware state before next configure */

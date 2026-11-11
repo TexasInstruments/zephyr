@@ -28,6 +28,11 @@
 #define RTC_TI_LPF3_TOP_19_BITS_MASK 0xFFFFE000
 #define RTC_TI_LPF3_TOP_16_BITS_MASK 0xFFFF0000
 
+/* CC27XX and CC23X1 provide the 1us lower time slice TIME1U */
+#if defined(CONFIG_SOC_SERIES_CC27XX) || defined(CONFIG_SOC_SERIES_CC23X1)
+#define RTC_TI_LPF3_HAS_TIME1U 1
+#endif
+
 #define RTC_TI_LPF3_SUPPORTED_FIELDS                                                               \
 	(RTC_ALARM_TIME_MASK_SECOND | RTC_ALARM_TIME_MASK_MINUTE | RTC_ALARM_TIME_MASK_HOUR |      \
 	 RTC_ALARM_TIME_MASK_MONTHDAY | RTC_ALARM_TIME_MASK_MONTH | RTC_ALARM_TIME_MASK_WEEKDAY)
@@ -272,16 +277,16 @@ static uint64_t rtc_ti_lpf3_get_raw_time(struct rtc_ti_lpf3_data *data)
 	uint64_t usec;
 	uint32_t time524m;
 
-#if CONFIG_SOC_SERIES_CC27XX
+#ifdef RTC_TI_LPF3_HAS_TIME1U
 	uint32_t time1u;
-#endif /* CONFIG_SOC_SERIES_CC27XX */
+#endif /* RTC_TI_LPF3_HAS_TIME1U */
 
 #if CONFIG_SOC_SERIES_CC23X0
 	uint32_t time8u;
 #endif /* CONFIG_SOC_SERIES_CC23X0 */
 
 	while (true) {
-#if CONFIG_SOC_SERIES_CC27XX
+#ifdef RTC_TI_LPF3_HAS_TIME1U
 		time1u = sys_read32(RTC_BASE + RTC_O_TIME1U);
 #elif CONFIG_SOC_SERIES_CC23X0
 		time8u = sys_read32(RTC_BASE + RTC_O_TIME8U);
@@ -303,7 +308,7 @@ static uint64_t rtc_ti_lpf3_get_raw_time(struct rtc_ti_lpf3_data *data)
 			}
 		}
 
-#elif CONFIG_SOC_SERIES_CC27XX
+#elif defined(RTC_TI_LPF3_HAS_TIME1U)
 		/**
 		 * Check if TIME1U wrapped around.
 		 * In such case read time again to get correct
@@ -321,7 +326,7 @@ static uint64_t rtc_ti_lpf3_get_raw_time(struct rtc_ti_lpf3_data *data)
 		break;
 	}
 
-#if CONFIG_SOC_SERIES_CC27XX
+#ifdef RTC_TI_LPF3_HAS_TIME1U
 	usec = (uint64_t)(time524m & RTC_TI_LPF3_TOP_19_BITS_MASK) << 19;
 	usec |= time1u;
 #endif

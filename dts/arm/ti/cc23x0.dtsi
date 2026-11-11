@@ -299,6 +299,7 @@
 			#size-cells = <0>;
 			reg = <0x40038000 0x820>;
 			interrupts = <12 0>;
+			clock-id = <0x40>;	/* CLKCTL_I2C0 */
 			status = "disabled";
 		};
 	};

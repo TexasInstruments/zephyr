@@ -27,6 +27,7 @@
 
 #include <driverlib/uart.h>
 #include <driverlib/clkctl.h>
+#include <soc.h>
 
 #include <inc/hw_memmap.h>
 
@@ -979,7 +980,7 @@ static int uart_lpf3_init_common(const struct device *dev)
 	const struct uart_lpf3_config *config = dev->config;
 	struct uart_lpf3_data *data = dev->data;
 
-	CLKCTLEnable(CLKCTL_BASE, config->clkctl_id);
+	CLKCTL_ENABLE(CLKCTL_BASE, config->clkctl_id);
 
 #ifdef CONFIG_UART_LPF3_DMA_DRIVEN
 	if (!device_is_ready(config->dma_dev)) {
@@ -1033,7 +1034,7 @@ static int uart_lpf3_pm_action(const struct device *dev, enum pm_device_action a
 	switch (action) {
 	case PM_DEVICE_ACTION_SUSPEND:
 		UARTDisable(config->reg);
-		CLKCTLDisable(CLKCTL_BASE, config->clkctl_id);
+		CLKCTL_DISABLE(CLKCTL_BASE, config->clkctl_id);
 		return 0;
 	case PM_DEVICE_ACTION_RESUME:
 		return uart_lpf3_init_common(dev);

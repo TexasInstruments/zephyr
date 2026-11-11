@@ -132,6 +132,7 @@
 	/* I2S0: DIO0=MCLK, DIO15=SCLK, DIO25=WS, DIO9=SD0 (TX), DIO10=SD1 (RX)
 	 * All pins need input-enable because the hardware samples its own
 	 * outputs for synchronization.
+	 * Disabled in software; i2s0 node remains status = "disabled".
 	 */
 	i2s0_mclk_default: i2s0_mclk_default {
 		pinmux = <0 DIO0_I2S0MCLK>;

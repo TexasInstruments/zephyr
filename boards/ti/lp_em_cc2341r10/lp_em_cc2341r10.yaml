@@ -23,5 +23,4 @@ supported:
   - serial
   - timer
   - i2c
-  - i2s
 vendor: ti

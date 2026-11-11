@@ -11,7 +11,7 @@ static volatile bool data_received;
 static volatile bool data_transmit_done;
 static volatile bool data_receive_done;
 static int char_sent;
-static int tx_size;
+static int tx_size = 5;
 static const char fifo_data[] = "This is a FIFO test.";
 
 #define DATA_SIZE (sizeof(fifo_data))

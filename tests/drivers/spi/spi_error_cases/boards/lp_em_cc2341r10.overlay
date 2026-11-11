@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/cc23x1-pinctrl.h>
+
+&pinctrl {
+	spi1_sck_default: spi1_sck_default {
+		pinmux = <9 DIO9_SPI1_SCLK>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi1_pico_default: spi1_pico_default {
+		pinmux = <1 DIO1_SPI1_PICO>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi1_poci_default: spi1_poci_default {
+		pinmux = <5 DIO5_SPI1_POCI>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi1_cs_default: spi1_cs_default {
+		pinmux = <14 DIO14_SPI1_CSN>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+};
+
+&spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_sck_default
+		     &spi1_pico_default
+		     &spi1_poci_default
+		     &spi1_cs_default>;
+	pinctrl-names = "default";
+
+	dut_spi_dt: test-spi-dev@0 {
+		compatible = "vnd,spi-device";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+dut_spis: &spi0 {
+};

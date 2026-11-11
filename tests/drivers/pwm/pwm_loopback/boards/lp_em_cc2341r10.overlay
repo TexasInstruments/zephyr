@@ -1,0 +1,36 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * PWM loopback test overlay for lp_em_cc2341r10 (CC23X1 family).
+ *
+ * Output:  pwm0 channel 0 -> LGPT0 ch0 -> DIO9 (T3_C0) -> BoosterPack pin
+ * Capture: pwm0 channel 0 -> same pin (self-loopback on PWM0)
+ *
+ * Wire DIO9 to an input capable pin for capture testing, or use the
+ * same pin for output-only PWM verification.
+ */
+
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	pwm_loopback_0 {
+		compatible = "test-pwm-loopback";
+		pwms = <&pwm0 0 PWM_SEC(1) PWM_POLARITY_NORMAL>,
+		       <&pwm0 0 PWM_SEC(1) PWM_POLARITY_NORMAL>;
+	};
+};
+
+&lgpt0 {
+	clk-prescale = <127>;
+};
+
+/* PWM0 output: DIO9 (T3_C0) */
+&pwm0 {
+	status = "okay";
+	pinctrl-0 = <&pwm0_default>;
+	pinctrl-names = "default";
+};

@@ -1,0 +1,25 @@
+identifier: lp_em_cc2341r10
+name: TI SimpleLink CC2341R10 LaunchPad
+type: mcu
+arch: arm
+ram: 96
+flash: 912
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - gpio
+  - uart
+  - adc
+  - counter
+  - dma
+  - crypto
+  - spi
+  - watchdog
+  - rtc
+  - flash
+  - pinctrl
+  - serial
+  - timer
+  - i2c
+vendor: ti

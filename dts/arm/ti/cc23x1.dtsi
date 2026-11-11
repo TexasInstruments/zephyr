@@ -215,31 +215,19 @@
 			status = "disabled";
 
 			pwm0: pwm0 {
-<<<<<<< HEAD
 				compatible = "ti,cc23x1-lgpt-pwm";
-=======
-				compatible = "ti,cc23x0-lgpt-pwm";
->>>>>>> 880f2e60382 (PEND: soc: ti: simplelink: add shared LPF3 CLKCTL compatibility header)
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
 
 			pwm1: pwm1 {
-<<<<<<< HEAD
 				compatible = "ti,cc23x1-lgpt-pwm";
-=======
-				compatible = "ti,cc23x0-lgpt-pwm";
->>>>>>> 880f2e60382 (PEND: soc: ti: simplelink: add shared LPF3 CLKCTL compatibility header)
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
 
 			pwm2: pwm2 {
-<<<<<<< HEAD
 				compatible = "ti,cc23x1-lgpt-pwm";
-=======
-				compatible = "ti,cc23x0-lgpt-pwm";
->>>>>>> 880f2e60382 (PEND: soc: ti: simplelink: add shared LPF3 CLKCTL compatibility header)
 				#pwm-cells = <3>;
 				status = "disabled";
 			};

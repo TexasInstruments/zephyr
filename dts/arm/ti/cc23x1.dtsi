@@ -175,6 +175,7 @@
 			#size-cells = <0>;
 			reg = <0x40038000 0x820>;
 			interrupts = <12 0>;
+			clock-id = <6>; /* CLKCTL_I2C0 */
 			status = "disabled";
 		};
 
@@ -184,6 +185,7 @@
 			#size-cells = <0>;
 			reg = <0x40039000 0x820>;
 			interrupts = <21 0>;
+			clock-id = <7>; /* CLKCTL_I2C1 */
 			status = "disabled";
 		};
 

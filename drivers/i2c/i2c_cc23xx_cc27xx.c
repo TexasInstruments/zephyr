@@ -70,6 +70,7 @@ struct i2c_cc23xx_cc27xx_data {
  */
 struct i2c_cc23xx_cc27xx_config {
 	uint32_t base;                         /* Base address of the I2C controller registers */
+	uint32_t clock_id;                     /* CLKCTL peripheral clock gate ID */
 	const struct pinctrl_dev_config *pcfg; /* Pin control configuration */
 };
 
@@ -750,7 +751,7 @@ static void i2c_cc23xx_cc27xx_controller_isr(const struct device *dev)
 	/* Clear the interrupt */
 	I2CControllerClearInt(config->base);
 
-	uint32_t status = HWREG(I2C0_BASE + I2C_O_CSTA);
+	uint32_t status = HWREG(config->base + I2C_O_CSTA);
 
 	/* Handle errors. ERR bit is not set if arbitration lost.
 	 * The I2C peripheral has an issue where the DATACK_N bit
@@ -901,7 +902,7 @@ static DEVICE_API(i2c, i2c_cc23xx_cc27xx_driver_api) = {
 		}                                                                                  \
                                                                                                    \
 		/* Turn the peripheral on */                                                       \
-		CLKCTL_ENABLE(CLKCTL_BASE, CLKCTL_I2C0);                                           \
+		CLKCTL_ENABLE(CLKCTL_BASE, config->clock_id);                                      \
                                                                                                    \
 		return 0;                                                                          \
 	}
@@ -913,6 +914,7 @@ static DEVICE_API(i2c, i2c_cc23xx_cc27xx_driver_api) = {
                                                                                                    \
 	static const struct i2c_cc23xx_cc27xx_config i2c_cc23xx_cc27xx_##id##_config = {           \
 		.base = DT_INST_REG_ADDR(id),                                                      \
+		.clock_id = DT_INST_PROP(id, clock_id),                                            \
 		.pcfg = PINCTRL_DT_INST_DEV_CONFIG_GET(id),                                        \
 	};                                                                                         \
                                                                                                    \

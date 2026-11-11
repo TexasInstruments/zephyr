@@ -20,3 +20,12 @@ properties:
 
   pinctrl-names:
     required: true
+
+  clock-id:
+    type: int
+    required: true
+    description: |
+      CLKCTL peripheral clock gate ID for this I2C instance, as passed to
+      CLKCTLEnable(). On CC23X0 and CC27XX this is the CLKENSET0 mask, so
+      CLKCTL_I2C0 is 0x40. On CC23X1 it is the bit index, so CLKCTL_I2C0
+      is 6 and CLKCTL_I2C1 is 7.

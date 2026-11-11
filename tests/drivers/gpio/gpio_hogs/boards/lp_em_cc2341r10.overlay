@@ -9,7 +9,7 @@
 / {
 	zephyr,user {
 		output-high-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;  /* DIO7, Green LED */
-		output-low-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>;  /* DIO14, Red LED */
+		output-low-gpios = <&gpio0 15 GPIO_ACTIVE_HIGH>;  /* DIO15 */
 		input-gpios = <&gpio0 23 GPIO_ACTIVE_LOW>;        /* DIO23, Button 1 */
 	};
 };
@@ -23,7 +23,7 @@
 
 	hog2 {
 		gpio-hog;
-		gpios = <14 GPIO_ACTIVE_HIGH>;
+		gpios = <15 GPIO_ACTIVE_HIGH>;
 		output-low;
 	};
 

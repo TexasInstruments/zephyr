@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/cc23x1-pinctrl.h>
+
+&pinctrl {
+	uart1_tx_default: uart1_tx_default {
+		pinmux = <9 DIO9_UART1_TXD>;
+		bias-disable;
+	};
+
+	uart1_rx_default: uart1_rx_default {
+		pinmux = <10 DIO10_UART1_RXD>;
+		bias-pull-down;
+		input-enable;
+	};
+
+	/* The pull-down keeps CTS asserted, so no RTS to CTS wire is needed */
+	uart1_rts_default: uart1_rts_default {
+		pinmux = <19 DIO19_UART1_RTS>;
+		bias-disable;
+	};
+
+	uart1_cts_default: uart1_cts_default {
+		pinmux = <7 DIO7_UART1_CTS>;
+		bias-pull-down;
+		input-enable;
+	};
+};
+
+/ {
+	chosen {
+		zephyr,console = &uart0;
+	};
+};
+
+dut: &uart1 {
+	current-speed = <115200>;
+	pinctrl-0 = <&uart1_tx_default &uart1_rx_default
+		     &uart1_rts_default &uart1_cts_default>;
+	pinctrl-names = "default";
+	hw-flow-control;
+	status = "okay";
+};

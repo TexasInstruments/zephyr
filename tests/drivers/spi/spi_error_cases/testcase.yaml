@@ -20,6 +20,7 @@ tests:
       - nrf54lm20dk/nrf54lm20b/cpuapp
       - nrf7120dk/nrf7120/cpuapp
       - ophelia4ev/nrf54l15/cpuapp
+      - lp_em_cc2341r10
     integration_platforms:
       - nrf52840dk/nrf52840
   drivers.spi.spi_error_cases.fast:

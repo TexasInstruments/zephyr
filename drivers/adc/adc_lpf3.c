@@ -21,6 +21,7 @@ LOG_MODULE_REGISTER(adc_lpf3, CONFIG_ADC_LOG_LEVEL);
 
 #include <driverlib/adc.h>
 #include <driverlib/clkctl.h>
+#include <soc.h>
 
 #include <inc/hw_memmap.h>
 
@@ -540,7 +541,7 @@ static int adc_lpf3_init(const struct device *dev)
 	cfg->irq_cfg_func();
 
 	/* Enable clock */
-	CLKCTLEnable(CLKCTL_BASE, CLKCTL_ADC0);
+	CLKCTL_ENABLE(CLKCTL_BASE, CLKCTL_ADC0);
 
 	/* Enable interrupts */
 	ADCEnableInterrupt(ADC_LPF3_INT_MASK);
@@ -565,10 +566,10 @@ static int adc_lpf3_pm_action(const struct device *dev, enum pm_device_action ac
 
 	switch (action) {
 	case PM_DEVICE_ACTION_SUSPEND:
-		CLKCTLDisable(CLKCTL_BASE, CLKCTL_ADC0);
+		CLKCTL_DISABLE(CLKCTL_BASE, CLKCTL_ADC0);
 		return 0;
 	case PM_DEVICE_ACTION_RESUME:
-		CLKCTLEnable(CLKCTL_BASE, CLKCTL_ADC0);
+		CLKCTL_ENABLE(CLKCTL_BASE, CLKCTL_ADC0);
 		ADCEnableInterrupt(ADC_LPF3_INT_MASK);
 
 		/* Restore context for the channels that were configured before */

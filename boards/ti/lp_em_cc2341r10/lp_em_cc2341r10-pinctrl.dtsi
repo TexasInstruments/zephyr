@@ -1,0 +1,164 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/cc23x1-pinctrl.h>
+
+&pinctrl {
+	/* UART0 */
+	uart0_tx_default: uart0_tx_default {
+		pinmux = <20 DIO20_UART0_TXD>;
+		bias-disable;
+	};
+
+	uart0_rx_default: uart0_rx_default {
+		pinmux = <22 DIO22_UART0_RXD>;
+		bias-pull-up;
+		input-enable;
+	};
+
+	/* SPI0 */
+	spi0_sck_default: spi0_sck_default {
+		pinmux = <18 DIO18_SPI0_SCLK>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_pico_default: spi0_pico_default {
+		pinmux = <13 DIO13_SPI0_PICO>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_poci_default: spi0_poci_default {
+		pinmux = <12 DIO12_SPI0_POCI>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_cs_default: spi0_cs_default {
+		pinmux = <11 DIO11_SPI0_CSN>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_sck_sleep: spi0_sck_sleep {
+		pinmux = <18 DIO18_GPIO18>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_pico_sleep: spi0_pico_sleep {
+		pinmux = <13 DIO13_GPIO13>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_poci_sleep: spi0_poci_sleep {
+		pinmux = <12 DIO12_GPIO12>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi0_cs_sleep: spi0_cs_sleep {
+		pinmux = <11 DIO11_GPIO11>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	/* I2C0 */
+	i2c0_scl_default: i2c0_scl_default {
+		pinmux = <24 DIO24_I2C0_SCL>;
+		bias-pull-up;
+		drive-open-drain;
+		input-enable;
+	};
+
+	i2c0_sda_default: i2c0_sda_default {
+		pinmux = <0 DIO0_I2C0_SDA>;
+		bias-pull-up;
+		drive-open-drain;
+		input-enable;
+	};
+
+	/* ADC0 */
+	adc0_ch0: adc0_ch0 {
+		pinmux = <7 DIO7_ADC0_AREFM>;
+		bias-disable;
+		input-enable;
+	};
+
+	adc0_ch2: adc0_ch2 {
+		pinmux = <5 DIO5_ADC2>;
+		bias-disable;
+		input-enable;
+	};
+
+	/* LPCMP */
+	lpcmp_pos0_default: lpcmp_pos0_default {
+		pinmux = <21 DIO21_ADC10_LPCP>;
+		bias-disable;
+		input-enable;
+	};
+
+	lpcmp_out0_default: lpcmp_out0_default {
+		pinmux = <10 DIO10_LPC0>;
+		bias-disable;
+	};
+
+	/* PWM0: LGPT0 channel 0 */
+	pwm0_default: pwm0_default {
+		pinmux = <8 DIO8_T0_C0N>;
+		bias-disable;
+	};
+
+	/* PWM9: LGPT3 channel 0 (capture input) */
+	pwm9_capture: pwm9_capture {
+		pinmux = <9 DIO9_T3_C0>;
+		bias-disable;
+		input-enable;
+	};
+
+	/* I2S0: DIO0=MCLK, DIO15=SCLK, DIO25=WS, DIO9=SD0 (TX), DIO10=SD1 (RX)
+	 * All pins need input-enable because the hardware samples its own
+	 * outputs for synchronization.
+	 */
+	i2s0_mclk_default: i2s0_mclk_default {
+		pinmux = <0 DIO0_I2S0MCLK>;
+		bias-disable;
+	};
+
+	i2s0_sclk_default: i2s0_sclk_default {
+		pinmux = <15 DIO15_I2S0SCLK>;
+		bias-disable;
+		input-enable;
+	};
+
+	i2s0_ws_default: i2s0_ws_default {
+		pinmux = <25 DIO25_I2S0WS>;
+		bias-disable;
+		input-enable;
+	};
+
+	i2s0_sd0_default: i2s0_sd0_default {
+		pinmux = <9 DIO9_I2S0SD0>;
+		bias-disable;
+		input-enable;
+	};
+
+	i2s0_sd1_default: i2s0_sd1_default {
+		pinmux = <10 DIO10_I2S0SD1>;
+		bias-disable;
+		input-enable;
+	};
+};

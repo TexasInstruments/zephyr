@@ -15,6 +15,7 @@
 #include <zephyr/pm/device.h>
 
 #include <driverlib/clkctl.h>
+#include <soc.h>
 #include <driverlib/gpio.h>
 #include <driverlib/ioc.h>
 #include <inc/hw_ioc.h>
@@ -284,7 +285,7 @@ static int gpio_cc23x0_pm_action(const struct device *dev, enum pm_device_action
 static int gpio_cc23x0_init(const struct device *dev)
 {
 	/* Enable GPIO domain clock */
-	CLKCTLEnable(CLKCTL_BASE, CLKCTL_GPIO);
+	CLKCTL_ENABLE(CLKCTL_BASE, CLKCTL_GPIO);
 
 	/* Enable IRQ */
 	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), gpio_cc23x0_isr,

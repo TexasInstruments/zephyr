@@ -21,6 +21,7 @@
 LOG_MODULE_REGISTER(i2c_cc23xx_cc27xx);
 
 #include <driverlib/clkctl.h>
+#include <soc.h>
 #include <driverlib/i2c.h>
 
 #include "i2c-priv.h"
@@ -900,7 +901,7 @@ static DEVICE_API(i2c, i2c_cc23xx_cc27xx_driver_api) = {
 		}                                                                                  \
                                                                                                    \
 		/* Turn the peripheral on */                                                       \
-		CLKCTLEnable(CLKCTL_BASE, CLKCTL_I2C0);                                            \
+		CLKCTL_ENABLE(CLKCTL_BASE, CLKCTL_I2C0);                                           \
                                                                                                    \
 		return 0;                                                                          \
 	}

@@ -38,6 +38,11 @@ config HAS_CC13X2X7_CC26X2X7_SDK
 config HAS_CC23X0_SDK
 	bool
 
+# CC23X1 SDK HAL configuration
+
+config HAS_CC23X1_SDK
+	bool
+
 # CC35XX SDK HAL configuration
 
 config HAS_CC35XX_SDK

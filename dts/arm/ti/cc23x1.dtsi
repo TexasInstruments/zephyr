@@ -95,6 +95,16 @@
 			reg = <0x40003000 0xc1c>;
 		};
 
+		comparator: comparator@40004000 {
+			compatible = "ti,lpf3-lpcmp";
+			reg = <0x40004000 0x818>;
+			/* Comparator interrupt signal is mapped to IRQ1. This interrupt line
+			 * is not a dedicated interrupt line for the comparator peripheral.
+			 */
+			interrupts = <1 0>;
+			status = "disabled";
+		};
+
 		dma: dma@40026000 {
 			compatible = "ti,lpf3-dma";
 			reg = <0x40026000 0x524>;
@@ -196,7 +206,7 @@
 			status = "okay";
 		};
 
-		lgpt0: lgpt@40060000 {
+		lgpt0: counter_dev: lgpt@40060000 {
 			compatible = "ti,lpf3-lgpt";
 			reg = <0x40060000 0x1d2>;
 			max-top-value = <0xffff>;
@@ -205,19 +215,31 @@
 			status = "disabled";
 
 			pwm0: pwm0 {
+<<<<<<< HEAD
 				compatible = "ti,cc23x1-lgpt-pwm";
+=======
+				compatible = "ti,cc23x0-lgpt-pwm";
+>>>>>>> 880f2e60382 (PEND: soc: ti: simplelink: add shared LPF3 CLKCTL compatibility header)
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
 
 			pwm1: pwm1 {
+<<<<<<< HEAD
 				compatible = "ti,cc23x1-lgpt-pwm";
+=======
+				compatible = "ti,cc23x0-lgpt-pwm";
+>>>>>>> 880f2e60382 (PEND: soc: ti: simplelink: add shared LPF3 CLKCTL compatibility header)
 				#pwm-cells = <3>;
 				status = "disabled";
 			};
 
 			pwm2: pwm2 {
+<<<<<<< HEAD
 				compatible = "ti,cc23x1-lgpt-pwm";
+=======
+				compatible = "ti,cc23x0-lgpt-pwm";
+>>>>>>> 880f2e60382 (PEND: soc: ti: simplelink: add shared LPF3 CLKCTL compatibility header)
 				#pwm-cells = <3>;
 				status = "disabled";
 			};

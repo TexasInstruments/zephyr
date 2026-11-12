@@ -147,7 +147,6 @@ static int ti_lpf3_lpcmp_set_trigger(const struct device *dev, enum comparator_t
 
 static int ti_lpf3_lpcmp_trigger_is_pending(const struct device *dev)
 {
-	const struct ti_lpf3_lpcmp_config *config = dev->config;
 	struct ti_lpf3_lpcmp_data *data = dev->data;
 
 	if (LPCMPEventFlagIsSet()) {

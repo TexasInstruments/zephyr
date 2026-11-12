@@ -91,9 +91,10 @@ choice RNG_GENERATOR_CHOICE
 	default XOSHIRO_RANDOM_GENERATOR
 endchoice
 
-# Use CTR DRBG since the entropy driver is not designed to provide continuous RNG
+# Use the PSA CSPRNG since the entropy driver is not designed to provide
+# continuous RNG. PSA only reads it to seed its DRBG (ENTROPY_NEEDS_PRNG)
 choice CSPRNG_GENERATOR_CHOICE
-	default CTR_DRBG_CSPRNG_GENERATOR
+	default PSA_CSPRNG_GENERATOR
 endchoice
 
 # By default mbedTLS uses RAM for AES tables, which are too big

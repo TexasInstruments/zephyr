@@ -279,7 +279,7 @@
 		};
 
 		rng: entropy {
-			compatible = "ti,cc23x0-rng", "simple-bus";
+			compatible = "ti,lpf3-rng", "simple-bus";
 			status = "disabled";
 		};
 

@@ -1,10 +1,13 @@
 /*
- * Copyright (c) 2025 Texas Instruments
+ * Copyright (c) 2025,2026 Texas Instruments
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
-#define DT_DRV_COMPAT ti_cc27xx_rng
+#if defined(CONFIG_SOC_SERIES_CC27XX) || defined(CONFIG_SOC_SERIES_CC23X0)
+#define DT_DRV_COMPAT ti_lpf3_rng
+#else
+#error "No compatible devicetree nodes"
+#endif
 
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
@@ -16,7 +19,7 @@
 #include <driverlib/hapi.h>
 
 #if DT_NUM_INST_STATUS_OKAY(DT_DRV_COMPAT) == 0
-#error "Entropy Driver for CC27xx requires at least one instance"
+#error "Entropy Driver for radio noise requires at least one instance"
 #endif
 
 #define ENTROPY_LENGTH_BYTES_MIN         64
@@ -29,21 +32,21 @@
 /* Number of noise captures to try for each 32 bytes of entropy */
 #define ENTROPY_NOISE_MAX_ATTEMPTS       10
 
-#if (CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH < ENTROPY_LENGTH_BYTES_MIN) ||                      \
-	(CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH % SHA256_DIGEST_LENGTH_BYTES != 0)
-#error "ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH must be a multiple of 32 and at least 64 bytes"
+#if (CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_ENTROPY_BYTE_LENGTH < ENTROPY_LENGTH_BYTES_MIN) ||         \
+	(CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_ENTROPY_BYTE_LENGTH % SHA256_DIGEST_LENGTH_BYTES != 0)
+#error "ENTROPY_TI_LPF3_RADIO_NOISE_ENTROPY_BYTE_LENGTH must be a multiple of 32 and >= 64 bytes"
 #endif
 
-#if (CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD < ENTROPY_HEALTH_RCT_THRESHOLD_MIN) ||                    \
-	(CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD % 3 != 0)
-#error "ENTROPY_CC27XX_RCT_THRESHOLD must be a multiple of 3 and at least 24"
+#if (CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_THRESHOLD < ENTROPY_HEALTH_RCT_THRESHOLD_MIN) ||       \
+	(CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_THRESHOLD % 3 != 0)
+#error "ENTROPY_TI_LPF3_RADIO_NOISE_RCT_THRESHOLD must be a multiple of 3 and at least 24"
 #endif
 
 /* Use the function provided by RCL to read noise input */
 extern int_fast16_t RCL_AdcNoise_get_samples_blocking(uint32_t *buffer, uint32_t numWords);
 
 /* Entropy buffer needs to be 32-bit aligned for the SHA2 operation. */
-static uint8_t __aligned(4) entropy[CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH];
+static uint8_t __aligned(4) entropy[CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_ENTROPY_BYTE_LENGTH];
 static uint16_t entropy_pool_level;
 
 static int_fast16_t get_rcl_noise(uint32_t *local_noise_input, uint16_t noise_len)
@@ -101,10 +104,10 @@ static void add_codes_to_apt_densities(uint16_t codes, volatile uint16_t *densit
 static inline int_fast16_t execute_rct(uint32_t last_word, uint32_t new_word,
 				       size_t *count_repeated_iac, size_t *count_repeated_qac)
 {
-	/* CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD has been already verified to be
+	/* CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_THRESHOLD has been already verified to be
 	 * a multiple of 3. Simple division here is sufficient.
 	 */
-	uint16_t entropy_rct_threshold = CONFIG_ENTROPY_CC27XX_RCT_THRESHOLD / 3;
+	uint16_t entropy_rct_threshold = CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_THRESHOLD / 3;
 
 	if (((new_word ^ last_word) & 0x0000FFFF) != 0U) {
 		*count_repeated_qac = 0U;
@@ -158,11 +161,11 @@ static inline int_fast16_t execute_apt(volatile uint16_t *densities)
 	uint8_t populations_above_bimodal_limit = 0U;
 
 	for (uint_fast8_t j = 0U; j < 16U; j++) {
-		if (densities[j] > CONFIG_ENTROPY_CC27XX_APT_THRESHOLD) {
+		if (densities[j] > CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_APT_THRESHOLD) {
 			return -EIO;
 		}
 
-		if (densities[j] > CONFIG_ENTROPY_CC27XX_APT_BIMODAL_THRESHOLD) {
+		if (densities[j] > CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_APT_BIMODAL_THRESHOLD) {
 			if (populations_above_bimodal_limit > 0U) {
 				return -EIO;
 			}
@@ -181,8 +184,8 @@ static inline int_fast16_t execute_apt(volatile uint16_t *densities)
  *
  * This function performs 2 Health Checks - Repetitive Count Test (RCT) and
  * Adaptive Proportion Test (APT). These tests are a modified version of the tests
- * described in NIST SP 800-90B. RCT is performed if CONFIG_ENTROPY_CC27XX_RCT_ENABLED
- * is true and apt is performed if CONFIG_ENTROPY_CC27XX_APT_ENABLED is true.
+ * described in NIST SP 800-90B. RCT is performed if CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_ENABLED
+ * is true and apt is performed if CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_APT_ENABLED is true.
  *
  * The noise_data should not be used if this function returns an error code.
  *
@@ -214,10 +217,10 @@ static int_fast16_t entropy_health_tests(uint32_t *noise_data)
 
 	memset((void *)densities, 0x0, 32 * sizeof(uint16_t));
 
-	for (size_t i = 0U; i < CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH; i++) {
+	for (size_t i = 0U; i < CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_NOISE_INPUT_WORD_LENGTH; i++) {
 		new_word = noise_data[i];
 
-		if (CONFIG_ENTROPY_CC27XX_RCT_ENABLED) {
+		if (CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_ENABLED) {
 			return_value = execute_rct(last_word, new_word, &count_repeated_iac,
 						   &count_repeated_qac);
 			if (return_value != 0) {
@@ -226,7 +229,7 @@ static int_fast16_t entropy_health_tests(uint32_t *noise_data)
 			last_word = new_word;
 		}
 
-		if (CONFIG_ENTROPY_CC27XX_APT_ENABLED) {
+		if (CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_APT_ENABLED) {
 			qa_codes = new_word & 0xFFFF;
 			add_codes_to_apt_densities(qa_codes, densities);
 			ia_codes = new_word >> 16;
@@ -246,7 +249,8 @@ static int_fast16_t entropy_health_tests(uint32_t *noise_data)
 	return return_value;
 }
 
-static int entropy_cc27xx_get_entropy(const struct device *dev, uint8_t *buf, uint16_t len)
+static int entropy_ti_lpf3_radio_noise_get_entropy(const struct device *dev, uint8_t *buf,
+						   uint16_t len)
 {
 	int ret_status = 0;
 
@@ -267,12 +271,12 @@ static int entropy_cc27xx_get_entropy(const struct device *dev, uint8_t *buf, ui
 	return ret_status;
 }
 
-static int entropy_cc27xx_init(const struct device *dev)
+static int entropy_ti_lpf3_radio_noise_init(const struct device *dev)
 {
 	SHA256SW_Object sha256_sw_object;
 	int_fast16_t rcl_status;
 	int_fast16_t sha256_sw_status;
-	size_t noise_length = CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH * 4;
+	size_t noise_length = CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_NOISE_INPUT_WORD_LENGTH * 4;
 
 	/* Each 32-bytes of entropy will be generated from given noise input array */
 	uint32_t *rcl_noise;
@@ -286,7 +290,7 @@ static int entropy_cc27xx_init(const struct device *dev)
 	 * a simple division and taking the floor value here suffice.
 	 */
 	uint16_t entropy_iter =
-		CONFIG_ENTROPY_CC27XX_ENTROPY_BYTE_LENGTH / SHA256_DIGEST_LENGTH_BYTES;
+		CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_ENTROPY_BYTE_LENGTH / SHA256_DIGEST_LENGTH_BYTES;
 
 	/* The following code is used to generate the entropy from the RCL noise.
 	 * The entropy is generated using SHA2 Operation.
@@ -299,10 +303,11 @@ static int entropy_cc27xx_init(const struct device *dev)
 			/* Clear noise data array and retrieve RCL noise */
 			memset(rcl_noise, 0, noise_length);
 			rcl_status = get_rcl_noise(rcl_noise,
-						   CONFIG_ENTROPY_CC27XX_NOISE_INPUT_WORD_LENGTH);
+					CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_NOISE_INPUT_WORD_LENGTH);
 
-			if ((rcl_status == 0) && (CONFIG_ENTROPY_CC27XX_RCT_ENABLED ||
-						  CONFIG_ENTROPY_CC27XX_APT_ENABLED)) {
+			if ((rcl_status == 0) &&
+				(CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_RCT_ENABLED ||
+				CONFIG_ENTROPY_TI_LPF3_RADIO_NOISE_APT_ENABLED)) {
 				/* Perform Health Checks on the noise data before generating
 				 * entropy
 				 */
@@ -334,9 +339,9 @@ static int entropy_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static DEVICE_API(entropy, entropy_cc27xx_driver_api) = {
-	.get_entropy = entropy_cc27xx_get_entropy,
+static DEVICE_API(entropy, entropy_ti_lpf3_radio_noise_driver_api) = {
+	.get_entropy = entropy_ti_lpf3_radio_noise_get_entropy,
 };
 
-DEVICE_DT_INST_DEFINE(0, entropy_cc27xx_init, NULL, NULL, NULL, POST_KERNEL,
-		      CONFIG_ENTROPY_INIT_PRIORITY, &entropy_cc27xx_driver_api);
+DEVICE_DT_INST_DEFINE(0, entropy_ti_lpf3_radio_noise_init, NULL, NULL, NULL, POST_KERNEL,
+		      CONFIG_ENTROPY_INIT_PRIORITY, &entropy_ti_lpf3_radio_noise_driver_api);

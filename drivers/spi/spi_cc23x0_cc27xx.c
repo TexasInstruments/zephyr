@@ -795,6 +795,8 @@ static int spi_cc23x0_cc27xx_dma_start(const struct device *dev, enum transfer_d
 	/* Enable DMA triggers after both channels are started. TX first, then
 	 * RX last so the RX path is active before the clock starts.
 	 */
+	unsigned int key = irq_lock();
+
 	if ((dir == TRANSFER_DIR_TX) || (dir == TRANSFER_DIR_BOTH)) {
 		SPIEnableDMA(cfg->base, SPI_DMA_TX);
 	}
@@ -802,6 +804,8 @@ static int spi_cc23x0_cc27xx_dma_start(const struct device *dev, enum transfer_d
 	if ((dir == TRANSFER_DIR_RX) || (dir == TRANSFER_DIR_BOTH)) {
 		SPIEnableDMA(cfg->base, SPI_DMA_RX);
 	}
+
+	irq_unlock(key);
 
 	return 0;
 }

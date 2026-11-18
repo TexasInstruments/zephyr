@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * I2C loopback wiring for LP-AM13E232:
+ *
+ * Wire PA23 <-> PB6 (SCL) and PA22 <-> PB7 (SDA).
+ * Internal pull-ups are enabled on all four pins.
+ */
+
+&uc2_tx_sda_pa22 {
+	input-enable;
+	drive-open-drain;
+	bias-pull-up;
+};
+
+&uc2_rx_scl_pa23 {
+	drive-open-drain;
+	bias-pull-up;
+};
+
+&uc5_tx_sda_pb7 {
+	input-enable;
+	drive-open-drain;
+	bias-pull-up;
+};
+
+&uc5_rx_scl_pb6 {
+	drive-open-drain;
+	bias-pull-up;
+};
+
+&unicomm2 {
+	status = "okay";
+};
+
+&unicomm2_i2c {
+	pinctrl-0 = <&uc2_tx_sda_pa22 &uc2_rx_scl_pa23>;
+	pinctrl-names = "default";
+	unicomm-advanced-i2c;
+	status = "okay";
+
+	eeprom1: eeprom@56 {
+		compatible = "zephyr,i2c-target-eeprom";
+		reg = <0x56>;
+		address-width = <8>;
+		size = <256>;
+	};
+};
+
+&unicomm5 {
+	status = "okay";
+};
+
+&unicomm5_i2c {
+	pinctrl-0 = <&uc5_tx_sda_pb7 &uc5_rx_scl_pb6>;
+	pinctrl-names = "default";
+	unicomm-advanced-i2c;
+	status = "okay";
+
+	eeprom0: eeprom@54 {
+		compatible = "zephyr,i2c-target-eeprom";
+		reg = <0x54>;
+		address-width = <8>;
+		size = <256>;
+	};
+};

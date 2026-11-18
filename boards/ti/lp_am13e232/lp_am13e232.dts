@@ -25,6 +25,22 @@
 	};
 };
 
+&gpioa {
+	status = "okay";
+};
+
+&gpiob {
+	status = "okay";
+};
+
+&gpioc {
+	status = "okay";
+};
+
+&gpiod {
+	status = "okay";
+};
+
 &cpu0 {
 	clock-frequency = <DT_FREQ_M(200)>;
 };

@@ -57,12 +57,14 @@ tests:
       - CONFIG_COUNTER=y
       - CONFIG_SYSTEM_TIMER_LPM_COMPANION_COUNTER=y
       - CONFIG_PM_PREWAKEUP_CONV_MODE_CEIL=y
-  drivers.uart.interrupt_api.lp_am13e230:
+  drivers.uart.interrupt_api.lp_am13:
     tags:
       - uart
     filter: CONFIG_SERIAL_SUPPORT_INTERRUPT
     harness: ztest
     platform_allow:
       - lp_am13e230
+      - lp_am13e232
     integration_platforms:
       - lp_am13e230
+      - lp_am13e232

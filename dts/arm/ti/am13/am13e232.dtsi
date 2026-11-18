@@ -122,6 +122,11 @@
 			};
 		};
 
+		crc: crc@401b2000 {
+			compatible = "ti,mspm0-crcp";
+			reg = <0x401b2000 0x2000>;
+		};
+
 		unicomm0: unicomm0@40630000 {
 			reg = <0x40630000 DT_SIZE_K(8)>;
 			compatible = "ti,unicomm";

@@ -8,6 +8,7 @@ ram: 96
 flash: 512
 supported:
   - counter
+  - crc
   - gpio
   - i2c
   - pinctrl

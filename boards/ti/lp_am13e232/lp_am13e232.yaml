@@ -7,5 +7,10 @@ toolchain:
 ram: 96
 flash: 512
 supported:
+  - counter
+  - gpio
+  - i2c
+  - pinctrl
+  - spi
   - uart
 vendor: ti

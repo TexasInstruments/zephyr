@@ -1,0 +1,573 @@
+name: Zephyr board CI
+
+# A pull request  -> Jenkins runs the Robot system tests on the boards, and the
+#                    result comes back as a check and a comment on the PR.
+# Monday 06:00 IST -> fast-forward the stable branch to the newest commit that
+#                    passed on every required board, and tag it.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+  schedule:
+    - cron: '30 0 * * 1'        # 00:30 UTC Monday = 06:00 IST Monday
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Promotion: report what would be pushed, push nothing'
+        type: boolean
+        default: true
+
+env:
+  # The Jenkins pipeline job that drives the boards, as a path from the root.
+  # Pointed at the sandbox pipeline until the GitHub-to-Jenkins link has been
+  # exercised on a real pull request, so the first live run cannot disturb the
+  # boards. Changing this to 'zephyr_test_auto_pipeline' is the switch to real
+  # hardware and will be a separate pull request.
+  JENKINS_JOB: 'TEST_DOCKER/TEST_Pipeline'
+
+  # Weekly promotion. While 'false' the job still runs and reports what it
+  # would push, but pushes nothing. Turn on only once every board in
+  # REQUIRED_NIGHTLY_BOARDS reports a real pass rate and exits on it.
+  PROMOTION_ENABLED: 'false'
+
+  # Tag each successful promotion as <main branch>-<UTC date>.
+  TAG_PROMOTIONS: 'true'
+
+  # Wait for this pull request's other checks before spending board time, and
+  # skip the board tests if any of them failed. Keep 'false' until the other
+  # workflows pass reliably: while any of them always fails, this would stop
+  # the boards from ever running.
+  BLOCK_ON_FAILED_CHECKS: 'false'
+  CHECK_WAIT_MINUTES: '45'
+
+  NEXT_BRANCH: 'v4.4.0-ti-next'
+  MAIN_BRANCH: 'v4.4.0-ti'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zephyr-board-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request_target' }}
+
+jobs:
+
+  pr-board-test:
+    name: Board tests on hardware (Jenkins)
+    if: github.event_name == 'pull_request_target'
+    runs-on: [self-hosted, Linux, X64]          # the self-hosted runner that can reach Jenkins
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      SECRET_URL: ${{ secrets.JENKINS_URL }}
+      JENKINS_USER: ${{ secrets.JENKINS_USER }}
+      JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+      PR_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      SELF_NAME: 'Board tests on hardware (Jenkins)'
+    steps:
+      - name: Ask Jenkins to test this pull request, and wait for it
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+
+          # Always leave an outcome behind, even on an unexpected failure, so
+          # the comment step below has something to say.
+          RESULT="ERROR"
+          DETAIL="The workflow step did not complete."
+          BUILD_URL=""
+          finish() {
+            printf '%s' "$RESULT"    > "$RUNNER_TEMP/ci-result"
+            printf '%s' "$DETAIL"    > "$RUNNER_TEMP/ci-detail"
+            printf '%s' "$BUILD_URL" > "$RUNNER_TEMP/ci-build-url"
+          }
+          trap finish EXIT
+
+          if   [[ -n "${SECRET_URL:-}"  ]]; then SRC="the repository secret";  URL="$SECRET_URL"
+          elif [[ -n "${JENKINS_URL:-}" ]]; then SRC="the runner's .env file"; URL="$JENKINS_URL"
+          else
+            DETAIL="No Jenkins address is configured. Set the JENKINS_URL secret."
+            echo "ERROR: $DETAIL"; exit 1
+          fi
+          echo "::add-mask::$URL"
+          URL="${URL%/}"
+          echo "Jenkins address taken from $SRC"
+
+          H="${URL#*://}"; H="${H%%/*}"; H="${H%%:*}"
+
+          # Jenkins is internal and the site proxy intercepts its TLS with an
+          # untrusted certificate, so these calls bypass the proxy. Only this
+          # host is excluded; calls to github.com still go through it.
+          JOPTS="--noproxy $H"
+
+          # Credentials go in a file, not on the command line: curl arguments
+          # are visible in the process list of this shared host.
+          if [[ -n "${JENKINS_USER:-}" && -n "${JENKINS_TOKEN:-}" ]]; then
+            NETRC=$(mktemp); chmod 600 "$NETRC"
+            printf 'machine %s login %s password %s\n' "$H" "$JENKINS_USER" "$JENKINS_TOKEN" > "$NETRC"
+            JOPTS="$JOPTS --netrc-file $NETRC"
+            trap 'rm -f "$NETRC"; finish' EXIT
+            echo "Calling Jenkins as $JENKINS_USER, bypassing the proxy for $H"
+          else
+            echo "No Jenkins credentials set; calling Jenkins anonymously"
+          fi
+
+          # Other checks first, if asked. Board time is scarce, and a pull
+          # request that fails compliance or does not build will fail on
+          # hardware too.
+          if [[ "${BLOCK_ON_FAILED_CHECKS:-false}" == "true" ]]; then
+            CR="https://api.github.com/repos/${REPO}/commits/${PR_SHA}/check-runs?per_page=100"
+            DEADLINE=$(( $(date +%s) + CHECK_WAIT_MINUTES * 60 ))
+            while :; do
+              J=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+                       -H "Accept: application/vnd.github+json" "$CR" || echo '{}')
+              # Everything except this job's own check run.
+              OTHERS=$(echo "$J" | jq -c --arg me "$SELF_NAME" \
+                '[.check_runs[]? | select(.name != $me)]')
+              PENDING=$(echo "$OTHERS" | jq '[.[] | select(.status != "completed")] | length')
+              FAILED=$(echo "$OTHERS" | jq -r \
+                '[.[] | select(.conclusion == "failure" or .conclusion == "timed_out"
+                               or .conclusion == "cancelled" or .conclusion == "action_required")
+                  | .name] | join(", ")')
+
+              if [[ -n "$FAILED" ]]; then
+                RESULT="SKIPPED"
+                DETAIL="Board tests were not run because other checks on this commit failed: ${FAILED}. Fix those first; the boards will run on the next push."
+                echo "$DETAIL"
+                echo "### Board tests skipped" >> "$GITHUB_STEP_SUMMARY"
+                echo "$DETAIL" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+
+              [[ "$PENDING" == "0" ]] && { echo "All other checks passed; starting board tests"; break; }
+
+              if (( $(date +%s) > DEADLINE )); then
+                echo "Still waiting on $PENDING check(s) after ${CHECK_WAIT_MINUTES} minutes; starting board tests anyway"
+                break
+              fi
+              echo "Waiting for $PENDING other check(s) on this commit..."
+              sleep 60
+            done
+          fi
+
+          [[ "$PR_SHA"    =~ ^[0-9a-f]{40}$ ]] || { DETAIL="Invalid head commit.";  echo "$DETAIL"; exit 1; }
+          [[ "$PR_NUMBER" =~ ^[0-9]+$       ]] || { DETAIL="Invalid PR number.";    echo "$DETAIL"; exit 1; }
+
+          JOB_PATH="job/${JENKINS_JOB//\//\/job\/}"
+          JOB_SHORT="${JENKINS_JOB##*/}"
+          KEY="pr PR#${PR_NUMBER}@${PR_SHA:0:12}"
+
+          # Accept only builds from this point on. An older build of the same
+          # commit may exist - refused, aborted, or from before a pipeline
+          # change - and must not be reported as the answer to this one.
+          FROM=$(curl -sf $JOPTS "${URL}/${JOB_PATH}/api/json?tree=nextBuildNumber" | jq -r '.nextBuildNumber // 0')
+          echo "Accepting Jenkins build $FROM or newer"
+
+          # Sets RUNNING_BUILD to the number of an existing build for this exact
+          # commit, if there is one. The caller lowers the baseline to include
+          # it: a build started by an earlier attempt has a number below FROM,
+          # and polling would otherwise ignore it and time out.
+          RUNNING_BUILD=""
+          already_running() {
+            local q b
+            q=$(curl -sf $JOPTS "${URL}/queue/api/json?tree=items%5Btask%5Bname%5D,params%5D" \
+              | jq -r --arg j "$JOB_SHORT" '[.items[]? | select(.task.name == $j) | .params // ""] | join(" ")' 2>/dev/null || true)
+            [[ "$q" == *"PR_HEAD=$PR_SHA"* ]] && { echo "Jenkins already has this queued"; return 0; }
+            b=$(curl -sf $JOPTS "${URL}/${JOB_PATH}/api/json?tree=builds%5Bnumber,building,description%5D%7B0,30%7D" \
+              | jq -r --arg k "$KEY" '[.builds[]? | select(.building == true and ((.description // "") | startswith($k))) | .number] | min // empty' 2>/dev/null || true)
+            if [[ -n "${b:-}" ]]; then
+              RUNNING_BUILD="$b"
+              echo "Jenkins is already building this as #$b"
+              return 0
+            fi
+            return 1
+          }
+
+          # The CSRF crumb is tied to the session that asked for it, so the
+          # crumb request and the build request share one cookie jar.
+          start_jenkins() {
+            local json crumb field code jar
+            already_running && return 0
+            jar=$(mktemp)
+            json=$(curl -sf $JOPTS -c "$jar" "${URL}/crumbIssuer/api/json" || true)
+            field=$(echo "$json" | jq -r '.crumbRequestField // empty' 2>/dev/null || true)
+            crumb=$(echo "$json" | jq -r '.crumb // empty'            2>/dev/null || true)
+            code=$(curl -s $JOPTS -o /dev/null -w '%{http_code}' -X POST -b "$jar" -c "$jar" \
+              ${field:+-H "$field: $crumb"} \
+              "${URL}/${JOB_PATH}/buildWithParameters?PR_NUMBER=${PR_NUMBER}&PR_HEAD=${PR_SHA}")
+            rm -f "$jar"
+            [[ "$code" == "201" || "$code" == "200" || "$code" == "302" ]] \
+              && { echo "Jenkins build requested: HTTP $code"; return 0; }
+            DETAIL="Jenkins refused the build request (HTTP $code). Check the Jenkins credentials and that the account has Job/Build on \`${JENKINS_JOB}\`."
+            echo "ERROR: $DETAIL"
+            return 1
+          }
+
+          start_jenkins || exit 1
+          if [[ -n "${RUNNING_BUILD:-}" ]] && (( RUNNING_BUILD < FROM )); then
+            echo "Lowering the accepted build floor to #$RUNNING_BUILD, the build already running"
+            FROM="$RUNNING_BUILD"
+          fi
+          echo "PR #$PR_NUMBER, head commit ${PR_SHA:0:12}"
+          sleep 20
+
+          api="${URL}/${JOB_PATH}/api/json?tree=builds%5Bnumber,result,building,url,description%5D%7B0,60%7D"
+          for _ in $(seq 1 660); do
+            build=$(curl -sf $JOPTS "$api" | jq -c --arg k "$KEY" --argjson n "${FROM:-0}" \
+              '[.builds[] | select(.number >= $n and ((.description // "") | startswith($k)))] | first // empty') || build=""
+            if [[ -n "$build" ]]; then
+              burl=$(echo "$build" | jq -r .url)
+              BUILD_URL="$burl"
+              if [[ "$(echo "$build" | jq -r .building)" == "false" ]]; then
+                RESULT=$(echo "$build" | jq -r .result)
+                line=$(curl -sf $JOPTS "${burl}consoleText" | grep -o 'BOARD_RESULT: .*' || true)
+                DETAIL="${line:-No board result lines were produced.}"
+                echo "Jenkins result: $RESULT"
+
+                # A build that finished SUCCESS without reporting any board is
+                # not a pass. It means the pipeline completed without running
+                # the tests, and reporting that as green would be worse than
+                # reporting nothing.
+                if [[ "$RESULT" == "SUCCESS" && -z "$line" ]]; then
+                  RESULT="NO_RESULTS"
+                  DETAIL="Jenkins reported SUCCESS but produced no BOARD_RESULT lines, so no board was actually tested."
+                  echo "ERROR: $DETAIL"
+                fi
+                [[ "$RESULT" == "NOT_BUILT" ]] && \
+                  DETAIL="Jenkins did not run the boards for this pull request. The author is not an owner, member or collaborator on this repository."
+                echo "$DETAIL"
+                { echo "### Board tests: $RESULT"
+                  echo '```'
+                  echo "$DETAIL" | sed 's# job=[^ ]* build=[0-9]*##'
+                  echo '```'
+                } >> "$GITHUB_STEP_SUMMARY"
+                [[ "$RESULT" == "SUCCESS" ]]
+                exit
+              fi
+              echo "Jenkins build running: $burl"
+            else
+              echo "Waiting for Jenkins to start a build for $KEY..."
+            fi
+            sleep 30
+          done
+          RESULT="TIMEOUT"
+          DETAIL="No finished Jenkins build for \`$KEY\` within 330 minutes."
+          echo "ERROR: $DETAIL"
+          exit 1
+
+      - name: Comment the result on the pull request
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          MARKER='<!-- zephyr-board-ci -->'
+          API="https://api.github.com/repos/${REPO}"
+
+          RESULT=$(cat "$RUNNER_TEMP/ci-result"    2>/dev/null || echo "ERROR")
+          DETAIL=$(cat "$RUNNER_TEMP/ci-detail"    2>/dev/null || echo "The workflow did not record an outcome.")
+          BURL=$(cat   "$RUNNER_TEMP/ci-build-url" 2>/dev/null || true)
+
+          case "$RESULT" in
+            SUCCESS)   ICON=":white_check_mark:"; HEAD="Board tests passed" ;;
+            NOT_BUILT) ICON=":no_entry_sign:";    HEAD="Board tests were not run" ;;
+            TIMEOUT)   ICON=":hourglass:";        HEAD="Board tests timed out" ;;
+            NO_RESULTS) ICON=":warning:";         HEAD="Board tests reported nothing" ;;
+            SKIPPED)   ICON=":fast_forward:";     HEAD="Board tests skipped" ;;
+            FAILURE)   ICON=":x:";                HEAD="Board tests failed" ;;
+            *)         ICON=":warning:";          HEAD="Board test pipeline error" ;;
+          esac
+
+          # The board result lines are one per board; show them as a list.
+          if echo "$DETAIL" | grep -q '^BOARD_RESULT:'; then
+            # The line is: BOARD_RESULT: <board> <result> job=.. build=.. | RESULT: <detail>
+            # Read the fields by position and take the detail as everything
+            # after the marker, rather than chaining substitutions whose
+            # output depends on each other.
+            TABLE=$(echo "$DETAIL" | awk '
+              /^BOARD_RESULT:/ {
+                board = $2; res = $3;
+                i = index($0, "| RESULT: ");
+                detail = (i > 0) ? substr($0, i + 10) : "";
+                gsub(/^[ \t]+|[ \t]+$/, "", detail);
+                if (detail == "") detail = "-";
+                printf "| %s | %s | %s |\n", board, res, detail;
+              }')
+            CONTENT=$(printf '| Board | Result | Detail |\n| --- | --- | --- |\n%s' "$TABLE")
+          else
+            CONTENT="$DETAIL"
+          fi
+
+          if [[ -n "$BURL" ]]; then
+            LINKS=$(printf '[Jenkins build](%sconsole) &middot; [Workflow run](%s)' "$BURL" "$RUN_URL")
+          else
+            LINKS=$(printf '[Workflow run](%s)' "$RUN_URL")
+          fi
+
+          BODY=$(printf '%s\n## %s %s\n\nCommit `%s`\n\n%s\n\n%s\n' \
+                   "$MARKER" "$ICON" "$HEAD" "${PR_SHA:0:12}" "$CONTENT" "$LINKS")
+
+          # One comment per pull request, updated in place. A new comment on
+          # every push would bury the conversation.
+          # Only ever update a comment this workflow wrote. Without the author
+          # check, a pull request author could post a comment carrying the
+          # marker and have later runs overwrite theirs - or fail to post at
+          # all when the update is refused.
+          ID=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+                 "${API}/issues/${PR_NUMBER}/comments?per_page=100" \
+               | jq -r --arg m "$MARKER" \
+                   '[.[] | select(.user.type == "Bot" and (.body | startswith($m)))] | last | .id // empty')
+
+          post_new() {
+            curl -sf -o /dev/null -X POST -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "${API}/issues/${PR_NUMBER}/comments" \
+              -d "$(jq -n --arg b "$BODY" '{body:$b}')" \
+              && echo "Posted a comment" || echo "Could not post the comment"
+          }
+
+          if [[ -n "$ID" ]]; then
+            if curl -sf -o /dev/null -X PATCH -H "Authorization: Bearer $GH_TOKEN" \
+                 -H "Accept: application/vnd.github+json" \
+                 "${API}/issues/comments/${ID}" \
+                 -d "$(jq -n --arg b "$BODY" '{body:$b}')"; then
+              echo "Updated comment ${ID}"
+            else
+              # Never swallow the result: if the edit is refused, say it anew.
+              echo "Could not update comment ${ID}; posting a new one"
+              post_new
+            fi
+          else
+            post_new
+          fi
+
+  promotion:
+    name: Weekly promotion to main
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, Linux, X64]          # the self-hosted runner that can reach Jenkins
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      SECRET_URL: ${{ secrets.JENKINS_URL }}
+      JENKINS_USER: ${{ secrets.JENKINS_USER }}
+      JENKINS_TOKEN: ${{ secrets.JENKINS_TOKEN }}
+      REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      MAX_AGE_DAYS: '14'
+    steps:
+      - name: Find the newest all-green nightly and fast-forward main
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if   [[ -n "${SECRET_URL:-}"  ]]; then URL="$SECRET_URL"
+          elif [[ -n "${JENKINS_URL:-}" ]]; then URL="$JENKINS_URL"
+          else echo "ERROR: no Jenkins address"; exit 1
+          fi
+          echo "::add-mask::$URL"
+          URL="${URL%/}"
+
+          H="${URL#*://}"; H="${H%%/*}"; H="${H%%:*}"
+          JOPTS="--noproxy $H"
+          if [[ -n "${JENKINS_USER:-}" && -n "${JENKINS_TOKEN:-}" ]]; then
+            NETRC=$(mktemp); chmod 600 "$NETRC"
+            trap 'rm -f "$NETRC"' EXIT
+            printf 'machine %s login %s password %s\n' "$H" "$JENKINS_USER" "$JENKINS_TOKEN" > "$NETRC"
+            JOPTS="$JOPTS --netrc-file $NETRC"
+            echo "Calling Jenkins as $JENKINS_USER"
+          fi
+
+          API="https://api.github.com/repos/${REPO}"
+          gh_get() { curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+                            -H "Accept: application/vnd.github+json" "$1"; }
+
+          # Where main is now. The walk backwards stops here.
+          MAIN_SHA=$(gh_get "${API}/git/ref/heads/${MAIN_BRANCH}" | jq -r '.object.sha')
+          [[ "$MAIN_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "ERROR: cannot read ${MAIN_BRANCH}"; exit 1; }
+          echo "${MAIN_BRANCH} is at ${MAIN_SHA:0:12}"
+          echo
+
+          JOB_PATH="job/${JENKINS_JOB//\//\/job\/}"
+          # Pull request builds use this same job, so a busy week can fill the
+          # recent history entirely with them. The window has to be wide enough
+          # that a nightly from MAX_AGE_DAYS ago is still inside it.
+          BUILDS=$(curl -sf $JOPTS "${URL}/${JOB_PATH}/api/json?tree=builds%5Bnumber,result,building,url,description,timestamp%5D%7B0,600%7D" \
+                   | jq -c '[.builds[]? | select(.building == false) | select((.description // "") | startswith("nightly "))]')
+          COUNT=$(echo "$BUILDS" | jq 'length')
+          echo "Jenkins has $COUNT finished nightly builds to look through"
+          if [[ "$COUNT" == "0" ]]; then
+            echo "No nightly builds at all. Is the nightly timer set on ${JENKINS_JOB}?"
+          fi
+          echo
+
+          NOW_MS=$(( $(date +%s) * 1000 ))
+          MAX_MS=$(( MAX_AGE_DAYS * 86400 * 1000 ))
+          PICK=""; PICK_BUILD=""; STOP=""
+
+          for i in $(seq 0 $((COUNT - 1))); do
+            B=$(echo "$BUILDS" | jq -c ".[$i]")
+            N=$(echo "$B" | jq -r '.number')
+            R=$(echo "$B" | jq -r '.result')
+            T=$(echo "$B" | jq -r '.timestamp')
+            C=$(echo "$B" | jq -r '.description' | awk '{print $NF}')
+            AGE=$(( (NOW_MS - T) / 86400000 ))
+
+            if [[ ! "$C" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "  build #$N  - description has no commit, skipping"; continue
+            fi
+
+            # Reached what main already has: everything older is in main too.
+            if [[ "$C" == "$MAIN_SHA" ]]; then
+              STOP="main already has build #$N (${C:0:12}); nothing newer has passed on every board"
+              break
+            fi
+
+            if [[ "$R" != "SUCCESS" ]]; then
+              echo "  build #$N  ${C:0:12}  ${AGE}d ago  $R  - a board failed, walking back"
+              continue
+            fi
+
+            if (( (NOW_MS - T) > MAX_MS )); then
+              STOP="the newest all-green nightly is build #$N, ${AGE} days old (limit ${MAX_AGE_DAYS})"
+              break
+            fi
+
+            # A top-level SUCCESS is the pipeline's verdict, and the pipeline
+            # is configured separately in Jenkins. Confirm it here too, from
+            # the build's own console, so a pipeline change cannot quietly
+            # widen what the promotion accepts.
+            BURL=$(echo "$B" | jq -r '.url')
+            LINES=$(curl -sf $JOPTS "${BURL}consoleText" | grep -o 'BOARD_RESULT: .*' || true)
+            if [[ -z "$LINES" ]]; then
+              echo "  build #$N  ${C:0:12}  ${AGE}d ago  SUCCESS but reported no boards - skipping"
+              continue
+            fi
+            BAD=$(echo "$LINES" | awk '$3 != "SUCCESS" {print $2" ("$3")"}' | paste -sd', ' -)
+            if [[ -n "$BAD" ]]; then
+              echo "  build #$N  ${C:0:12}  ${AGE}d ago  SUCCESS but not every board passed: $BAD - skipping"
+              continue
+            fi
+            NBOARDS=$(echo "$LINES" | wc -l | tr -d ' ')
+            echo "  build #$N  ${C:0:12}  ${AGE}d ago  SUCCESS  - all $NBOARDS boards green"
+            PICK="$C"; PICK_BUILD="$N"
+            break
+          done
+
+          echo
+          if [[ -z "$PICK" ]]; then
+            MSG="${STOP:-no all-green nightly build was found}"
+            echo "NOT PROMOTING: $MSG"
+            { echo "### Weekly promotion: nothing promoted"; echo; echo "$MSG"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # The commit must still be on next.
+          S=$(gh_get "${API}/compare/${PICK}...${NEXT_BRANCH}" | jq -r '.status')
+          if [[ "$S" != "ahead" && "$S" != "identical" ]]; then
+            echo "REFUSING: ${PICK:0:12} is no longer on ${NEXT_BRANCH} ('$S'); the branch was probably rebased."
+            { echo "### Weekly promotion refused"; echo
+              echo "Tested commit \`${PICK:0:12}\` is not on \`${NEXT_BRANCH}\` any more (\`$S\`)."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          # main must need it, and may only move forwards.
+          S=$(gh_get "${API}/compare/${MAIN_BRANCH}...${PICK}" | jq -r '.status')
+          case "$S" in
+            ahead) : ;;
+            identical|behind)
+              echo "main is already at or past ${PICK:0:12}; nothing to do"
+              { echo "### Weekly promotion: main already up to date"; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0 ;;
+            *)
+              echo "REFUSING: ${MAIN_BRANCH} has diverged from ${PICK:0:12} ('$S')."
+              { echo "### Weekly promotion refused"; echo
+                echo "\`${MAIN_BRANCH}\` has diverged (\`$S\`); a fast-forward is not possible."; } >> "$GITHUB_STEP_SUMMARY"
+              exit 1 ;;
+          esac
+
+          AHEAD=$(gh_get "${API}/compare/${MAIN_BRANCH}...${PICK}" | jq -r '.ahead_by')
+          echo "Promoting build #${PICK_BUILD}: ${MAIN_BRANCH} -> ${PICK:0:12} (${AHEAD} commits)"
+
+          if [[ "${PROMOTION_ENABLED:-false}" != "true" || "${DRY_RUN:-false}" == "true" ]]; then
+            if [[ "${PROMOTION_ENABLED:-false}" != "true" ]]; then
+              echo "PROMOTION_ENABLED is not 'true': reporting only, nothing pushed."
+            else
+              echo "DRY RUN: nothing was pushed."
+            fi
+            { echo "### Weekly promotion (reporting only)"; echo
+              echo "Would fast-forward \`${MAIN_BRANCH}\` to \`${PICK:0:12}\`, ${AHEAD} commits, from Jenkins build #${PICK_BUILD}."
+              [[ "${TAG_PROMOTIONS:-true}" == "true" ]] && echo "Would tag it \`${MAIN_BRANCH}-$(date -u +%Y%m%d)\`."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # force:false makes GitHub refuse anything that is not a
+          # fast-forward, so history can never be rewritten here.
+          CODE=$(curl -s -o /tmp/push.json -w '%{http_code}' -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "${API}/git/refs/heads/${MAIN_BRANCH}" \
+            -d "{\"sha\":\"${PICK}\",\"force\":false}")
+
+          if [[ "$CODE" != "200" ]]; then
+            echo "PUSH REFUSED (HTTP $CODE):"; cat /tmp/push.json
+            { echo "### Weekly promotion failed"; echo
+              echo "GitHub refused the push (HTTP $CODE). A branch protection rule on \`${MAIN_BRANCH}\` usually causes this."; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "Promoted: ${MAIN_BRANCH} is now at ${PICK:0:12}"
+          { echo "### Weekly promotion done"; echo
+            echo "\`${MAIN_BRANCH}\` fast-forwarded to \`${PICK:0:12}\` (${AHEAD} commits)."
+            echo "Evidence: Jenkins nightly build #${PICK_BUILD}, every required board green."; } >> "$GITHUB_STEP_SUMMARY"
+
+          # An annotated tag, so the tag itself records which build vouched for
+          # the commit. Two calls: create the tag object, then the ref.
+          if [[ "${TAG_PROMOTIONS:-true}" == "true" ]]; then
+            TAG="${MAIN_BRANCH}-$(date -u +%Y%m%d)"
+            MSG=$(printf 'Weekly promotion %s\n\nPromoted %s -> %s, %s commits.\nEvery required board passed on this commit in Jenkins nightly build #%s.\nCommit: %s\n' \
+                    "$(date -u +%Y-%m-%d)" "$NEXT_BRANCH" "$MAIN_BRANCH" "$AHEAD" "$PICK_BUILD" "$PICK")
+
+            # Never move an existing tag: someone may already reference it.
+            BASE_TAG="$TAG"; N=1
+            while curl -sf -o /dev/null -H "Authorization: Bearer $GH_TOKEN" \
+                    "${API}/git/ref/tags/${TAG}"; do
+              N=$((N+1)); TAG="${BASE_TAG}-${N}"
+              [[ $N -gt 20 ]] && { echo "Too many tags for today; not tagging."; TAG=""; break; }
+            done
+
+            if [[ -n "$TAG" ]]; then
+              OBJ=$(curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" \
+                      -H "Accept: application/vnd.github+json" "${API}/git/tags" \
+                      -d "$(jq -n --arg t "$TAG" --arg m "$MSG" --arg o "$PICK" \
+                            '{tag:$t, message:$m, object:$o, type:"commit"}')" \
+                    | jq -r '.sha // empty')
+              if [[ -n "$OBJ" ]]; then
+                TCODE=$(curl -s -o /tmp/tag.json -w '%{http_code}' -X POST \
+                  -H "Authorization: Bearer $GH_TOKEN" \
+                  -H "Accept: application/vnd.github+json" "${API}/git/refs" \
+                  -d "$(jq -n --arg r "refs/tags/$TAG" --arg s "$OBJ" '{ref:$r, sha:$s}')")
+                if [[ "$TCODE" == "201" ]]; then
+                  echo "Tagged ${TAG}"
+                  echo "Tagged as \`${TAG}\`." >> "$GITHUB_STEP_SUMMARY"
+                else
+                  echo "WARNING: could not create the tag ref (HTTP $TCODE):"; cat /tmp/tag.json
+                  echo "Promotion succeeded but tagging failed (HTTP $TCODE)." >> "$GITHUB_STEP_SUMMARY"
+                fi
+              else
+                echo "WARNING: could not create the tag object; the promotion stands."
+              fi
+            fi
+          fi

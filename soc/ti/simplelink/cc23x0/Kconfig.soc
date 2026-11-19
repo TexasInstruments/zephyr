@@ -21,6 +21,22 @@ config SOC_CC2340R53
 	help
 	  CC2340R53
 
+# SOC packages
+config SOC_PACKAGE_CC23X0_RKP
+	bool
+	help
+	  CC23X0 in the VQFN (RKP) package
+
+config SOC_PACKAGE_CC23X0_YBG
+	bool
+	help
+	  CC23X0 in the WCSP (YBG) package
+
+config SOC_PACKAGE_CC23X0_MODA
+	bool
+	help
+	  CC23X0 in the MODA module package
+
 config SOC_SERIES
 	default "cc23x0" if SOC_SERIES_CC23X0
 

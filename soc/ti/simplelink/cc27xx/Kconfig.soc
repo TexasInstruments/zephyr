@@ -19,10 +19,22 @@ config SOC_SERIES_CC27XX
 	help
 	  Enable support for TI SimpleLink CC27XX series SOCs.
 
+# SOC packages
+config SOC_PACKAGE_CC27XX_RHA
+	bool
+	help
+	  CC27XX in the VQFN (RHA) package
+
+config SOC_PACKAGE_CC27XX_YCJ
+	bool
+	help
+	  CC27XX in the YCJ package
+
 config SOC_CC2755R7
 	bool
 	select SOC_SERIES_CC27XX
 	select HAS_CC27XXX10_SDK
+	select SOC_PACKAGE_CC27XX_YCJ
 	help
 	  CC2755R7
 
@@ -30,6 +42,7 @@ config SOC_CC2745R10_Q1
 	bool
 	select SOC_SERIES_CC27XX
 	select HAS_CC27XXX10_SDK
+	select SOC_PACKAGE_CC27XX_RHA
 	help
 	  CC2745R10_Q1
 
@@ -44,6 +57,7 @@ config SOC_CC2755P10
 	bool
 	select SOC_SERIES_CC27XX
 	select HAS_CC27XXX10_SDK
+	select SOC_PACKAGE_CC27XX_RHA
 	help
 	  CC2755P10
 

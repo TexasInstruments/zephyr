@@ -37,8 +37,15 @@
 /* clang-format on */
 
 /* The range of pins available on this device */
+#if defined(CONFIG_SOC_PACKAGE_CC23X0_RKP)
 const uint_least8_t GPIO_pinLowerBound;
 const uint_least8_t GPIO_pinUpperBound = 25;
+#elif defined(CONFIG_SOC_PACKAGE_CC23X0_YBG) || defined(CONFIG_SOC_PACKAGE_CC23X0_MODA)
+const uint_least8_t GPIO_pinLowerBound = 3;
+const uint_least8_t GPIO_pinUpperBound = 24;
+#else
+#error "Unsupported CC23X0 SoC package"
+#endif
 
 #ifdef CONFIG_PM
 

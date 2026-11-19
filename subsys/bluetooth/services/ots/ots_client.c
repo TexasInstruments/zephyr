@@ -103,6 +103,21 @@ struct bt_otc_internal_instance_t {
 	struct bt_ots_client *otc_inst;
 	struct bt_gatt_ots_l2cap l2cap_ctx;
 	bool busy;
+	/** An OACP Write is in progress and the L2CAP send has not been scheduled yet */
+	bool l2cap_send_pending;
+	/** ATT Write Response for the OACP Write request received successfully */
+	bool write_rsp_ok;
+	/** OACP Write indication with Success result code received */
+	bool write_ind_ok;
+	/** Work item for deferred L2CAP send after OACP Write indication.
+	 *  This ensures the ATT Confirmation for the indication is sent
+	 *  over the air before L2CAP data transfer begins.
+	 */
+	struct k_work l2cap_send_work;
+	/** Connection reference for the deferred L2CAP send work.
+	 *  Single owner: whoever takes it with l2cap_send_conn_take() must unref it.
+	 */
+	struct bt_conn *l2cap_send_conn;
 	/** Bitfield that is used to determine how much metadata to read */
 	uint8_t metadata_to_read;
 	/** Bitfield of how much metadata has been attempted to read */
@@ -133,6 +148,118 @@ static void read_next_metadata(struct bt_conn *conn,
 static int read_attr(struct bt_conn *conn,
 		     struct bt_otc_internal_instance_t *inst,
 		     uint16_t handle, bt_gatt_read_func_t cb);
+
+static struct k_spinlock l2cap_send_lock;
+
+/* Take ownership of the connection reference held for the deferred send.
+ * Returns NULL if it was already taken (e.g. by chan_closed()).
+ */
+static struct bt_conn *l2cap_send_conn_take(struct bt_otc_internal_instance_t *inst)
+{
+	struct bt_conn *conn;
+	k_spinlock_key_t key = k_spin_lock(&l2cap_send_lock);
+
+	conn = inst->l2cap_send_conn;
+	inst->l2cap_send_conn = NULL;
+	k_spin_unlock(&l2cap_send_lock, key);
+
+	return conn;
+}
+
+/* Abort the OACP Write: drop the pending state, close the L2CAP channel and
+ * release the instance. The channel context becomes free again once the
+ * disconnect completes.
+ */
+static void oacp_write_abort(struct bt_otc_internal_instance_t *inst)
+{
+	int err;
+
+	inst->l2cap_send_pending = false;
+	inst->write_rsp_ok = false;
+	inst->write_ind_ok = false;
+
+	err = bt_gatt_ots_l2cap_disconnect(&inst->l2cap_ctx);
+	if (err < 0) {
+		LOG_WRN("Disconnecting L2CAP returned error %d", err);
+	}
+
+	inst->busy = false;
+	if (cur_inst == inst) {
+		cur_inst = NULL;
+	}
+}
+
+/* Schedule the deferred L2CAP send once both the ATT Write Response and a
+ * successful OACP Write indication have been received, in either order.
+ */
+static void oacp_write_try_schedule(struct bt_otc_internal_instance_t *inst, struct bt_conn *conn)
+{
+	struct bt_conn *old;
+	k_spinlock_key_t key;
+
+	if (!inst->l2cap_send_pending || !inst->write_rsp_ok || !inst->write_ind_ok) {
+		return;
+	}
+
+	inst->l2cap_send_pending = false;
+
+	LOG_DBG("OACP Write response and indication received, scheduling deferred L2CAP send");
+
+	key = k_spin_lock(&l2cap_send_lock);
+	old = inst->l2cap_send_conn;
+	/* Hold a connection reference for the work handler */
+	inst->l2cap_send_conn = bt_conn_ref(conn);
+	k_spin_unlock(&l2cap_send_lock, key);
+
+	if (old) {
+		bt_conn_unref(old);
+	}
+
+	k_work_submit(&inst->l2cap_send_work);
+}
+
+/* Work handler for deferred L2CAP send after OACP Write indication.
+ *
+ * It runs from the system workqueue. The ATT Confirmation for the OACP
+ * indication is created right after the indication callback returns, so when
+ * the Bluetooth RX path and this work share the same (system) workqueue, the
+ * Confirmation is already queued for transmission before this handler runs.
+ * This is not guaranteed if the host RX is moved to another context
+ * (CONFIG_BT_RECV_WORKQ_BT) or to a higher priority.
+ */
+static void l2cap_send_work_handler(struct k_work *work)
+{
+	struct bt_otc_internal_instance_t *inst =
+		CONTAINER_OF(work, struct bt_otc_internal_instance_t, l2cap_send_work);
+	struct bt_conn *conn;
+	uint32_t len;
+	int err;
+
+	conn = l2cap_send_conn_take(inst);
+	if (!conn) {
+		/* Cancelled by channel closure or unregister, which released the reference */
+		return;
+	}
+
+	if (!cur_inst || cur_inst != inst) {
+		LOG_ERR("OTS instance mismatch in deferred L2CAP send");
+		goto out;
+	}
+
+	len = inst->l2cap_ctx.tx.len;
+	inst->l2cap_ctx.tx.len = 0;
+
+	LOG_DBG("Deferred L2CAP send executing (%u bytes)", len);
+
+	err = bt_gatt_ots_l2cap_send(&inst->l2cap_ctx, inst->l2cap_ctx.tx.data, len);
+	if (err) {
+		LOG_WRN("L2CAP CoC error: %d while trying to send object data", err);
+		oacp_write_abort(inst);
+	}
+
+out:
+	bt_conn_unref(conn);
+}
 
 /* L2CAP callbacks */
 static void tx_done(struct bt_gatt_ots_l2cap *l2cap_ctx,
@@ -232,6 +359,19 @@ static void chan_closed(struct bt_gatt_ots_l2cap *l2cap_ctx,
 {
 	LOG_DBG("L2CAP closed, context: %p, conn: %p", l2cap_ctx, (void *)conn);
 	if (cur_inst) {
+		struct bt_conn *send_conn;
+
+		cur_inst->l2cap_send_pending = false;
+		cur_inst->write_rsp_ok = false;
+		cur_inst->write_ind_ok = false;
+		/* Cancel any queued deferred L2CAP send. If the handler is already
+		 * running it has taken the reference itself, so this returns NULL.
+		 */
+		(void)k_work_cancel(&cur_inst->l2cap_send_work);
+		send_conn = l2cap_send_conn_take(cur_inst);
+		if (send_conn) {
+			bt_conn_unref(send_conn);
+		}
 		cur_inst = NULL;
 	}
 }
@@ -414,6 +554,22 @@ static void oacp_ind_handler(struct bt_conn *conn,
 		}
 
 		print_oacp_response(req_opcode, result_code);
+
+		/* Trigger deferred L2CAP send for OACP Write procedure once the
+		 * ATT Write Response has also been received.
+		 */
+		if (req_opcode == BT_GATT_OTS_OACP_PROC_WRITE && cur_inst &&
+		    cur_inst->l2cap_send_pending) {
+			if (result_code == BT_GATT_OTS_OACP_RES_SUCCESS) {
+				cur_inst->write_ind_ok = true;
+				oacp_write_try_schedule(cur_inst, conn);
+			} else {
+				LOG_WRN("OACP Write indication failed with result: 0x%02X, "
+					"aborting L2CAP send",
+					result_code);
+				oacp_write_abort(cur_inst);
+			}
+		}
 	} else {
 		LOG_DBG("Invalid indication opcode %u", op_code);
 	}
@@ -509,6 +665,8 @@ int bt_ots_client_register(struct bt_ots_client *otc_inst)
 		}
 
 		otc_insts[i].otc_inst = otc_inst;
+		k_work_init(&otc_insts[i].l2cap_send_work, l2cap_send_work_handler);
+		otc_insts[i].l2cap_send_conn = NULL;
 		return 0;
 	}
 
@@ -518,7 +676,18 @@ int bt_ots_client_register(struct bt_ots_client *otc_inst)
 int bt_ots_client_unregister(uint8_t index)
 {
 	if (index < ARRAY_SIZE(otc_insts)) {
-		memset(&otc_insts[index], 0, sizeof(otc_insts[index]));
+		struct bt_otc_internal_instance_t *inst = &otc_insts[index];
+		struct k_work_sync sync;
+		struct bt_conn *send_conn;
+
+		/* Stop any deferred send and release the reference it holds */
+		(void)k_work_cancel_sync(&inst->l2cap_send_work, &sync);
+		send_conn = l2cap_send_conn_take(inst);
+		if (send_conn) {
+			bt_conn_unref(send_conn);
+		}
+
+		memset(inst, 0, sizeof(*inst));
 	} else {
 		return -EINVAL;
 	}
@@ -1177,7 +1346,6 @@ static void write_oacp_cp_write_req_cb(struct bt_conn *conn, uint8_t err,
 {
 	struct bt_otc_internal_instance_t *inst =
 		lookup_inst_by_handle(params->handle);
-	uint32_t len;
 
 	LOG_DBG("Write Object request %s (0x%02X)", err ? "failed" : "successful", err);
 	if (!inst) {
@@ -1185,16 +1353,21 @@ static void write_oacp_cp_write_req_cb(struct bt_conn *conn, uint8_t err,
 		return;
 	}
 
-	len = inst->l2cap_ctx.tx.len;
-	inst->l2cap_ctx.tx.len = 0;
-	err = bt_gatt_ots_l2cap_send(&inst->l2cap_ctx, inst->l2cap_ctx.tx.data, len);
 	if (err) {
-		LOG_WRN("L2CAP CoC error: %d while trying to execute OACP "
-			"Read procedure",
-			err);
+		LOG_ERR("OACP Write request failed (0x%02X), not sending data", err);
+		/* Also close the L2CAP channel opened by oacp_write(), otherwise it
+		 * keeps the only channel context occupied.
+		 */
+		oacp_write_abort(inst);
+		return;
 	}
 
-	inst->busy = false;
+	/* The send is triggered once the OACP Write indication is received too.
+	 * The indication may arrive before or after this callback.
+	 */
+	inst->write_rsp_ok = true;
+	oacp_write_try_schedule(inst, conn);
+	LOG_DBG("L2CAP send deferred, waiting for OACP Write indication");
 }
 
 static int oacp_read(struct bt_conn *conn,
@@ -1305,11 +1478,18 @@ static int oacp_write(struct bt_conn *conn, struct bt_otc_internal_instance_t *i
 	inst->otc_inst->write_params.handle = inst->otc_inst->oacp_handle;
 	inst->otc_inst->write_params.func = write_oacp_cp_write_req_cb;
 	inst->sent_size = len;
+	/* Set the state before the write so that a fast OACP indication is not missed */
+	inst->l2cap_send_pending = true;
+	inst->write_rsp_ok = false;
+	inst->write_ind_ok = false;
+	inst->busy = true;
+	cur_inst = inst;
 	err = bt_gatt_write(conn, &inst->otc_inst->write_params);
 
-	if (!err) {
-		inst->busy = true;
-		cur_inst = inst;
+	if (err) {
+		inst->l2cap_send_pending = false;
+		inst->busy = false;
+		cur_inst = NULL;
 	}
 
 	inst->rcvd_size = 0;

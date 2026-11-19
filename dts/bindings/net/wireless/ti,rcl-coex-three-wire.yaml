@@ -113,3 +113,73 @@ properties:
       Priority Indication Time in microseconds 0 or [3, 30].
       - If 0: PRIORITY shows Rx/Tx activity only (no priority indication)
       - If 3-30: PRIORITY shows priority level for T2 µs, then switches to Rx/Tx indicator
+
+  ble-advertiser-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for advertiser operations.
+
+  ble-aux-advertiser-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for extended (AUX) advertiser operations.
+
+  ble-periodic-advertiser-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for periodic advertiser operations.
+
+  ble-initiator-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for initiator (connection establishment) operations.
+
+  ble-scanner-priority:
+    type: string
+    default: "low"
+    enum: ["high", "low"]
+    description: |
+      BLE coex PRIORITY level for scanner operations.
+      Default low matches F2 observer behavior.
+
+  ble-periodic-scanner-priority:
+    type: string
+    default: "low"
+    enum: ["high", "low"]
+    description: |
+      BLE coex PRIORITY level for periodic scanner operations.
+      Default low matches F2 observer behavior.
+
+  ble-connection-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for connection events.
+
+  ble-generic-rx-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for generic RX operations.
+
+  ble-generic-tx-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for generic TX operations.
+
+  ble-ctx-generic-tx-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for generic TX context operations.
+
+  ble-ch-assessment-priority:
+    type: string
+    default: "high"
+    enum: ["high", "low"]
+    description: BLE coex PRIORITY level for channel assessment operations.

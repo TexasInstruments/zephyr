@@ -556,7 +556,7 @@ static int cc35xx_gpio_pin_get_config(const struct device *dev, gpio_pin_t pin,
 	} else if (cc35xx_config_is_input(config)) {
 		*out_flags = GPIO_INPUT;
 	} else {
-		return -EINVAL;
+		*out_flags = GPIO_DISCONNECTED;
 	}
 
 	return 0;

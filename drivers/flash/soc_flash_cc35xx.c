@@ -10,6 +10,7 @@
 #include <zephyr/drivers/flash.h>
 #include <zephyr/irq.h>
 #include <zephyr/kernel.h>
+#include <zephyr/pm/policy.h>
 
 #include <ti/drivers/xmem/flash/FlashWFF3.h>
 #include <ti/drivers/xmem/XMEMWFF3.h>
@@ -30,6 +31,18 @@ struct flash_cc35xx_config {
 static int flash_cc35xx_initialized;
 static struct k_mutex flash_cc35xx_mutex;
 static uint8_t flash_cc35xx_write_buf[CC35XX_FLASH_WRITE_SIZE] __aligned(sizeof(uint32_t));
+
+static void flash_cc35xx_pm_hold(void)
+{
+	pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+}
+
+static void flash_cc35xx_pm_release(void)
+{
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+}
 
 static mem_addr_t flash_cc35xx_offset_to_phys_addr(const struct device *dev, off_t offset)
 {
@@ -152,6 +165,7 @@ __ramfunc static int flash_cc35xx_erase(const struct device *dev, off_t offset, 
 		return -EINVAL;
 	}
 
+	flash_cc35xx_pm_hold();
 	k_mutex_lock(&flash_cc35xx_mutex, K_FOREVER);
 	for (; size; size -= erase_size, addr += erase_size) {
 		for (int tries = 3; tries; tries--) {
@@ -167,6 +181,7 @@ __ramfunc static int flash_cc35xx_erase(const struct device *dev, off_t offset, 
 		}
 	}
 	k_mutex_unlock(&flash_cc35xx_mutex);
+	flash_cc35xx_pm_release();
 
 	return ret ? -ETIMEDOUT : 0;
 }
@@ -194,6 +209,7 @@ static int flash_cc35xx_write(const struct device *dev, off_t offset, const void
 		return -EINVAL;
 	}
 
+	flash_cc35xx_pm_hold();
 	k_mutex_lock(&flash_cc35xx_mutex, K_FOREVER);
 	while (remaining) {
 		off_t chunk_offset = offset & ~(CC35XX_FLASH_WRITE_SIZE - 1);
@@ -222,6 +238,7 @@ static int flash_cc35xx_write(const struct device *dev, off_t offset, const void
 		remaining -= chunk_len;
 	}
 	k_mutex_unlock(&flash_cc35xx_mutex);
+	flash_cc35xx_pm_release();
 
 	return ret;
 }
@@ -234,9 +251,11 @@ static int flash_cc35xx_read(const struct device *dev, off_t offset, void *buf, 
 		return -EINVAL;
 	}
 
+	flash_cc35xx_pm_hold();
 	k_mutex_lock(&flash_cc35xx_mutex, K_FOREVER);
 	memcpy(buf, addr, size);
 	k_mutex_unlock(&flash_cc35xx_mutex);
+	flash_cc35xx_pm_release();
 
 	return 0;
 }

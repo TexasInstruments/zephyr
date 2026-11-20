@@ -5,6 +5,7 @@ menuconfig I2S_TI_CC35XX
 	bool "TI CC35XX I2S controller driver"
 	default y
 	depends on DT_HAS_TI_CC35XX_I2S_ENABLED
+	select PINCTRL
 	help
 	  Enable TI CC35XX I2S controller.
 

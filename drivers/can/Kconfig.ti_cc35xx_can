@@ -6,6 +6,7 @@ config CAN_TI_CC35XX
 	default y
 	depends on DT_HAS_TI_CC35XX_CAN_ENABLED
 	select CAN_MCAN
+	select PINCTRL
 	depends on !CAN_FD_MODE
 	help
 	  Enable TI CC35XX CAN controller.

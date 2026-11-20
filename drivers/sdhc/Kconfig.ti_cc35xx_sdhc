@@ -14,6 +14,7 @@ config SDHC_TI_CC35XX
 	default y
 	depends on DT_HAS_TI_CC35XX_SDHC_ENABLED
 	select EVENTS
+	select PINCTRL
 	select SDHC_SUPPORTS_NATIVE_MODE
 	help
 		Enable TI CC35XX SDMMC Host Controller.

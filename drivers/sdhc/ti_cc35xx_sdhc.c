@@ -13,6 +13,9 @@
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <zephyr/dt-bindings/pinctrl/ti-cc35xx-pinctrl.h>
 
 #include "ti_cc35xx_sdhc.h"
@@ -41,9 +44,27 @@ struct ti_cc35xx_sdhc_config {
 	bool card_always_present;
 };
 
+static const uint32_t context_offsets[] = {
+	TI_CC35XX_CORE_REG_SYSCFG_ADDR, TI_CC35XX_CORE_REG_SYSTEST_ADDR,
+	TI_CC35XX_CORE_REG_CONFIG_ADDR, TI_CC35XX_CORE_REG_PWRCNT_ADDR,
+	TI_CC35XX_SDHC_REG_CAPA_ADDR, TI_CC35XX_SDHC_REG_HOSTCTL_ADDR,
+	TI_CC35XX_SDHC_REG_SYSCTRL_ADDR, TI_CC35XX_SDHC_REG_INTENAB_ADDR,
+	TI_CC35XX_SDHC_REG_INTSIGEN_ADDR,
+};
+
+#define SDHC_BUSY_MASK (TI_CC35XX_SDHC_REG_PSTAT_CMDINH | \
+	TI_CC35XX_SDHC_REG_PSTAT_DATCMDINH | TI_CC35XX_SDHC_REG_PSTAT_DATALN)
+
 struct ti_cc35xx_sdhc_data {
 	struct sdhc_io host_io;
 	struct k_event irq_event;
+	struct k_mutex api_lock;
+	struct k_work_delayable busy_work;
+	const struct device *dev;
+	uint32_t context[ARRAY_SIZE(context_offsets)];
+	uint32_t users;
+	bool powered;
+	bool busy_held;
 };
 
 enum sdhc_cmd_type {
@@ -61,6 +82,81 @@ struct ti_cc35xx_sdhc_cmd_config {
 	bool idx_check_en;
 	bool crc_check_en;
 };
+
+static void ti_cc35xx_sdhc_hold(void)
+{
+	pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+}
+
+static void ti_cc35xx_sdhc_release(void)
+{
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+}
+
+static bool ti_cc35xx_sdhc_busy(const struct device *dev)
+{
+	const struct ti_cc35xx_sdhc_config *config = dev->config;
+
+	return (sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_PSTAT_ADDR) &
+		SDHC_BUSY_MASK) != 0U;
+}
+
+static void ti_cc35xx_sdhc_busy_work(struct k_work *work)
+{
+	struct ti_cc35xx_sdhc_data *data = CONTAINER_OF(k_work_delayable_from_work(work),
+						struct ti_cc35xx_sdhc_data, busy_work);
+	unsigned int key = irq_lock();
+
+	if (data->busy_held) {
+		if (ti_cc35xx_sdhc_busy(data->dev)) {
+			k_work_reschedule(&data->busy_work, K_MSEC(1));
+		} else {
+			data->busy_held = false;
+			ti_cc35xx_sdhc_release();
+		}
+	}
+	irq_unlock(key);
+}
+
+static int ti_cc35xx_sdhc_enter(const struct device *dev, bool serialize)
+{
+	struct ti_cc35xx_sdhc_data *data = dev->data;
+	unsigned int key = irq_lock();
+
+	if (!data->powered) {
+		irq_unlock(key);
+		return -EACCES;
+	}
+	data->users++;
+	ti_cc35xx_sdhc_hold();
+	irq_unlock(key);
+	if (serialize) {
+		k_mutex_lock(&data->api_lock, K_FOREVER);
+	}
+	return 0;
+}
+
+static void ti_cc35xx_sdhc_leave(const struct device *dev, bool serialize)
+{
+	struct ti_cc35xx_sdhc_data *data = dev->data;
+	unsigned int key;
+
+	if (serialize) {
+		k_mutex_unlock(&data->api_lock);
+	}
+	key = irq_lock();
+	/* A completed command can leave the card or data lines busy. */
+	if (ti_cc35xx_sdhc_busy(dev) && !data->busy_held) {
+		data->busy_held = true;
+		ti_cc35xx_sdhc_hold();
+		k_work_reschedule(&data->busy_work, K_MSEC(1));
+	}
+	data->users--;
+	ti_cc35xx_sdhc_release();
+	irq_unlock(key);
+}
 
 static int ti_cc35xx_sdhc_get_host_props(const struct device *dev, struct sdhc_host_props *props)
 {
@@ -83,7 +179,7 @@ static inline int wait_for_status(const struct device *dev, uint32_t offset, uin
 				  uint32_t *out, bool can_sleep)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
-	uint32_t timeout_ms = TI_CC35XX_SDHC_WAIT_STATUS_TIMEOUT_MS;
+	uint32_t remaining = TI_CC35XX_SDHC_WAIT_STATUS_TIMEOUT_MS * 1000U;
 	uint32_t val;
 
 	while (true) {
@@ -93,9 +189,11 @@ static inline int wait_for_status(const struct device *dev, uint32_t offset, uin
 		}
 		if (can_sleep) {
 			k_msleep(1);
-			timeout_ms--;
+		} else {
+			k_busy_wait(1000);
 		}
-		if (!timeout_ms) {
+		remaining -= 1000U;
+		if (remaining == 0U) {
 			return -ETIMEDOUT;
 		}
 	}
@@ -104,6 +202,38 @@ static inline int wait_for_status(const struct device *dev, uint32_t offset, uin
 		*out = val;
 	}
 
+	return 0;
+}
+
+static int ti_cc35xx_sdhc_restore(const struct device *dev, const uint32_t *context)
+{
+	const struct ti_cc35xx_sdhc_config *config = dev->config;
+	uint32_t sysctrl = 0U;
+	uint32_t signal_enable = 0U;
+	int ret;
+
+	for (size_t i = 0U; i < ARRAY_SIZE(context_offsets); i++) {
+		uint32_t val = context[i];
+
+		if (context_offsets[i] == TI_CC35XX_SDHC_REG_SYSCTRL_ADDR) {
+			sysctrl = val & ~TI_CC35XX_SDHC_REG_SYSCTRL_CLKSTAB;
+			/* Stabilize the internal clock before restarting the card clock. */
+			val = sysctrl & ~TI_CC35XX_SDHC_REG_SYSCTRL_CLKEN;
+		} else if (context_offsets[i] == TI_CC35XX_SDHC_REG_INTSIGEN_ADDR) {
+			signal_enable = val;
+			continue;
+		}
+		sys_write32(val, config->reg_base + context_offsets[i]);
+	}
+	if ((sysctrl & TI_CC35XX_SDHC_REG_SYSCTRL_INTCLKEN) != 0U) {
+		ret = wait_for_status(dev, TI_CC35XX_SDHC_REG_SYSCTRL_ADDR,
+				      TI_CC35XX_SDHC_REG_SYSCTRL_CLKSTAB, NULL, false);
+		if (ret != 0) {
+			return ret;
+		}
+	}
+	sys_write32(sysctrl, config->reg_base + TI_CC35XX_SDHC_REG_SYSCTRL_ADDR);
+	sys_write32(signal_enable, config->reg_base + TI_CC35XX_SDHC_REG_INTSIGEN_ADDR);
 	return 0;
 }
 
@@ -576,12 +706,21 @@ static inline int set_bus_width(const struct device *dev, uint8_t width)
 	return 0;
 }
 
-static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
+static int ti_cc35xx_sdhc_set_io_unlocked(const struct device *dev, struct sdhc_io *ios)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	struct ti_cc35xx_sdhc_data *data = dev->data;
 	struct sdhc_io *host_io = &data->host_io;
 	int ret;
+
+	if ((ios->bus_width != SDHC_BUS_WIDTH1BIT &&
+	     ios->bus_width != SDHC_BUS_WIDTH4BIT) ||
+	    (ios->power_mode != SDHC_POWER_ON && ios->power_mode != SDHC_POWER_OFF)) {
+		return -EINVAL;
+	}
+	if (ios->signal_voltage != SD_VOL_3_3_V) {
+		return -ENOTSUP;
+	}
 
 	LOG_DBG("SDMMC I/O: DW %d, Clk %d Hz, card power state %s, voltage %s", ios->bus_width,
 		ios->clock, ios->power_mode == SDHC_POWER_ON ? "ON" : "OFF",
@@ -604,6 +743,11 @@ static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 		}
 	}
 
+	if (ios->clock == 0U) {
+		disable_sd_clocks(dev);
+		host_io->clock = 0U;
+	}
+
 	if (host_io->power_mode != ios->power_mode) {
 		char *curr_power_mode = host_io->power_mode == SDHC_POWER_ON ? "ON" : "OFF";
 		char *target_power_mode = ios->power_mode == SDHC_POWER_ON ? "ON" : "OFF";
@@ -617,9 +761,12 @@ static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
 	}
 
 	if (host_io->bus_width != ios->bus_width) {
-		return set_bus_width(dev, ios->bus_width);
+		ret = set_bus_width(dev, ios->bus_width);
+		if (ret != 0) {
+			return ret;
+		}
 	}
-
+	*host_io = *ios;
 	return 0;
 }
 
@@ -695,7 +842,7 @@ static void ti_cc35xx_sdhc_isr(const struct device *dev)
 	sys_write32(val, config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
 }
 
-static int ti_cc35xx_sdhc_request(const struct device *dev, struct sdhc_command *cmd,
+static int ti_cc35xx_sdhc_request_unlocked(const struct device *dev, struct sdhc_command *cmd,
 				  struct sdhc_data *data)
 {
 	int ret;
@@ -723,7 +870,7 @@ static int ti_cc35xx_sdhc_request(const struct device *dev, struct sdhc_command 
 	return ret;
 }
 
-static int ti_cc35xx_sdhc_get_card_present(const struct device *dev)
+static int ti_cc35xx_sdhc_get_card_present_unlocked(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 
@@ -736,12 +883,30 @@ static int ti_cc35xx_sdhc_get_card_present(const struct device *dev)
 	return ((val & TI_CC35XX_SDHC_REG_PSTAT_CDINS) == 0) ? 0 : 1;
 }
 
-static int ti_cc35xx_sdhc_reset(const struct device *dev)
+static int ti_cc35xx_sdhc_reset_unlocked(const struct device *dev)
 {
-	return soft_reset(dev);
+	const struct ti_cc35xx_sdhc_config *config = dev->config;
+	struct ti_cc35xx_sdhc_data *data = dev->data;
+	uint32_t saved[ARRAY_SIZE(context_offsets)];
+	int ret;
+
+	for (size_t i = 0U; i < ARRAY_SIZE(context_offsets); i++) {
+		saved[i] = sys_read32(config->reg_base + context_offsets[i]);
+	}
+	ret = soft_reset(dev);
+	if (ret != 0) {
+		return ret;
+	}
+	ret = ti_cc35xx_sdhc_restore(dev, saved);
+	if (ret != 0) {
+		return ret;
+	}
+	sys_write32(UINT32_MAX, config->reg_base + TI_CC35XX_SDHC_REG_INTSTAT_ADDR);
+	k_event_clear(&data->irq_event, UINT32_MAX);
+	return 0;
 }
 
-static int ti_cc35xx_sdhc_card_busy(const struct device *dev)
+static int ti_cc35xx_sdhc_card_busy_unlocked(const struct device *dev)
 {
 	const struct ti_cc35xx_sdhc_config *config = dev->config;
 	uint32_t val = sys_read32(config->reg_base + TI_CC35XX_SDHC_REG_PSTAT_ADDR);
@@ -749,6 +914,110 @@ static int ti_cc35xx_sdhc_card_busy(const struct device *dev)
 	return (val & TI_CC35XX_SDHC_REG_PSTAT_DATALN) ? TI_CC35XX_SDHC_CARD_BUSY
 						       : TI_CC35XX_SDHC_CARD_NOT_BUSY;
 }
+
+static int ti_cc35xx_sdhc_set_io(const struct device *dev, struct sdhc_io *ios)
+{
+	int ret = ti_cc35xx_sdhc_enter(dev, true);
+
+	if (ret == 0) {
+		ret = ti_cc35xx_sdhc_set_io_unlocked(dev, ios);
+		ti_cc35xx_sdhc_leave(dev, true);
+	}
+	return ret;
+}
+
+static int ti_cc35xx_sdhc_request(const struct device *dev, struct sdhc_command *cmd,
+				struct sdhc_data *data)
+{
+	int ret = ti_cc35xx_sdhc_enter(dev, true);
+
+	if (ret == 0) {
+		ret = ti_cc35xx_sdhc_request_unlocked(dev, cmd, data);
+		ti_cc35xx_sdhc_leave(dev, true);
+	}
+	return ret;
+}
+
+static int ti_cc35xx_sdhc_reset(const struct device *dev)
+{
+	int ret = ti_cc35xx_sdhc_enter(dev, true);
+
+	if (ret == 0) {
+		ret = ti_cc35xx_sdhc_reset_unlocked(dev);
+		ti_cc35xx_sdhc_leave(dev, true);
+	}
+	return ret;
+}
+
+static int ti_cc35xx_sdhc_get_card_present(const struct device *dev)
+{
+	int ret = ti_cc35xx_sdhc_enter(dev, false);
+
+	if (ret == 0) {
+		ret = ti_cc35xx_sdhc_get_card_present_unlocked(dev);
+		ti_cc35xx_sdhc_leave(dev, false);
+	}
+	return ret;
+}
+
+static int ti_cc35xx_sdhc_card_busy(const struct device *dev)
+{
+	int ret = ti_cc35xx_sdhc_enter(dev, false);
+
+	if (ret == 0) {
+		ret = ti_cc35xx_sdhc_card_busy_unlocked(dev);
+		ti_cc35xx_sdhc_leave(dev, false);
+	}
+	return ret;
+}
+
+#ifdef CONFIG_PM_DEVICE
+static int ti_cc35xx_sdhc_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct ti_cc35xx_sdhc_config *config = dev->config;
+	struct ti_cc35xx_sdhc_data *data = dev->data;
+	unsigned int key = irq_lock();
+	int ret = 0;
+
+	if (action == PM_DEVICE_ACTION_SUSPEND) {
+		if (data->users != 0U || data->busy_held || ti_cc35xx_sdhc_busy(dev)) {
+			ret = -EBUSY;
+			goto out;
+		}
+		for (size_t i = 0U; i < ARRAY_SIZE(context_offsets); i++) {
+			data->context[i] = sys_read32(config->reg_base + context_offsets[i]);
+		}
+		sys_write32(0U, config->reg_base + TI_CC35XX_SDHC_REG_INTSIGEN_ADDR);
+		if (IS_ENABLED(CONFIG_SDHC_TI_CC35XX_INTERRUPT_ENABLE)) {
+			irq_disable(TI_CC35XX_SDHC_IRQ_NUM);
+		}
+		data->powered = false;
+		ret = cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_SDMMC);
+	} else if (action == PM_DEVICE_ACTION_RESUME) {
+		ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_SDMMC);
+		if (ret != 0) {
+			goto out;
+		}
+		/* Restore IOS and detection controls without resetting the card. */
+		ret = ti_cc35xx_sdhc_restore(dev, data->context);
+		if (ret != 0) {
+			(void)cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_SDMMC);
+			goto out;
+		}
+		k_event_clear(&data->irq_event, UINT32_MAX);
+		data->powered = true;
+		if (IS_ENABLED(CONFIG_SDHC_TI_CC35XX_INTERRUPT_ENABLE)) {
+			NVIC_ClearPendingIRQ(TI_CC35XX_SDHC_IRQ_NUM);
+			irq_enable(TI_CC35XX_SDHC_IRQ_NUM);
+		}
+	} else {
+		ret = -ENOTSUP;
+	}
+out:
+	irq_unlock(key);
+	return ret;
+}
+#endif
 
 static int ti_cc35xx_sdhc_init(const struct device *dev)
 {
@@ -758,22 +1027,33 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 	uint32_t val;
 
 	k_event_init(&data->irq_event);
+	k_mutex_init(&data->api_lock);
+	k_work_init_delayable(&data->busy_work, ti_cc35xx_sdhc_busy_work);
+	data->dev = dev;
+	ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_SDMMC);
+	if (ret != 0) {
+		return ret;
+	}
+	data->powered = true;
 
 	ret = pinctrl_apply_state(config->pin_cfg, PINCTRL_STATE_DEFAULT);
 	if (ret < 0) {
 		LOG_ERR("Failed to configure pins");
-		return ret;
+		goto fail;
 	}
 
 	enable_core_clock(dev);
-	soft_reset(dev);
+	ret = soft_reset(dev);
+	if (ret != 0) {
+		goto fail;
+	}
 	set_capabilities(dev);
 	set_bus_voltage(dev);
 	set_bus_width(dev, SDHC_BUS_WIDTH1BIT);
 	ret = set_bus_power(dev, SDHC_POWER_ON);
 	if (ret < 0) {
 		LOG_ERR("Failed to enable bus power");
-		return ret;
+		goto fail;
 	}
 
 	/* Enable signal generation for all interrupts */
@@ -791,7 +1071,7 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 	ret = set_clock(dev, KHZ(40));
 	if (ret < 0) {
 		LOG_ERR("Failed to configure clocks");
-		return ret;
+		goto fail;
 	}
 
 	/* Perform 80 clock SD Card init sequence */
@@ -804,7 +1084,7 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 			      TI_CC35XX_SDHC_REG_INTSTAT_CMDCMPL, NULL, true);
 	if (ret < 0) {
 		LOG_ERR("SD card init sequence failed");
-		return ret;
+		goto fail;
 	}
 
 	sys_write32(TI_CC35XX_SDHC_REG_INTSTAT_CMDCMPL,
@@ -825,6 +1105,10 @@ static int ti_cc35xx_sdhc_init(const struct device *dev)
 	}
 
 	return 0;
+fail:
+	data->powered = false;
+	(void)cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_SDMMC);
+	return ret;
 }
 
 static DEVICE_API(sdhc, sdhc_api) = {
@@ -848,8 +1132,10 @@ static DEVICE_API(sdhc, sdhc_api) = {
 		.props.f_min = DT_INST_PROP_OR(inst, min_bus_freq, KHZ(400)),                      \
 		.props.power_delay = DT_INST_PROP_OR(inst, power_delay_ms, 500),                   \
 	};                                                                                         \
-	DEVICE_DT_INST_DEFINE(inst, &ti_cc35xx_sdhc_init, NULL, &sdhc_##inst##_data,               \
-			      &sdhc_##inst##_config, POST_KERNEL, CONFIG_SDHC_INIT_PRIORITY,       \
-			      &sdhc_api);
+	PM_DEVICE_DT_INST_DEFINE(inst, ti_cc35xx_sdhc_pm_action); \
+	DEVICE_DT_INST_DEFINE(inst, &ti_cc35xx_sdhc_init, PM_DEVICE_DT_INST_GET(inst), \
+			      &sdhc_##inst##_data, &sdhc_##inst##_config, POST_KERNEL, \
+			      CONFIG_SDHC_INIT_PRIORITY, &sdhc_api);
+
 
 DT_INST_FOREACH_STATUS_OKAY(TI_CC35XX_SDHC_INIT)

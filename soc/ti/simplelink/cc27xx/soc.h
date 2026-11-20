@@ -10,5 +10,6 @@
 
 #include "cmsis/device.h"
 #include "../cc23x0_cc27xx/ti_cc23x0_cc27xx_dt.h"
+#include "../lpf3_common/ti_lpf3_clkctl.h"
 
 #endif /* TI_SIMPLELINK_CC27XX_SOC_H_ */

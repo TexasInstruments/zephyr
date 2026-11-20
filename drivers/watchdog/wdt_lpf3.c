@@ -6,7 +6,7 @@
  */
 
 /*
- * This driver handles both CC23X0 and CC27XX watchdog controllers
+ * This driver handles the CC23X0, CC23X1 and CC27XX watchdog controllers
  * in a single implementation.
  */
 
@@ -55,6 +55,17 @@ LOG_MODULE_REGISTER(wdt_ti_lpf3, CONFIG_WDT_LOG_LEVEL);
 #define WDT_CTL_EN_BIT               (1U << 0) /* Watchdog enable is bit 0 */
 #define WDT_WRITE_CTL(_base, _value) (HWREG((_base) + WDT_CTL_REG_OFFSET) = (_value))
 #define WDT_GET_CTL(_base)           (HWREG((_base) + WDT_CTL_REG_OFFSET))
+
+#elif defined(CONFIG_SOC_SERIES_CC23X1)
+/* CC23X1 register access macros */
+#define WDT_UNLOCK(_base)        (HWREG((_base) + CKMD_O_LOCK) = 0x1ACCE551)
+#define WDT_LOCK(_base)          (HWREG((_base) + CKMD_O_LOCK) = 0x1)
+#define WDT_FEED(_base, _value)  (HWREG((_base) + CKMD_O_CNT) = (_value))
+#define WDT_STALL_ENABLE(_base)  (HWREG((_base) + CKMD_O_TEST) = 0x1)
+#define WDT_STALL_DISABLE(_base) (HWREG((_base) + CKMD_O_TEST) = 0x0)
+
+/* No explicit control register in CC23X1, the watchdog always resets */
+#define WDT_HAS_CTL_REG          0
 #endif
 
 /* Common timing constants for both chip families */
@@ -174,8 +185,8 @@ static int wdt_ti_lpf3_feed(const struct device *dev, int channel_id)
 	WDT_UNLOCK(config->base);
 	WDT_FEED(config->base, data->reload);
 
-#if defined(CONFIG_SOC_SERIES_CC27XX)
-	/* CC27XX requires explicit lock after feeding */
+#if defined(CONFIG_SOC_SERIES_CC27XX) || defined(CONFIG_SOC_SERIES_CC23X1)
+	/* CC27XX and CC23X1 require explicit lock after feeding */
 	WDT_LOCK(config->base);
 #endif
 

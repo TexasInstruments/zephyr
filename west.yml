@@ -276,7 +276,7 @@ manifest:
         - hal
     - name: hal_ti
       remote: downstream
-      revision: 603fdd64972d02955649b6a95f8102152905f4ef
+      revision: 5e9ec8d65dee0648b1d9f6663d8e1e9daab6ad97
       path: modules/hal/ti
       groups:
         - hal

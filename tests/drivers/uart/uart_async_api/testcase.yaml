@@ -7,6 +7,7 @@ common:
     - lp_em_cc2340r53
     - lp_em_cc2340r53_wcsp
     - lp_em_cc2340r5moda
+    - lp_em_cc2341r10
   tags:
     - drivers
     - uart

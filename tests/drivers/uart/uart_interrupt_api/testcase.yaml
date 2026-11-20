@@ -66,3 +66,10 @@ tests:
       - lp_am13e230
     integration_platforms:
       - lp_am13e230
+  drivers.uart.interrupt_api.lp_em_cc2341r10:
+    tags:
+      - uart
+    filter: CONFIG_SERIAL_SUPPORT_INTERRUPT
+    harness: ztest
+    platform_allow:
+      - lp_em_cc2341r10

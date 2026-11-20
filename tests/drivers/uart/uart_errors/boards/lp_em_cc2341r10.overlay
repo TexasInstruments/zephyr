@@ -1,0 +1,39 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/cc23x1-pinctrl.h>
+
+&pinctrl {
+	uart1_tx_default: uart1_tx_default {
+		pinmux = <22 DIO22_UART1_TXD>;
+		bias-disable;
+	};
+
+	uart1_rx_default: uart1_rx_default {
+		pinmux = <23 DIO23_UART1_RXD>;
+		bias-pull-down;
+		input-enable;
+	};
+};
+
+/ {
+	chosen {
+		zephyr,console = &uart0;
+	};
+};
+
+dut: &uart1 {
+	current-speed = <115200>;
+	pinctrl-0 = <&uart1_tx_default &uart1_rx_default>;
+	pinctrl-names = "default";
+	hw-flow-control;
+	status = "okay";
+};
+
+dut_aux: &uart0 {
+	current-speed = <115200>;
+	status = "okay";
+};

@@ -51,6 +51,7 @@ tests:
       - lp_mspm0g3507
       - lp_mspm0g3519
       - lp_mspm0l2228
+      - lp_em_cc2341r10
 
   drivers.uart.pm.enhanced_poll:
     extra_configs:
@@ -64,6 +65,7 @@ tests:
       - nrf54lm20dk/nrf54lm20b/cpuapp
       - nrf7120dk/nrf7120/cpuapp
       - ophelia4ev/nrf54l15/cpuapp
+      - lp_em_cc2341r10
 
   drivers.uart.pm.int_driven:
     extra_configs:
@@ -71,6 +73,8 @@ tests:
       - CONFIG_UART_0_INTERRUPT_DRIVEN=y
       - CONFIG_UART_ASYNC_API=n
       - CONFIG_UART_0_ENHANCED_POLL_OUT=n
+    platform_exclude:
+      - lp_em_cc2341r10
 
   drivers.uart.pm.int_driven.enhanced_poll:
     extra_configs:
@@ -84,6 +88,7 @@ tests:
       - nrf54lm20dk/nrf54lm20a/cpuapp
       - nrf54lm20dk/nrf54lm20b/cpuapp
       - ophelia4ev/nrf54l15/cpuapp
+      - lp_em_cc2341r10
 
   drivers.uart.pm.async:
     extra_configs:
@@ -95,6 +100,7 @@ tests:
       - lp_mspm0g3507
       - lp_mspm0g3519
       - lp_mspm0l2228
+      - lp_em_cc2341r10
 
   drivers.uart.pm.async.enhanced_poll:
     extra_configs:
@@ -112,3 +118,4 @@ tests:
       - lp_mspm0g3507
       - lp_mspm0g3519
       - lp_mspm0l2228
+      - lp_em_cc2341r10

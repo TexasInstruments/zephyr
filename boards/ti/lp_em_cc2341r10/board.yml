@@ -1,0 +1,6 @@
+board:
+  name: lp_em_cc2341r10
+  full_name: CC2341R10 LaunchPad
+  vendor: ti
+  socs:
+    - name: cc2341r10

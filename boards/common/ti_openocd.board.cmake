@@ -5,3 +5,4 @@
 # Force TI's openocd
 set(OPENOCD OPENOCD-NOTFOUND)
 find_program(OPENOCD openocd PATHS $ENV{TI_OPENOCD_INSTALL_DIR}/bin NO_DEFAULT_PATH)
+set(OPENOCD_DEFAULT_PATH $ENV{TI_OPENOCD_INSTALL_DIR}/share/openocd/scripts)

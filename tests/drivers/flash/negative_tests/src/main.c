@@ -44,7 +44,8 @@
  */
 #define TEST_FLASH_START 0
 #define TEST_FLASH_SIZE  DT_PROP(DT_CHOSEN(zephyr_flash_controller), size)
-#elif defined(CONFIG_SOC_SERIES_CC23X0) || defined(CONFIG_SOC_SERIES_CC27XX)
+#elif defined(CONFIG_SOC_SERIES_CC23X0) || defined(CONFIG_SOC_SERIES_CC23X1) ||                    \
+	defined(CONFIG_SOC_SERIES_CC27XX)
 /* storage_partition -> partitions -> flash0; use flash device bounds */
 #define TEST_FLASH_START (DT_REG_ADDR(DT_MEM_FROM_PARTITION(DT_NODELABEL(TEST_AREA))))
 #define TEST_FLASH_SIZE  (DT_REG_SIZE(DT_MEM_FROM_PARTITION(DT_NODELABEL(TEST_AREA))))

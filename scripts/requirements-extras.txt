@@ -29,6 +29,3 @@ PyGithub
 
 # used to generate devicetree dependency graphs
 graphviz
-
-# used to add CRC to elf file, parsing sections through symbols defined in the linker file.
-ti-simplelink-crc-tool

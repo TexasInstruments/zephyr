@@ -793,12 +793,17 @@ init_err:
 	return ret;
 }
 
-static struct ti_cc3xxx_wifi_priv ti_cc3xxx_wifi_priv;
+#define TI_CC3XXX_WIFI_INIT(inst)                                                                  \
+	static struct ti_cc3xxx_wifi_priv ti_cc3xxx_wifi_priv##inst;                               \
+	ETH_NET_DEVICE_DT_INST_DEFINE(inst, ti_cc3xxx_wifi_init, NULL, &ti_cc3xxx_wifi_priv##inst, \
+				      NULL, CONFIG_WIFI_INIT_PRIORITY,                             \
+				      &ti_cc3xxx_wifi_mgmt_offload_ops,                            \
+				      CONFIG_WIFI_TI_CC3XXX_MTU);
 
-ETH_NET_DEVICE_DT_INST_DEFINE(0, ti_cc3xxx_wifi_init, NULL, &ti_cc3xxx_wifi_priv, NULL,
-			      CONFIG_WIFI_INIT_PRIORITY, &ti_cc3xxx_wifi_mgmt_offload_ops,
-			      CONFIG_WIFI_TI_CC3XXX_MTU);
+DT_INST_FOREACH_STATUS_OKAY(TI_CC3XXX_WIFI_INIT)
 
 #ifdef CONFIG_NET_CONNECTION_MANAGER_CONNECTIVITY_WIFI_MGMT
-CONNECTIVITY_WIFI_MGMT_BIND(Z_DEVICE_DT_DEV_ID(DT_DRV_INST(0)));
+#define TI_CC3XXX_WIFI_MGMT_BIND(inst)                                                             \
+	CONNECTIVITY_WIFI_MGMT_BIND(Z_DEVICE_DT_DEV_ID(DT_DRV_INST(inst)))
+DT_INST_FOREACH_STATUS_OKAY(TI_CC3XXX_WIFI_MGMT_BIND)
 #endif

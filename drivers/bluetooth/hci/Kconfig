@@ -285,6 +285,7 @@ config BT_HCI_INIT_PRIORITY
 	default 75 if BT_AMBIQ_HCI
 	default 81 if BT_HCI_TI_CC35XX
 	default 81 if BT_HCI_TI_CC33XX && DT_HAS_TI_CC33XX_SPI_ENABLED
+	default 87 if BT_HCI_TI_CC33XX && DT_HAS_TI_CC33XX_SDIO_ENABLED
 	default KERNEL_INIT_PRIORITY_DEVICE
 	help
 	  The priority of BT HCI driver initialization.

@@ -209,25 +209,24 @@ static int hci_cc3xxx_close(const struct device *dev)
 static int hci_cc3xxx_send(const struct device *dev, struct net_buf *buf)
 {
 	int ret;
-	uint8_t type = bt_buf_type_from_h4(net_buf_pull_u8(buf), BT_BUF_OUT);
+	enum bt_buf_type type;
 
-	switch (type) {
-	case BT_BUF_ACL_OUT:
-		net_buf_push_u8(buf, BT_HCI_H4_ACL);
-		break;
-	case BT_BUF_CMD:
-		net_buf_push_u8(buf, BT_HCI_H4_CMD);
-		break;
-	default:
+	if (buf->len == 0) {
+		LOG_ERR("Empty HCI packet");
+		return -EINVAL;
+	}
+
+	type = bt_buf_type_from_h4(buf->data[0], BT_BUF_OUT);
+
+	if (type != BT_BUF_ACL_OUT && type != BT_BUF_CMD) {
 		LOG_ERR("Unsupported BT type");
-		ret = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
 
 	ret = BleIf_SendCommand(buf->data, buf->len);
-
-out:
-	net_buf_unref(buf);
+	if (ret == 0) {
+		net_buf_unref(buf);
+	}
 
 	return ret;
 }
@@ -261,9 +260,14 @@ static int hci_cc3xxx_evt_recv(uint8_t *data, uint16_t len)
 {
 	const struct device *dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_bt_hci));
 	struct hci_cc3xxx_priv *priv = dev->data;
+	bt_hci_recv_t recv = priv->recv;
 	struct net_buf *buf;
 	uint8_t pkt_type;
 	bool discardable;
+
+	if (recv == NULL) {
+		return 0;
+	}
 
 	if (len == 0) {
 		return -EINVAL;
@@ -309,7 +313,14 @@ static int hci_cc3xxx_evt_recv(uint8_t *data, uint16_t len)
 	}
 
 	net_buf_add_mem(buf, data, len);
-	priv->recv(dev, buf);
+
+	recv = priv->recv;
+	if (recv == NULL) {
+		net_buf_unref(buf);
+		return 0;
+	}
+
+	recv(dev, buf);
 
 	return 0;
 }

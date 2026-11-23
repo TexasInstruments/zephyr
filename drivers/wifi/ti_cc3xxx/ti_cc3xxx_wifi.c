@@ -5,6 +5,7 @@
  */
 
 #include <wlan_if.h>
+#include <ti_cc3xxx_heap.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net/conn_mgr/connectivity_wifi_mgmt.h>
 #include <zephyr/net/ethernet.h>
@@ -756,6 +757,11 @@ static int ti_cc3xxx_wifi_init(const struct device *dev)
 	uint8_t band = TI_CC3XXX_BAND_DEFAULT;
 	uint32_t pwr_mode;
 	int ret;
+
+	ret = ti_wifi_multi_heap_init();
+	if (ret) {
+		goto init_err;
+	}
 
 	ret = Wlan_Start(ti_cc3xxx_wifi_event_handler);
 	if (ret) {

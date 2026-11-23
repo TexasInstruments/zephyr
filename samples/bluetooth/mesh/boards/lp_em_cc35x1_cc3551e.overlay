@@ -4,6 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/ {
+	chosen {
+		zephyr,bt-hci = &hci0;
+	};
+};
+
 &wlan0 {
 	status = "okay";
 };

@@ -23,6 +23,7 @@
 
 #include <driverlib/gpio.h>
 #include <driverlib/clkctl.h>
+#include <soc.h>
 #include <inc/hw_lgpt.h>
 #include <inc/hw_lgpt1.h>
 #include <inc/hw_lgpt3.h>
@@ -602,11 +603,11 @@ static int pwm_cc23x0_clock_action(const struct device *dev, bool activate)
 	}
 
 	if (activate) {
-		CLKCTLEnable(CLKCTL_BASE, lgpt_clk_id);
+		CLKCTL_ENABLE(CLKCTL_BASE, lgpt_clk_id);
 		HWREG(config->base + LGPT_O_PRECFG) = LGPT_CLK_PRESCALE(data->prescale);
 		HWREG(EVTSVT_BASE + EVTSVT_O_LGPTSYNCSEL) = EVTSVT_LGPTSYNCSEL_PUBID_SYSTIM0;
 	} else {
-		CLKCTLDisable(CLKCTL_BASE, lgpt_clk_id);
+		CLKCTL_DISABLE(CLKCTL_BASE, lgpt_clk_id);
 	}
 
 	return 0;

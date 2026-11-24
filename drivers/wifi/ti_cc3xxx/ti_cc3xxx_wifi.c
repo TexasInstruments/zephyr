@@ -54,6 +54,7 @@ struct ti_cc3xxx_wifi_priv {
 	uint8_t frame_buf[NET_ETH_MAX_FRAME_SIZE];
 	struct k_mutex dom_lock;
 	struct k_timer connect_timer;
+	struct k_work connect_timeout_work;
 	struct {
 		enum ti_cc3xxx_wifi_state state;
 		char ssid[WIFI_SSID_MAX_LEN + 1];
@@ -714,17 +715,33 @@ static void ti_cc3xxx_wifi_event_handler(WlanEvent_t *event)
 	}
 }
 
-static void ti_cc3xxx_wifi_connect_timeout(struct k_timer *timer)
+static void ti_cc3xxx_wifi_connect_timeout_work(struct k_work *work)
 {
 	struct ti_cc3xxx_wifi_priv *priv =
-		CONTAINER_OF(timer, struct ti_cc3xxx_wifi_priv, connect_timer);
+		CONTAINER_OF(work, struct ti_cc3xxx_wifi_priv, connect_timeout_work);
+	int ret;
 
 	if (priv->status.state != TI_CC3XXX_STA_CONNECTING) {
 		return;
 	}
 
 	wifi_mgmt_raise_connect_result_event(priv->iface, WIFI_STATUS_CONN_TIMEOUT);
-	Wlan_Disconnect(WLAN_ROLE_STA, NULL);
+	ret = Wlan_Disconnect(WLAN_ROLE_STA, NULL);
+	if (ret) {
+		LOG_ERR("Failed to disconnect after connection timeout: %d", ret);
+	}
+}
+
+static void ti_cc3xxx_wifi_connect_timeout(struct k_timer *timer)
+{
+	struct ti_cc3xxx_wifi_priv *priv =
+		CONTAINER_OF(timer, struct ti_cc3xxx_wifi_priv, connect_timer);
+
+	int ret = k_work_submit(&priv->connect_timeout_work);
+
+	if (ret < 0) {
+		LOG_ERR("Failed to submit connection timeout work: %d", ret);
+	}
 }
 
 static int ti_cc3xxx_wifi_init(const struct device *dev)
@@ -785,6 +802,7 @@ static int ti_cc3xxx_wifi_init(const struct device *dev)
 
 	priv->status.state = TI_CC3XXX_INACTIVE;
 
+	k_work_init(&priv->connect_timeout_work, ti_cc3xxx_wifi_connect_timeout_work);
 	k_timer_init(&priv->connect_timer, ti_cc3xxx_wifi_connect_timeout, NULL);
 
 	return 0;

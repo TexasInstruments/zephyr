@@ -39,6 +39,7 @@ class TiK3DfuBinaryRunner(ZephyrBinaryRunner):
         power_cycle_cmd=None,
         timeout=30.0,
         settle=1.0,
+        path=None,
     ):
         super().__init__(cfg)
         self.dev_id = dev_id
@@ -49,6 +50,7 @@ class TiK3DfuBinaryRunner(ZephyrBinaryRunner):
         self.power_cycle_cmd = power_cycle_cmd
         self.timeout = timeout
         self.settle = settle
+        self.path = path
 
     @classmethod
     def name(cls):
@@ -69,6 +71,10 @@ class TiK3DfuBinaryRunner(ZephyrBinaryRunner):
             '--alt',
             default=DEFAULT_ALT,
             help=f'DFU alt setting name or number (default "{DEFAULT_ALT}")',
+        )
+        parser.add_argument(
+            '--path',
+            help='USB bus-port path of the target DFU device (dfu-util -p)',
         )
         parser.add_argument(
             '--tiboot3', help='first stage image, default is <build>/zephyr/tiboot3.bin'
@@ -108,12 +114,20 @@ class TiK3DfuBinaryRunner(ZephyrBinaryRunner):
             exe=args.dfu_util,
             power_cycle_cmd=args.power_cycle_cmd,
             timeout=args.timeout,
+            path=args.path,
         )
+
+    def dfu_args(self):
+        '''Base dfu-util arguments selecting the target device.'''
+        args = ['-d', f',{self.dev_id}']
+        if self.path:
+            args += ['-p', self.path]
+        return args
 
     def list_devnums(self):
         '''Return the set of DFU device numbers matching the alt setting.'''
         out = subprocess.run(
-            [self.exe, '-d', f',{self.dev_id}', '-l'], capture_output=True, check=False
+            [self.exe, *self.dfu_args(), '-l'], capture_output=True, check=False
         )
         text = out.stdout.decode(sys.getdefaultencoding(), errors='replace')
         try:
@@ -138,7 +152,7 @@ class TiK3DfuBinaryRunner(ZephyrBinaryRunner):
         raise RuntimeError(f'timed out waiting for DFU device ({self.dev_id}, alt "{self.alt}")')
 
     def download(self, img):
-        self.check_call([self.exe, '-d', f',{self.dev_id}', '-a', self.alt, '-D', img])
+        self.check_call([self.exe, *self.dfu_args(), '-a', self.alt, '-D', img])
 
     def do_run(self, command, **kwargs):
         self.require(self.exe)

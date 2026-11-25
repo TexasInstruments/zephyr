@@ -82,32 +82,28 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		/* 40 KiB (0xa000) for MCUboot */
+		/* 48 KiB (0xc000) for MCUboot */
 		boot_partition: partition@0 {
 			label = "mcuboot";
-			reg = <0x00000000 0x0000a000>;
+			reg = <0x00000000 0x0000c000>;
 		};
 
-		/* 316416 Bytes (0x4d000) per slot for application */
-		slot0_partition: partition@a000 {
+		/* 360448 Bytes (0x58000) per slot for application */
+		slot0_partition: partition@c000 {
 			label = "image-0";
-			reg = <0x0000a000 0x0004d000>;
+			reg = <0x0000c000 0x00058000>;
 		};
 
-		slot1_partition: partition@57000 {
+		slot1_partition: partition@64000 {
 			label = "image-1";
-			reg = <0x00057000 0x0004d000>;
+			reg = <0x00064000 0x00058000>;
 		};
 
 		/* Storage partition will be used by NVS if enabled */
-		storage_partition: partition@a4000 {
+		storage_partition: partition@bc000 {
 			label = "storage";
-			reg = <0x000a4000 0x00004000>;
+			reg = <0x000bc000 0x00003000>;
 		};
-
-		/* The remaining 96 KiB (0xa8000 - 0xc0000) is reserved for
-		 * key store and HSM firmware.
-		 */
 	};
 };
 

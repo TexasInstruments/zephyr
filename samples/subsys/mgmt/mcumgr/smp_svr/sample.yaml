@@ -225,6 +225,7 @@ tests:
       - lp_em_cc2745r10_q1/cc2745r10_q1
       - lp_em_cc2745r10_q1/cc2755r10
       - lp_em_cc2755r10_bg
+      - lp_em_cc2755r7_bg
   sample.mcumgr.smp_svr.ti_lpf3_bt_dfu_onchip_v2:
     sysbuild: true
     extra_args:
@@ -238,6 +239,7 @@ tests:
       - lp_em_cc2745r10_q1/cc2745r10_q1
       - lp_em_cc2745r10_q1/cc2755r10
       - lp_em_cc2755r10_bg
+      - lp_em_cc2755r7_bg
   sample.mcumgr.smp_svr.ti_lpf3_bt_dfu_offchip_v1:
     sysbuild: true
     extra_args:
@@ -253,6 +255,7 @@ tests:
       - lp_em_cc2745r10_q1/cc2745r10_q1
       - lp_em_cc2745r10_q1/cc2755r10
       - lp_em_cc2755r10_bg
+      - lp_em_cc2755r7_bg
   sample.mcumgr.smp_svr.ti_lpf3_bt_dfu_offchip_v2:
     sysbuild: true
     extra_args:
@@ -268,3 +271,4 @@ tests:
       - lp_em_cc2745r10_q1/cc2745r10_q1
       - lp_em_cc2745r10_q1/cc2755r10
       - lp_em_cc2755r10_bg
+      - lp_em_cc2755r7_bg

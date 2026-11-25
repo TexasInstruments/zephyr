@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * SPI controller/peripheral loopback wiring on LP-EM-CC1354P10_6:
+ *
+ * NOTE: DIO16-DIO19 are JTAG pins (TCK/TMS/TDO/TDI) - never use those for SPI1.
+ *
+ *   SPI0 (controller)   <-->  SPI1 (peripheral)
+ *   DIO11  CLK          <-->  DIO20  CLK
+ *   DIO10  MOSI         <-->  DIO21  MOSI (SPI1 RX)
+ *   DIO8   MISO         <-->  DIO22  MISO (SPI1 TX)
+ *   DIO9   CSN          <-->  DIO25  CSN
+ */
+
+&dma0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+	pinctrl-0 = <&spi0_sck_default
+		     &spi0_mosi_default
+		     &spi0_miso_default
+		     &spi0_cs_default>;
+	pinctrl-names = "default";
+	/delete-property/ cs-gpios;
+	/* uDMA channels are fixed by silicon: SPI0 TX=4, RX=3 */
+	dmas = <&dma0 4 0>, <&dma0 3 0>;
+	dma-names = "tx", "rx";
+	dut_spi_dt: test-spi-dev@0 {
+		compatible = "vnd,spi-device";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+dut_spis: &spi1 {
+	status = "okay";
+	pinctrl-0 = <&spi1_sck_default
+		     &spi1_mosi_default
+		     &spi1_miso_default
+		     &spi1_cs_default>;
+	pinctrl-names = "default";
+	/* uDMA channels are fixed by silicon: SPI1 TX=17, RX=16 */
+	dmas = <&dma0 17 0>, <&dma0 16 0>;
+	dma-names = "tx", "rx";
+};

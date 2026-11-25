@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+&dma0 {
+	status = "okay";
+};
+
+&spi0 {
+	status = "okay";
+
+	/* uDMA channels are fixed by the silicon: SPI0 TX = 4, RX = 3 */
+	dmas = <&dma0 4 0>, <&dma0 3 0>;
+	dma-names = "tx", "rx";
+
+	slow@0 {
+		compatible = "test-spi-loopback-slow";
+		reg = <0>;
+		spi-max-frequency = <2000000>;
+	};
+
+	fast@0 {
+		compatible = "test-spi-loopback-fast";
+		reg = <0>;
+		spi-max-frequency = <3000000>;
+	};
+};

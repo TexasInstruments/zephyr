@@ -1,0 +1,14 @@
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+boards:
+  - name: lp_em_cc1354p10_1
+    full_name: LP-EM-CC1354P10-1
+    vendor: ti
+    socs:
+      - name: cc1354p10
+  - name: lp_em_cc1354p10_6
+    full_name: LP-EM-CC1354P10-6
+    vendor: ti
+    socs:
+      - name: cc1354p10

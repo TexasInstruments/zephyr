@@ -1,0 +1,109 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/pinctrl/cc13x4_cc26x4-pinctrl.h>
+
+&pinctrl {
+	uart0_tx_default: uart0_tx_default {
+		pinmux = <13 IOC_PORT_MCU_UART0_TX>;
+		bias-disable;
+	};
+	uart0_rx_default: uart0_rx_default {
+		pinmux = <12 IOC_PORT_MCU_UART0_RX>;
+		bias-disable;
+		input-enable;
+	};
+		uart1_tx_default: uart1_tx_default {
+		pinmux = <5 IOC_PORT_MCU_UART1_TX>;
+		bias-disable;
+	};
+	uart1_rx_default: uart1_rx_default {
+		pinmux = <4 IOC_PORT_MCU_UART1_RX>;
+		bias-disable;
+		input-enable;
+	};
+
+	/* SPI0 */
+	spi0_sck_default: spi0_sck_default {
+		pinmux = <11 IOC_PORT_MCU_SPI0_CLK>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi0_mosi_default: spi0_mosi_default {
+		pinmux = <10 IOC_PORT_MCU_SPI0_TX>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi0_miso_default: spi0_miso_default {
+		pinmux = <8 IOC_PORT_MCU_SPI0_RX>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi0_cs_default: spi0_cs_default {
+		pinmux = <9 IOC_PORT_MCU_SPI0_FSS>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	spi1_sck_default: spi1_sck_default {
+		pinmux = <20 IOC_PORT_MCU_SPI1_CLK>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_sck_sleep: spi1_sck_sleep {
+		pinmux = <20 IOC_PORT_GPIO>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_mosi_default: spi1_mosi_default {
+		pinmux = <21 IOC_PORT_MCU_SPI1_RX>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_mosi_sleep: spi1_mosi_sleep {
+		pinmux = <21 IOC_PORT_GPIO>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_miso_default: spi1_miso_default {
+		pinmux = <22 IOC_PORT_MCU_SPI1_TX>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_miso_sleep: spi1_miso_sleep {
+		pinmux = <22 IOC_PORT_GPIO>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_cs_default: spi1_cs_default {
+		pinmux = <25 IOC_PORT_MCU_SPI1_FSS>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+	spi1_cs_sleep: spi1_cs_sleep {
+		pinmux = <25 IOC_PORT_GPIO>;
+		input-enable;
+		input-schmitt-enable;
+		bias-disable;
+	};
+
+	adc0_default: adc0_default {
+		pinmux = <23 IOC_PORT_AUX_IO>;
+		bias-disable;
+		input-enable;
+	};
+};

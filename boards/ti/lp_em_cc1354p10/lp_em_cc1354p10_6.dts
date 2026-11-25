@@ -1,0 +1,13 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+#include "lp_em_cc1354p10.dtsi"
+
+/ {
+	model = "TI LP-EM-CC1354P10_6";
+	compatible = "ti,lp-em-cc1354p10_6";
+};

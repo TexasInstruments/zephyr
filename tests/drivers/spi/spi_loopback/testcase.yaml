@@ -408,6 +408,13 @@ tests:
     extra_configs:
       - CONFIG_SPI_CC23X0_CC27XX_DMA_DRIVEN=y
       - CONFIG_SPI_ASYNC=n
+  drivers.spi.cc13x4_cc26x4.loopback.dma:
+    filter: CONFIG_SOC_FAMILY_TI_SIMPLELINK
+    platform_allow:
+      - lp_em_cc1354p10_1
+      - lp_em_cc1354p10_6
+    extra_configs:
+      - CONFIG_SPI_CC13X4_CC26X4_DMA_DRIVEN=y
   drivers.spi.cs_loopback.disable_lpspi_dma:
     extra_args: EXTRA_DTC_OVERLAY_FILE="overlay-cs-loopback-gpio.overlay"
     extra_configs:

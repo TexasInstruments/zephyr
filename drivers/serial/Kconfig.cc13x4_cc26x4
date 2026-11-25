@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+config UART_CC13X4_CC26X4
+	bool "TI SimpleLink CC13x4 / CC26x4 UART driver"
+	default y
+	depends on DT_HAS_TI_CC13X4_CC26X4_UART_ENABLED
+	select SERIAL_HAS_DRIVER
+	select SERIAL_SUPPORT_INTERRUPT
+	select SERIAL_SUPPORT_ASYNC
+	select PINCTRL
+	help
+	  Enable the TI SimpleLink CC13x4 / CC26x4 UART driver.
+
+config UART_CC13X4_CC26X4_DMA_DRIVEN
+	bool "DMA support for TI CC13x4 / CC26x4 UART devices"
+	default y if UART_ASYNC_API
+	depends on UART_CC13X4_CC26X4
+	depends on UART_ASYNC_API
+	select DMA
+	help
+	  DMA driven mode offloads data transfer tasks from the CPU.
+	  Uses the uDMA controller with hardwired channel-to-peripheral
+	  mapping (no EVTSVT crossbar on CC13x4).

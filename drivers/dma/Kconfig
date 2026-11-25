@@ -65,6 +65,7 @@ source "drivers/dma/Kconfig.silabs"
 source "drivers/dma/Kconfig.siwx91x"
 source "drivers/dma/Kconfig.smartbond"
 source "drivers/dma/Kconfig.stm32"
+source "drivers/dma/Kconfig.ti_cc13x4_cc26x4"
 source "drivers/dma/Kconfig.ti_cc35xx"
 source "drivers/dma/Kconfig.ti_mspm0"
 source "drivers/dma/Kconfig.wch"
@@ -72,7 +73,5 @@ source "drivers/dma/Kconfig.xec"
 source "drivers/dma/Kconfig.xilinx_axi_dma"
 source "drivers/dma/Kconfig.xmc4xxx"
 # zephyr-keep-sorted-stop
-
-
 
 endif # DMA

@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2024 Texas Instruments Incorporated
+ * Copyright (c) 2025,2026 Texas Instruments Incorporated
  * Copyright (c) 2024 BayLibre, SAS
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT ti_cc23x0_gpio
+#define DT_DRV_COMPAT ti_lpf3_gpio
 
 #include <zephyr/types.h>
 #include <zephyr/device.h>
@@ -20,31 +20,31 @@
 #include <inc/hw_ioc.h>
 #include <inc/hw_types.h>
 
-#define IOC_ADDR(index)       (IOC_BASE + IOC_O_IOC0 + (sizeof(uint32_t) * (index)))
-#define IOC_PORTCFG_MASK      IOC_IOC0_PORTCFG_M
-#define GPIO_PIN_TO_MASK(pin) (1 << (pin))
+#define IOC_ADDR(index)  (IOC_BASE + IOC_O_IOC0 + (sizeof(uint32_t) * (index)))
+#define IOC_PORTCFG_MASK IOC_IOC0_PORTCFG_M
 
-struct gpio_cc23x0_config {
+struct gpio_lpf3_config {
 	/* gpio_driver_config needs to be first */
 	struct gpio_driver_config common;
 };
 
-struct gpio_cc23x0_data {
+struct gpio_lpf3_data {
 	/* gpio_driver_data needs to be first */
 	struct gpio_driver_data common;
 	sys_slist_t callbacks;
 };
 
-static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_flags_t flags)
+static int gpio_lpf3_config(const struct device *port, gpio_pin_t pin, gpio_flags_t flags)
 {
 	uint32_t config = 0;
-	uint32_t iocfg_reg = IOC_ADDR(pin);
+	uint32_t iocfg_reg_addr = IOC_ADDR(pin);
+
 	gpio_flags_t direction = flags & GPIO_DIR_MASK;
 
-	bool setPinToOutput = flags & GPIO_OUTPUT;
+	bool set_pin_to_output = flags & GPIO_OUTPUT;
 
 	/* The pin will be an output after configuring */
-	if (setPinToOutput) {
+	if (set_pin_to_output) {
 		/* Set the new default value and enable output */
 		if (flags & GPIO_OUTPUT_INIT_HIGH) {
 			GPIOSetDio(pin);
@@ -57,7 +57,7 @@ static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_fl
 	/*
 	 * Keep the port configuration (pinmux). pinctrl takes care of the pinmux.
 	 */
-	config |= HWREG(iocfg_reg) & IOC_PORTCFG_MASK;
+	config |= HWREG(iocfg_reg_addr) & IOC_PORTCFG_MASK;
 
 	if (flags & GPIO_PULL_UP) {
 		config |= IOC_IOC0_PULLCTL_PULL_UP;
@@ -88,14 +88,15 @@ static int gpio_cc23x0_config(const struct device *port, gpio_pin_t pin, gpio_fl
 
 	IOCSetConfigAndMux(pin, config, IOC_MUX_GPIO);
 
-	if (!setPinToOutput) {
+	if (!set_pin_to_output) {
 		GPIOSetOutputEnableDio(pin, GPIO_OUTPUT_DISABLE);
 	}
 	return 0;
 }
 
 #ifdef CONFIG_GPIO_GET_CONFIG
-static int gpio_cc23x0_get_config(const struct device *port, gpio_pin_t pin, gpio_flags_t *flags)
+static int gpio_lpf3_get_config(const struct device *port, gpio_pin_t pin,
+				gpio_flags_t *flags)
 {
 	uint32_t out_flag = 0;
 
@@ -158,43 +159,44 @@ static int gpio_cc23x0_get_config(const struct device *port, gpio_pin_t pin, gpi
 }
 #endif
 
-static int gpio_cc23x0_port_get_raw(const struct device *port, uint32_t *value)
+static int gpio_lpf3_port_get_raw(const struct device *port, uint32_t *value)
 {
 	*value = GPIOReadMultiDio(GPIO_DIO_ALL_MASK);
 
 	return 0;
 }
 
-static int gpio_cc23x0_port_set_masked_raw(const struct device *port, uint32_t mask, uint32_t value)
+static int gpio_lpf3_port_set_masked_raw(const struct device *port, uint32_t mask,
+					 uint32_t value)
 {
 	GPIOWriteMultiDio(mask, value);
 
 	return 0;
 }
 
-static int gpio_cc23x0_port_set_bits_raw(const struct device *port, uint32_t mask)
+static int gpio_lpf3_port_set_bits_raw(const struct device *port, uint32_t mask)
 {
 	GPIOSetMultiDio(mask);
 
 	return 0;
 }
 
-static int gpio_cc23x0_port_clear_bits_raw(const struct device *port, uint32_t mask)
+static int gpio_lpf3_port_clear_bits_raw(const struct device *port, uint32_t mask)
 {
 	GPIOClearMultiDio(mask);
 
 	return 0;
 }
 
-static int gpio_cc23x0_port_toggle_bits(const struct device *port, uint32_t mask)
+static int gpio_lpf3_port_toggle_bits(const struct device *port, uint32_t mask)
 {
 	GPIOToggleMultiDio(mask);
 
 	return 0;
 }
 
-static int gpio_cc23x0xx_pin_interrupt_configure(const struct device *port, gpio_pin_t pin,
-						 enum gpio_int_mode mode, enum gpio_int_trig trig)
+static int gpio_lpf3_pin_interrupt_configure(const struct device *port, gpio_pin_t pin,
+					     enum gpio_int_mode mode, enum gpio_int_trig trig)
 {
 	if (mode == GPIO_INT_MODE_LEVEL) {
 		return -ENOTSUP;
@@ -238,22 +240,22 @@ static int gpio_cc23x0xx_pin_interrupt_configure(const struct device *port, gpio
 	return 0;
 }
 
-static int gpio_cc23x0_manage_callback(const struct device *port, struct gpio_callback *callback,
-				       bool set)
+static int gpio_lpf3_manage_callback(const struct device *port, struct gpio_callback *callback,
+				     bool set)
 {
-	struct gpio_cc23x0_data *data = port->data;
+	struct gpio_lpf3_data *data = port->data;
 
 	return gpio_manage_callback(&data->callbacks, callback, set);
 }
 
-static uint32_t gpio_cc23x0_get_pending_int(const struct device *dev)
+static uint32_t gpio_lpf3_get_pending_int(const struct device *dev)
 {
 	return GPIOGetEventMultiDio(GPIO_DIO_ALL_MASK, true);
 }
 
-static void gpio_cc23x0_isr(const struct device *dev)
+static void gpio_lpf3_isr(const struct device *dev)
 {
-	struct gpio_cc23x0_data *data = dev->data;
+	struct gpio_lpf3_data *data = dev->data;
 
 	uint32_t status = GPIOGetEventMultiDio(GPIO_DIO_ALL_MASK, true);
 
@@ -263,7 +265,7 @@ static void gpio_cc23x0_isr(const struct device *dev)
 }
 
 #ifdef CONFIG_PM_DEVICE
-static int gpio_cc23x0_pm_action(const struct device *dev, enum pm_device_action action)
+static int gpio_lpf3_pm_action(const struct device *dev, enum pm_device_action action)
 {
 	/* No action is done when suspending or resuming the GPIO module,
 	 * since both clock control and the GPIO peripheral have memory retention.
@@ -281,13 +283,13 @@ static int gpio_cc23x0_pm_action(const struct device *dev, enum pm_device_action
 }
 #endif /* CONFIG_PM_DEVICE */
 
-static int gpio_cc23x0_init(const struct device *dev)
+static int gpio_lpf3_init(const struct device *dev)
 {
 	/* Enable GPIO domain clock */
 	CLKCTLEnable(CLKCTL_BASE, CLKCTL_GPIO);
 
 	/* Enable IRQ */
-	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), gpio_cc23x0_isr,
+	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), gpio_lpf3_isr,
 		    DEVICE_DT_INST_GET(0), 0);
 
 	irq_enable(DT_INST_IRQN(0));
@@ -295,29 +297,29 @@ static int gpio_cc23x0_init(const struct device *dev)
 	return 0;
 }
 
-static DEVICE_API(gpio, gpio_cc23x0_driver_api) = {
-	.pin_configure = gpio_cc23x0_config,
+static DEVICE_API(gpio, gpio_lpf3_driver_api) = {
+	.pin_configure = gpio_lpf3_config,
 #ifdef CONFIG_GPIO_GET_CONFIG
-	.pin_get_config = gpio_cc23x0_get_config,
+	.pin_get_config = gpio_lpf3_get_config,
 #endif
-	.port_get_raw = gpio_cc23x0_port_get_raw,
-	.port_set_masked_raw = gpio_cc23x0_port_set_masked_raw,
-	.port_set_bits_raw = gpio_cc23x0_port_set_bits_raw,
-	.port_clear_bits_raw = gpio_cc23x0_port_clear_bits_raw,
-	.port_toggle_bits = gpio_cc23x0_port_toggle_bits,
-	.pin_interrupt_configure = gpio_cc23x0xx_pin_interrupt_configure,
-	.manage_callback = gpio_cc23x0_manage_callback,
-	.get_pending_int = gpio_cc23x0_get_pending_int,
+	.port_get_raw = gpio_lpf3_port_get_raw,
+	.port_set_masked_raw = gpio_lpf3_port_set_masked_raw,
+	.port_set_bits_raw = gpio_lpf3_port_set_bits_raw,
+	.port_clear_bits_raw = gpio_lpf3_port_clear_bits_raw,
+	.port_toggle_bits = gpio_lpf3_port_toggle_bits,
+	.pin_interrupt_configure = gpio_lpf3_pin_interrupt_configure,
+	.manage_callback = gpio_lpf3_manage_callback,
+	.get_pending_int = gpio_lpf3_get_pending_int,
 };
 
-static const struct gpio_cc23x0_config gpio_cc23x0_config_0 = {
-	.common = GPIO_COMMON_CONFIG_FROM_DT_INST(0),
-};
+static const struct gpio_lpf3_config gpio_lpf3_config_0 = {
+	.common = {/* Read ngpios from DT */
+		   .port_pin_mask = GPIO_PORT_PIN_MASK_FROM_DT_INST(0)}};
 
-static struct gpio_cc23x0_data gpio_cc23x0_data_0;
+static struct gpio_lpf3_data gpio_lpf3_data_0;
 
-PM_DEVICE_DT_DEFINE(0, gpio_cc23x0_pm_action);
+PM_DEVICE_DT_DEFINE(0, gpio_lpf3_pm_action);
 
-DEVICE_DT_INST_DEFINE(0, gpio_cc23x0_init, PM_DEVICE_DT_GET(0), &gpio_cc23x0_data_0,
-		      &gpio_cc23x0_config_0, PRE_KERNEL_1, CONFIG_GPIO_INIT_PRIORITY,
-		      &gpio_cc23x0_driver_api);
+DEVICE_DT_INST_DEFINE(0, gpio_lpf3_init, PM_DEVICE_DT_GET(0), &gpio_lpf3_data_0,
+		      &gpio_lpf3_config_0, PRE_KERNEL_1, CONFIG_GPIO_INIT_PRIORITY,
+		      &gpio_lpf3_driver_api);

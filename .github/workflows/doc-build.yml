@@ -162,7 +162,7 @@ jobs:
           libcairo2 libasound2t64
 
         npm install -g pa11y-ci@4 pa11y-ci-reporter-html@7
-        npx puppeteer browsers install chrome
+        npx puppeteer browsers install chrome --retry 3
 
         python3 -m http.server 8000 --directory doc/_build/html &
         SERVER_PID=$!

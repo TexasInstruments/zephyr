@@ -104,7 +104,7 @@
 		};
 
 		gpio0: gpio@40023000 {
-			compatible = "ti,cc23x0-gpio";
+			compatible = "ti,lpf3-gpio";
 			reg = <0x40023000 0x804>;
 			interrupts = <5 0>;	/* GPIO combined on CPUIRQ5 */
 			status = "disabled";

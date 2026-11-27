@@ -18,4 +18,10 @@ config PREALLOC_BUFFERS
 		Preallocate buffers used for transaction
 		using `memory-region` property.
 
+config SPI_CONTROLLER_PERIPHERAL_EXTENDED_TESTS
+	bool "Extended tests"
+	default n
+	help
+		Enable extended tests for SPI controller peripheral.
+
 source "Kconfig.zephyr"

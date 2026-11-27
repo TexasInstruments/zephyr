@@ -154,8 +154,14 @@ static uint32_t counter_lgpt_lpf3_get_freq(const struct device *dev)
 {
 	const struct counter_lgpt_lpf3_config *config = dev->config;
 
-	/* Hardware divides by (prescale + 1) */
+	/* The LGPT reference clock is half of the system (CPU) clock on CC27xx.
+	 * Hardware divides that by (prescale + 1).
+	 */
+#ifdef CONFIG_SOC_SERIES_CC27XX
+	return (DT_PROP(DT_PATH(cpus, cpu_0), clock_frequency) / 2 / (config->prescale + 1));
+#else
 	return (DT_PROP(DT_PATH(cpus, cpu_0), clock_frequency) / (config->prescale + 1));
+#endif /* CONFIG_SOC_SERIES_CC27XX */
 }
 
 static int counter_lgpt_lpf3_set_alarm(const struct device *dev, uint8_t chan_id,
@@ -335,6 +341,10 @@ static int counter_lgpt_lpf3_start(const struct device *dev)
 	reg_val = HWREG(config->base + LGPT_O_CTL);
 	reg_val &= ~(LGPT_CTL_MODE_M | LGPT_CTL_C2RST | LGPT_CTL_C1RST | LGPT_CTL_C0RST);
 	reg_val |= LGPT_CTL_MODE_UP_PER;
+	/* Raise RIS.TGT one timer clock after CNTR = TGT. With the EARLY phase the flag is
+	 * re-latched when cleared while CNTR still equals TGT, firing the top callback twice.
+	 */
+	reg_val |= LGPT_CTL_INTP_LATE;
 	HWREG(config->base + LGPT_O_CTL) = reg_val;
 
 	return 0;

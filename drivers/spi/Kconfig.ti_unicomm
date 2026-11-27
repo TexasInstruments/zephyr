@@ -6,4 +6,15 @@ config SPI_TI_UNICOMM
 	default y
 	depends on DT_HAS_TI_UNICOMM_SPI_ENABLED
 	help
-		Enable SPI on TI devices with the Unicomm peripheral.
+	  Enable SPI on TI devices with the Unicomm peripheral.
+
+config SPI_TI_UNICOMM_DMA
+	bool "TI Unicomm SPI DMA support"
+	depends on SPI_TI_UNICOMM && SPI_ASYNC
+	depends on $(dt_compat_any_has_prop,$(DT_COMPAT_TI_UNICOMM_SPI),dmas)
+	select DMA
+	help
+	  Use DMA for asynchronous controller-mode transfers instead of the CPU interrupt
+	  handler. This only guards the DMA code, actual DMA depends on whether the instance
+	  has the dmas property in its devicetree node. Synchronous and peripheral-mode
+	  transfers always use interrupts.

@@ -24,6 +24,7 @@ tests:
       - adp_xc7k/ae350/clic
       - bg29_rb4420a
       - xg24_rb4187c
+      - lp_am13e230
       - lp_mspm0g3507
       - lp_mspm0g3519
       - lp_mspm0l2228

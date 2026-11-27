@@ -1,0 +1,61 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * I2C0 and I2C1 are shorted together, one acting as controller and the other
+ * as target.
+ *
+ *  Bus    SDA                 SCL
+ *  i2c0   DIO0                DIO24
+ *  i2c1   DIO19               DIO25
+ *
+ * Short DIO0 to DIO19 and DIO24 to DIO25 for the test to pass.
+ *
+ * DIO19 is also the button 2 input, so the button is disabled. DIO0 and
+ * DIO18 cannot be used for I2C1 because they are already used by I2C0 SDA
+ * and SPI0 SCLK.
+ */
+
+&pinctrl {
+	i2c1_scl_default: i2c1_scl_default {
+		pinmux = <25 DIO25_I2C1_SCL>;
+		bias-pull-up;
+		drive-open-drain;
+		input-enable;
+	};
+
+	i2c1_sda_default: i2c1_sda_default {
+		pinmux = <19 DIO19_I2C1_SDA>;
+		bias-pull-up;
+		drive-open-drain;
+		input-enable;
+	};
+};
+
+&btn1 {
+	status = "disabled";
+};
+
+&i2c0 {
+	eeprom0: eeprom@54 {
+		compatible = "zephyr,i2c-target-eeprom";
+		reg = <0x54>;
+		size = <256>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+	pinctrl-0 = <&i2c1_scl_default &i2c1_sda_default>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+
+	eeprom1: eeprom@56 {
+		compatible = "zephyr,i2c-target-eeprom";
+		reg = <0x56>;
+		size = <256>;
+	};
+};

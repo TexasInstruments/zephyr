@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * I2S API test overlay for lp_em_cc2341r10
+ *
+ * GPIO loopback wiring: connect DIO9 (SD0, TX out) -> DIO10 (SD1, RX in)
+ * with a jumper wire on the LaunchPad.
+ *
+ *   DIO15 = SCLK  (BCLK, bit clock)
+ *   DIO25 = WS    (WCLK, word/frame clock)
+ *   DIO9  = SD0   (TX data output)
+ *   DIO10 = SD1   (RX data input)
+ *
+ * CC23X1 has no audio oscillator, so the I2S clocks are derived from the
+ * 48 MHz reference clock. The test uses FRAME_CLK_FREQ = 8000 Hz with 16-bit
+ * stereo, which needs a divider of 187.5. The driver rounds it to 188, so the
+ * bit clock is about 0.3 % slow. TX and RX share the same clock, so the
+ * loopback data is unaffected.
+ */
+
+/ {
+	aliases {
+		i2s-node0 = &i2s0;
+	};
+};
+
+&i2s0 {
+	status = "okay";
+	pinctrl-0 = <&i2s0_sclk_default &i2s0_ws_default
+		     &i2s0_sd0_default &i2s0_sd1_default>;
+	pinctrl-names = "default";
+	pin-dir-sd0 = <0x02>;  /* OUTPUT */
+	pin-dir-sd1 = <0x01>;  /* INPUT */
+};

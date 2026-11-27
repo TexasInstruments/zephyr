@@ -1,0 +1,15 @@
+# Copyright (c) 2025 Texas Instruments Incorporated
+# Copyright (c) 2024 BayLibre, SAS
+#
+# SPDX-License-Identifier: Apache-2.0
+
+config SOC_FLASH_LPF3
+	bool "TI SimpleLink LPF3 flash controller driver"
+	default y
+	depends on DT_HAS_TI_LPF3_FLASH_CONTROLLER_ENABLED
+	select FLASH_HAS_PAGE_LAYOUT
+	select FLASH_HAS_DRIVER_ENABLED
+	select FLASH_HAS_EXPLICIT_ERASE
+	select MPU_ALLOW_FLASH_WRITE if ARM_MPU
+	help
+	  Enables TI SimpleLink LPF3 flash controller driver (CC23XX/CC27XX).

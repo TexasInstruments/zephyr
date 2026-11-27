@@ -60,6 +60,7 @@ tests:
       - lp_em_cc35x1/cc3551e
       - lp_em_cc2340r5moda
       - lp_em_cc2340r53_wcsp
+      - lp_em_cc2341r10
     integration_platforms:
       - nucleo_f746zg
   sample.drivers.counter.alarm.stm32_rtc:

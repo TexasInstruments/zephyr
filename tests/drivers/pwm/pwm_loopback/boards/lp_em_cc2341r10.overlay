@@ -1,0 +1,59 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * PWM loopback test overlay for lp_em_cc2341r10 (CC23X1 family).
+ *
+ * Output:  pwm0 channel 0 -> LGPT0 ch0 -> DIO8 (T0_C0N)
+ * Capture: pwm10 channel 1 -> LGPT3 ch1 -> DIO1 (T3_C1)
+ *
+ * Wire DIO8 (BP.36) <-> DIO1 (BP.25) to close the loopback. The LGPT1 capture pins are
+ * DIO3 (32 kHz crystal), DIO6 (SPI flash chip select) and DIO16 (SWDIO), so
+ * LGPT3 is used for capture instead.
+ *
+ * Override clk-prescale to 127 so a 100 ms test period fits in the 16-bit
+ * counter: 48 MHz / (127 + 1) = 375 kHz, 100 ms = 37500 cycles.
+ */
+
+#include <zephyr/dt-bindings/pinctrl/cc23x1-pinctrl.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+&pinctrl {
+	pwm10_capture: pwm10_capture {
+		pinmux = <1 DIO1_T3_C1>;
+		bias-disable;
+		input-enable;
+	};
+};
+
+/ {
+	pwm_loopback_0 {
+		compatible = "test-pwm-loopback";
+		pwms = <&pwm0 0 PWM_SEC(1) PWM_POLARITY_NORMAL>,
+		       <&pwm10 0 PWM_SEC(1) PWM_POLARITY_NORMAL>;
+	};
+};
+
+&lgpt0 {
+	clk-prescale = <127>;
+};
+
+&lgpt3 {
+	clk-prescale = <127>;
+	status = "okay";
+};
+
+&pwm0 {
+	status = "okay";
+	pinctrl-0 = <&pwm0_default>;
+	pinctrl-names = "default";
+};
+
+&pwm10 {
+	status = "okay";
+	pinctrl-0 = <&pwm10_capture>;
+	pinctrl-names = "default";
+};

@@ -54,35 +54,22 @@ static uint32_t sys_clock_elapsed_ticks(uint32_t current, uint32_t last);
  */
 void sys_clock_set_timeout(int32_t ticks, bool idle)
 {
+	k_spinlock_key_t key = k_spin_lock(&lock);
+	uint32_t now = sys_read32(CC35XX_RTC_BASE + RTC_O_TIME1U);
+	uint32_t elapsed = now - last_rtc_count;
+	uint32_t max_ticks = RTC_TIMEOUT_MAX / TICK_PERIOD_SYS;
+	uint32_t delay_ticks = (ticks == K_TICKS_FOREVER)
+				       ? max_ticks
+				       : ((ticks > 0) ? MIN((uint32_t)ticks - 1U, max_ticks) : 0U);
+	uint64_t timeout;
+
 	ARG_UNUSED(idle);
 
-	k_spinlock_key_t key = k_spin_lock(&lock);
-	/* If timeout is necessary */
-	if (ticks != K_TICKS_FOREVER) {
-		uint32_t now_tick = sys_read32(CC35XX_RTC_BASE + RTC_O_TIME1U);
-		uint32_t elapsed = now_tick - last_rtc_count;
-		uint32_t timeout;
-
-		/*
-		 * Zephyr passes the number of ticks until the next timeout.
-		 * Program the comparator relative to the last announced
-		 * kernel tick so we do not leave CH0 behind "now" when PM
-		 * reaches the sleep hook late in the current tick.
-		 */
-		ticks = CLAMP(ticks - 1, 0, (int32_t)(RTC_TIMEOUT_MAX / TICK_PERIOD_SYS));
-		timeout = (ticks * TICK_PERIOD_SYS) + elapsed;
-		timeout = DIV_ROUND_UP(timeout, TICK_PERIOD_SYS) * TICK_PERIOD_SYS;
-
-		if (timeout > RTC_TIMEOUT_MAX) {
-			timeout = RTC_TIMEOUT_MAX;
-			/* Make sure timeout is a multiple of TICK_PERIOD_SYS */
-			timeout -= timeout % TICK_PERIOD_SYS;
-		}
-		/* This should wrap around */
-		sys_write32(last_rtc_count + timeout, CC35XX_RTC_BASE + RTC_O_CH0CC1U);
-	} else {
-		sys_write32(last_rtc_count + RTC_TIMEOUT_MAX, CC35XX_RTC_BASE + RTC_O_CH0CC1U);
-	}
+	/* Keep the intermediate sum wide when the next deadline is far away. */
+	timeout = (uint64_t)delay_ticks * TICK_PERIOD_SYS + elapsed;
+	timeout = DIV_ROUND_UP(timeout, TICK_PERIOD_SYS) * TICK_PERIOD_SYS;
+	timeout = MIN(timeout, (uint64_t)max_ticks * TICK_PERIOD_SYS);
+	sys_write32(last_rtc_count + (uint32_t)timeout, CC35XX_RTC_BASE + RTC_O_CH0CC1U);
 	k_spin_unlock(&lock, key);
 }
 

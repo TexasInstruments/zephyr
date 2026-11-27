@@ -10,6 +10,9 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/adc.h>
 #include <zephyr/drivers/pinctrl.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <zephyr/init.h>
 #include <zephyr/irq.h>
 #include <zephyr/kernel.h>
@@ -32,6 +35,7 @@
 /* hardware supports MEMCTL0..5 for sequence */
 #define CC35XX_SEQUENCE_MAX 6
 
+#define ADC_CONTEXT_ENABLE_ON_COMPLETE
 #define ADC_CONTEXT_USES_KERNEL_TIMER
 #include "adc_context.h"
 
@@ -65,6 +69,7 @@ struct adc_cc35xx_data {
 	} channel_config[CC35XX_CHAN_COUNT];
 	size_t active_channels;
 	uint32_t clkdiv;
+	bool active;
 #ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
 	struct adc_cc35xx_dma_stream dma;
 #endif /* CONFIG_ADC_CC35XX_DMA_DRIVEN */
@@ -76,6 +81,19 @@ struct adc_cc35xx_cfg {
 	uint32_t clkdiv;
 	uint16_t sample_period;
 };
+
+static void adc_context_on_complete(struct adc_context *ctx, int status)
+{
+	struct adc_cc35xx_data *data = CONTAINER_OF(ctx, struct adc_cc35xx_data, ctx);
+
+	ARG_UNUSED(status);
+
+	if (data->active) {
+		data->active = false;
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	}
+}
 
 #ifdef CONFIG_ADC_CC35XX_DMA_DRIVEN
 static int adc_cc35xx_fifo_enable(const struct device *dev, bool enable)
@@ -120,7 +138,7 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 	ret = dma_config(data->dma.dev_dma, data->dma.dma_channel, &data->dma.dma_cfg);
 	if (ret) {
 		LOG_ERR("Error configuring DMA for ADC, error: %d", ret);
-		return;
+		goto dma_error;
 	}
 	ADCEnableDmaTrigger();
 	ADCEnableInterrupt(ADC_INT_DMADONE);
@@ -142,6 +160,7 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 dma_error:
 	ADCDisableInterrupt(ADC_INT_DMADONE);
 	ADCDisableDmaTrigger();
+	adc_context_complete(ctx, ret);
 }
 
 static void adc_context_stop_sampling(struct adc_context *ctx)
@@ -297,6 +316,9 @@ static int adc_cc35xx_read(const struct device *dev, const struct adc_sequence *
 	ADCSetTriggerSource(ADC_TRIGGER_SOURCE_SOFTWARE);
 
 	adc_context_lock(&data->ctx, asynchronous, sig);
+	pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	data->active = true;
 	adc_context_start_read(&data->ctx, sequence);
 	ret = adc_context_wait_for_completion(&data->ctx);
 	adc_context_release(&data->ctx, ret);
@@ -430,7 +452,10 @@ static int adc_cc35xx_init(const struct device *dev)
 	data->clkdiv = adc_cc35xx_sclkdiv_reg_val(config->clkdiv);
 	ADCSetSamplingClk(ADC_SAMPLE_CLK_SOC_CLK);
 	ADCDisableInterrupt(ADC_INT_ALL);
-	sys_write32(ADC_CLKCFG_EN, config->base + ADC_O_CLKCFG);
+	ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_ADC);
+	if (ret) {
+		return ret;
+	}
 	IRQ_CONNECT(DT_INST_IRQN(0), DT_INST_IRQ(0, priority), adc_cc35xx_isr,
 		    DEVICE_DT_INST_GET(0), 0);
 	irq_enable(DT_INST_IRQN(0));
@@ -450,6 +475,46 @@ static int adc_cc35xx_init(const struct device *dev)
 
 	return 0;
 }
+
+#ifdef CONFIG_PM_DEVICE
+static int adc_cc35xx_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct adc_cc35xx_cfg *config = dev->config;
+	struct adc_cc35xx_data *data = dev->data;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (data->active) {
+			return -EBUSY;
+		}
+		irq_disable(DT_INST_IRQN(0));
+		ADCClearInterrupt(ADC_INT_ALL);
+		NVIC_ClearPendingIRQ((IRQn_Type)DT_INST_IRQN(0));
+		ret = cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_ADC);
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		ret = pinctrl_apply_state(config->pcfg, PINCTRL_STATE_DEFAULT);
+		if (ret < 0) {
+			LOG_ERR("Applying ADC pinctrl state failed");
+			break;
+		}
+		ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_ADC);
+		if (ret) {
+			break;
+		}
+		ADCSetSamplingClk(ADC_SAMPLE_CLK_SOC_CLK);
+		ADCDisableInterrupt(ADC_INT_ALL);
+		irq_enable(DT_INST_IRQN(0));
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
 
 static DEVICE_API(adc, cc35xx_driver_api) = {
 	.channel_setup = adc_cc35xx_channel_setup,
@@ -494,7 +559,8 @@ static DEVICE_API(adc, cc35xx_driver_api) = {
 		ADC_CONTEXT_INIT_LOCK(adc_cc35xx_data_##n, ctx),                                   \
 		ADC_CONTEXT_INIT_SYNC(adc_cc35xx_data_##n, ctx),                                   \
 		ADC_CC35XX_DMA_CHANNEL(n, rx, 1, 1)};                                              \
-	DEVICE_DT_INST_DEFINE(n, &adc_cc35xx_init, NULL, &adc_cc35xx_data_##n,                     \
+	PM_DEVICE_DT_INST_DEFINE(n, adc_cc35xx_pm_action);                                         \
+	DEVICE_DT_INST_DEFINE(n, &adc_cc35xx_init, PM_DEVICE_DT_INST_GET(n), &adc_cc35xx_data_##n, \
 			      &adc_cc35xx_cfg_##n, POST_KERNEL, CONFIG_ADC_INIT_PRIORITY,          \
 			      &cc35xx_driver_api);
 

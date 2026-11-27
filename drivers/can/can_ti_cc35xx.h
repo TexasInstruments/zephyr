@@ -24,6 +24,9 @@
 #define CAN_TI_CC35XX_SSEOI_INTL0 BIT(0)
 #define CAN_TI_CC35XX_SSEOI_INTL1 BIT(1)
 
+#define CAN_TI_CC35XX_SSSTA            0x00000208
+#define CAN_TI_CC35XX_SSSTA_MEMINITSTA BIT(1)
+
 #define CAN_TI_CC35XX_CLKCFG                           0x00002000
 #define CAN_TI_CC35XX_CLKCFG_CLKEN                     BIT(0)
 #define CAN_TI_CC35XX_CLKCFG_RAMEN                     BIT(4)

@@ -12,6 +12,9 @@
 #include <zephyr/spinlock.h>
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/clock_control.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 
 #include <ti/devices/cc35xx/inc/hw_gptimer.h>
 #include <inc/hw_types.h>
@@ -27,6 +30,9 @@
 #define GPTIMER_O_CXCC(index)  (GPTIMER_O_C0CC + ((index) * 4))
 #define GPTIMER_O_CXCFG(index) (GPTIMER_O_C0CFG + ((index) * 4))
 
+#define GPTIMER_PM_RESOURCE(base)                                                                  \
+	((base) == GPTIMER0_BASE ? CC35XX_PM_RESOURCE_GPTIMER0 : CC35XX_PM_RESOURCE_GPTIMER1)
+
 #define GPTIMER_IMCLR_CXCC_CLR(index) (GPTIMER_IMCLR_C0CC_CLR << (index))
 #define GPTIMER_IMSET_CXCC_SET(index) (GPTIMER_IMSET_C0CC_SET << (index))
 
@@ -40,6 +46,8 @@ struct counter_cc35xx_gptimer_config {
 struct counter_cc35xx_gptimer_data {
 	struct counter_alarm_cfg alarm_cfg[TI_CC35XX_COUNTER_CHANNELS];
 	struct counter_top_cfg target_cfg;
+	bool running;
+	bool powered;
 };
 
 static int counter_cc35xx_gptimer_get_value(const struct device *dev, uint32_t *ticks)
@@ -211,7 +219,19 @@ static uint32_t counter_cc35xx_gptimer_get_pending_int(const struct device *dev)
 static int counter_cc35xx_gptimer_start(const struct device *dev)
 {
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
-	uint32_t reg = sys_read32(config->base + GPTIMER_O_CTL);
+	struct counter_cc35xx_gptimer_data *data = dev->data;
+	unsigned int key = irq_lock();
+	uint32_t reg;
+
+	/* The timer stops in standby, so keep the system out of it while running. */
+	if (!data->running) {
+		pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		data->running = true;
+	}
+	irq_unlock(key);
+
+	reg = sys_read32(config->base + GPTIMER_O_CTL);
 
 	sys_write32((reg & ~GPTIMER_CTL_MODE_M) | GPTIMER_CTL_MODE_UP_PER,
 		    config->base + GPTIMER_O_CTL);
@@ -224,8 +244,18 @@ static int counter_cc35xx_gptimer_start(const struct device *dev)
 static int counter_cc35xx_gptimer_stop(const struct device *dev)
 {
 	const struct counter_cc35xx_gptimer_config *config = dev->config;
+	struct counter_cc35xx_gptimer_data *data = dev->data;
+	unsigned int key;
 
 	sys_write32(TI_CC35XX_CNTR_STOP, config->base + GPTIMER_O_STARTCFG);
+
+	key = irq_lock();
+	if (data->running) {
+		data->running = false;
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	}
+	irq_unlock(key);
 
 	return 0;
 }
@@ -242,21 +272,80 @@ static DEVICE_API(counter, cc35xx_counter_api) = {
 	.get_freq = counter_cc35xx_gptimer_get_freq,
 };
 
-#define GPTIMER_CLK_PRESCALE(pres) ((pres) << 8)
+#define GPTIMER_CLK_PRESCALE(pres) ((pres) << GPTIMER_PRECFG_TICKDIV_S)
+
+static void counter_cc35xx_gptimer_configure(const struct device *dev)
+{
+	const struct counter_cc35xx_gptimer_config *config = dev->config;
+	struct counter_cc35xx_gptimer_data *data = dev->data;
+
+	sys_write32(GPTIMER_CTL_CMPDIR_BOTH | GPTIMER_CTL_INTP_LATE | GPTIMER_EMU_HALT_EN,
+		    config->base + GPTIMER_O_CTL);
+	sys_write32(data->target_cfg.ticks, config->base + GPTIMER_O_TGT);
+	sys_write32(GPTIMER_CLK_PRESCALE(config->prescale), config->base + GPTIMER_O_PRECFG);
+	if (data->target_cfg.callback != NULL) {
+		sys_write32(GPTIMER_IMSET_TGT_SET, config->base + GPTIMER_O_IMSET);
+	}
+}
+
+#ifdef CONFIG_PM_DEVICE
+static int counter_cc35xx_gptimer_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct counter_cc35xx_gptimer_config *config = dev->config;
+	struct counter_cc35xx_gptimer_data *data = dev->data;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (data->running) {
+			return -EBUSY;
+		}
+		/* Armed alarms would lose their compare configuration in standby. */
+		for (uint8_t chan_id = 0; chan_id < TI_CC35XX_COUNTER_CHANNELS; chan_id++) {
+			if (data->alarm_cfg[chan_id].callback != NULL) {
+				return -EBUSY;
+			}
+		}
+		if (data->powered) {
+			ret = cc35xx_pm_resource_put(GPTIMER_PM_RESOURCE(config->base));
+			if (ret == 0) {
+				data->powered = false;
+			}
+		}
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		if (!data->powered) {
+			ret = cc35xx_pm_resource_get(GPTIMER_PM_RESOURCE(config->base));
+			if (ret == 0) {
+				data->powered = true;
+				counter_cc35xx_gptimer_configure(dev);
+			}
+		}
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
 
 #define COUNTER_CC35XX_INIT_FUNC(inst)                                                             \
 	static int counter_cc35xx_init_##inst(const struct device *dev)                            \
 	{                                                                                          \
 		const struct counter_cc35xx_gptimer_config *config = dev->config;                  \
-		sys_write32(GPTIMER_CLKCFG_ENABLE, config->base + GPTIMER_O_CLKCFG);               \
-		sys_write32(GPTIMER_CTL_CMPDIR_BOTH | GPTIMER_CTL_INTP_LATE | GPTIMER_EMU_HALT_EN, \
-			    config->base + GPTIMER_O_CTL);                                         \
+		struct counter_cc35xx_gptimer_data *data = dev->data;                              \
+		int ret = cc35xx_pm_resource_get(GPTIMER_PM_RESOURCE(config->base));               \
+		if (ret != 0) {                                                                    \
+			return ret;                                                                \
+		}                                                                                  \
+		data->powered = true;                                                              \
+		data->target_cfg.ticks = config->counter_info.max_top_value;                       \
+		counter_cc35xx_gptimer_configure(dev);                                             \
 		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority),                       \
 			    counter_cc35xx_gptimer_isr, DEVICE_DT_INST_GET(inst), 0);              \
 		irq_enable(DT_INST_IRQN(inst));                                                    \
-		sys_write32(config->counter_info.max_top_value, config->base + GPTIMER_O_TGT);     \
-		sys_write32(GPTIMER_CLK_PRESCALE(config->prescale),                                \
-			    config->base + GPTIMER_O_PRECFG);                                      \
 		return 0;                                                                          \
 	}
 
@@ -273,7 +362,8 @@ static DEVICE_API(counter, cc35xx_counter_api) = {
 		.prescale = DT_INST_PROP(inst, clk_prescale),                                      \
 		.freq = DT_INST_PROP_BY_PHANDLE(inst, clocks, clock_frequency)};                   \
 	static struct counter_cc35xx_gptimer_data cc35xx_counter_data_##inst;                      \
-	DEVICE_DT_INST_DEFINE(inst, &counter_cc35xx_init_##inst, NULL,                             \
+	PM_DEVICE_DT_INST_DEFINE(inst, counter_cc35xx_gptimer_pm_action);                          \
+	DEVICE_DT_INST_DEFINE(inst, &counter_cc35xx_init_##inst, PM_DEVICE_DT_INST_GET(inst),      \
 			      &cc35xx_counter_data_##inst, &cc35xx_counter_config_##inst,          \
 			      POST_KERNEL, CONFIG_COUNTER_INIT_PRIORITY, &cc35xx_counter_api);
 

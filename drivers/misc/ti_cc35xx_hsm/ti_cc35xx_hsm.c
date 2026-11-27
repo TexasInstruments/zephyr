@@ -10,6 +10,8 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/entropy.h>
 #include <zephyr/irq.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
 #include <zephyr/sys/sys_io.h>
 #include <zephyr/sys/ring_buffer.h>
 
@@ -100,6 +102,23 @@ struct hsm_ti_cc35xx_data {
 	struct k_sem operation_sem;
 	struct entropy_ctx entropy;
 };
+
+/* Keep the system out of standby and wake the HSM before submitting tokens. */
+static int hsm_ti_cc35xx_op_begin(void)
+{
+	pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+	if (HSMXXF3_wakeUp() != HSMXXF3_STATUS_SUCCESS) {
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		return -EIO;
+	}
+
+	return 0;
+}
+
+static void hsm_ti_cc35xx_op_end(void)
+{
+	pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+}
 
 static int hsm_ti_cc35xx_get_hw_caps(const struct device *dev)
 {
@@ -232,6 +251,12 @@ static void hsm_ti_cc35xx_kick_trng(struct hsm_ti_cc35xx_data *data)
 		return;
 	}
 
+	if (hsm_ti_cc35xx_op_begin() != 0) {
+		k_sem_give(&data->operation_sem);
+		k_work_reschedule(&data->entropy.trng_work, K_MSEC(HSM_TRNG_RESCHEDULE_DELAY_MS));
+		return;
+	}
+
 	TRNG_init();
 	TRNG_Params_init(&trng_params);
 	trng_params.returnBehavior = TRNG_RETURN_BEHAVIOR_POLLING;
@@ -243,6 +268,7 @@ static void hsm_ti_cc35xx_kick_trng(struct hsm_ti_cc35xx_data *data)
 	TRNG_getRandomBytes(trng_handle, ring_buf_dst, buffer_space);
 	ring_buf_put_finish(&data->entropy.pool, buffer_space);
 	TRNG_close(trng_handle);
+	hsm_ti_cc35xx_op_end();
 
 	k_sem_give(&data->entropy.sem);
 	k_sem_give(&data->operation_sem);
@@ -475,6 +501,11 @@ static int hsm_ti_cc35xx_do_crypto(const struct device *dev, enum cipher_algo al
 		return -EBUSY;
 	}
 
+	if (hsm_ti_cc35xx_op_begin() != 0) {
+		k_sem_give(&data->operation_sem);
+		return -EIO;
+	}
+
 	switch (mode) {
 	case CRYPTO_CIPHER_MODE_ECB:
 		cphr_pkt = (struct cipher_pkt *)pkt;
@@ -495,6 +526,7 @@ static int hsm_ti_cc35xx_do_crypto(const struct device *dev, enum cipher_algo al
 		result = -ENOTSUP;
 	}
 
+	hsm_ti_cc35xx_op_end();
 	k_sem_give(&data->operation_sem);
 
 	return result;
@@ -613,5 +645,27 @@ static struct hsm_ti_cc35xx_data hsm_ti_cc35xx_data = {
 	.entropy.sem = Z_SEM_INITIALIZER(hsm_ti_cc35xx_data.entropy.sem, 0, 1),
 };
 
-DEVICE_DT_INST_DEFINE(0, hsm_ti_cc35xx_init, NULL, &hsm_ti_cc35xx_data, NULL, PRE_KERNEL_1,
-		      CONFIG_TI_CC35XX_HSM_INIT_PRIORITY, &hsm_ti_cc35xx_driver_api);
+#ifdef CONFIG_PM_DEVICE
+static int hsm_ti_cc35xx_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	struct hsm_ti_cc35xx_data *data = dev->data;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (k_sem_count_get(&data->operation_sem) == 0U) {
+			return -EBUSY;
+		}
+		/* Send the sleep token; the HSM is woken on the next operation. */
+		return HSMXXF3_sleep() == HSMXXF3_STATUS_SUCCESS ? 0 : -EIO;
+	case PM_DEVICE_ACTION_RESUME:
+		return 0;
+	default:
+		return -ENOTSUP;
+	}
+}
+#endif
+
+PM_DEVICE_DT_INST_DEFINE(0, hsm_ti_cc35xx_pm_action);
+
+DEVICE_DT_INST_DEFINE(0, hsm_ti_cc35xx_init, PM_DEVICE_DT_INST_GET(0), &hsm_ti_cc35xx_data, NULL,
+		      PRE_KERNEL_1, CONFIG_TI_CC35XX_HSM_INIT_PRIORITY, &hsm_ti_cc35xx_driver_api);

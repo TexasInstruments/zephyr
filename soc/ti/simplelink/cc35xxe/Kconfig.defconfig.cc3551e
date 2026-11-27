@@ -4,6 +4,14 @@
 
 if SOC_SERIES_CC35XXE
 
+config CC35XX_RTC_TIMER
+	default y if PM
+
+# Standby loses peripheral context. Keep system-managed suspend with runtime PM, so
+# devices without runtime PM enabled are still suspended before standby.
+config PM_DEVICE_SYSTEM_MANAGED
+	default y if PM_DEVICE_RUNTIME
+
 config SYS_CLOCK_HW_CYCLES_PER_SEC
 	int
 	default 1000000 if CC35XX_RTC_TIMER

@@ -15,6 +15,10 @@
 #include <zephyr/drivers/pinctrl.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/sys/util.h>
+#include <zephyr/drivers/pm/cc35xx_pm.h>
+#include <zephyr/pm/device.h>
+#include <zephyr/pm/policy.h>
+#include <soc.h>
 
 LOG_MODULE_REGISTER(ti_cc35xx_i2s, CONFIG_I2S_LOG_LEVEL);
 
@@ -581,17 +585,19 @@ static void stop_dma(const struct device *dev)
 {
 	const struct ti_cc35xx_i2s_cfg *config = dev->config;
 	struct ti_cc35xx_i2s_data *data = dev->data;
+	unsigned int key;
 
 	data->dma_frame_count = 0;
 	data->is_dma_frame_count_fixed = false;
 	I2SStop(config->reg_base);
-}
 
-static inline void enable_core_clock(const struct device *dev)
-{
-	const struct ti_cc35xx_i2s_cfg *config = dev->config;
-
-	I2SEnableClk(config->reg_base);
+	key = irq_lock();
+	if (data->pm_locked) {
+		data->pm_locked = false;
+		pm_policy_state_lock_put(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_put(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+	}
+	irq_unlock(key);
 }
 
 static void config_clocks(const struct device *dev)
@@ -639,16 +645,6 @@ static void enable_clocks(const struct device *dev)
 		/* Enable controller generated clocks */
 		I2SEnableControllerClocks(config->reg_base);
 	}
-}
-
-static void disable_clocks(const struct device *dev)
-{
-	const struct ti_cc35xx_i2s_cfg *config = dev->config;
-
-	I2SDisableClk(config->reg_base);
-	I2SDisableAdfs(config->reg_base);
-	I2SDisableSampleStamp(config->reg_base);
-	I2SDisableControllerClocks(config->reg_base);
 }
 
 static void init_hw(const struct device *dev, struct ti_cc35xx_i2s_stream_cfg *stream_cfg,
@@ -1013,7 +1009,7 @@ static int ti_cc35xx_i2s_write(const struct device *dev, void *mem_block, size_t
 	 * - including the ISR, so there's no potential
 	 * for race conditions.
 	 */
-	if (is_next_pointer_null(dev) && stream->state == I2S_STATE_RUNNING) {
+	if (stream->state == I2S_STATE_RUNNING && is_next_pointer_null(dev)) {
 		stream->set_dma_pointer(dev, transfer->mem_block);
 	}
 
@@ -1099,6 +1095,7 @@ static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 	void *rx_mem_addr_1 = NULL;
 	void *rx_mem_addr_2 = NULL;
 	uint32_t trig;
+	unsigned int key;
 	int ret;
 
 	if (dir == I2S_DIR_RX || dir == I2S_DIR_BOTH) {
@@ -1174,6 +1171,14 @@ static int handle_trigger_start(const struct device *dev, enum i2s_dir dir,
 	if (rx_mem_addr_2) {
 		stream_rx->set_dma_pointer(dev, rx_mem_addr_2);
 	}
+
+	key = irq_lock();
+	if (!data->pm_locked && (stream_tx->enabled || stream_rx->enabled)) {
+		pm_policy_state_lock_get(PM_STATE_RUNTIME_IDLE, PM_ALL_SUBSTATES);
+		pm_policy_state_lock_get(PM_STATE_STANDBY, PM_ALL_SUBSTATES);
+		data->pm_locked = true;
+	}
+	irq_unlock(key);
 
 	return 0;
 }
@@ -1506,6 +1511,46 @@ end:
 	I2SClearInt(config->reg_base, status);
 }
 
+#ifdef CONFIG_PM_DEVICE
+static int ti_cc35xx_i2s_pm_action(const struct device *dev, enum pm_device_action action)
+{
+	const struct ti_cc35xx_i2s_cfg *config = dev->config;
+	struct ti_cc35xx_i2s_data *data = dev->data;
+	int ret = 0;
+
+	switch (action) {
+	case PM_DEVICE_ACTION_SUSPEND:
+		if (data->stream_tx.enabled || data->stream_rx.enabled) {
+			return -EBUSY;
+		}
+		irq_disable(DT_INST_IRQN(0));
+		I2SDisableInt(config->reg_base, I2S_INT_ALL);
+		I2SClearInt(config->reg_base, I2S_INT_ALL);
+		NVIC_ClearPendingIRQ((IRQn_Type)DT_INST_IRQN(0));
+		ret = cc35xx_pm_resource_put(CC35XX_PM_RESOURCE_I2S);
+		break;
+	case PM_DEVICE_ACTION_RESUME:
+		ret = pinctrl_apply_state(config->pin_cfg, PINCTRL_STATE_DEFAULT);
+		if (ret < 0) {
+			LOG_ERR("Failed to configure pins");
+			break;
+		}
+		ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_I2S);
+		if (ret < 0) {
+			break;
+		}
+		I2SClearInt(config->reg_base, I2S_INT_ALL);
+		irq_enable(DT_INST_IRQN(0));
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_PM_DEVICE */
+
 static DEVICE_API(i2s, i2s_api) = {
 	.configure = ti_cc35xx_i2s_configure,
 	.config_get = ti_cc35xx_i2s_config_get,
@@ -1568,14 +1613,19 @@ static DEVICE_API(i2s, i2s_api) = {
 		data->stream_tx.set_stamp_trigger = set_tx_sample_stamp_trigger;                   \
 		data->stream_tx.peek_next_transfer = peek_next_tx_transfer;                        \
 		k_fifo_init(&data->stream_tx.queue);                                               \
-		enable_core_clock(dev);                                                            \
+		ret = cc35xx_pm_resource_get(CC35XX_PM_RESOURCE_I2S);                              \
+		if (ret != 0) {                                                                    \
+			return ret;                                                                \
+		}                                                                                  \
 		I2SClearInt(config->reg_base, I2S_INT_ALL);                                        \
 		IRQ_CONNECT(DT_INST_IRQN(inst), DT_INST_IRQ(inst, priority), ti_cc35xx_i2s_isr,    \
 			    DEVICE_DT_GET(DT_INST(inst, DT_DRV_COMPAT)), 0);                       \
 		irq_enable(DT_INST_IRQN(inst));                                                    \
 		return 0;                                                                          \
 	}                                                                                          \
-	DEVICE_DT_INST_DEFINE(0, &ti_cc35xx_i2s_init##inst, NULL, &i2s_##inst##_data,              \
-			      &i2s_##inst##_cfg, POST_KERNEL, CONFIG_I2S_INIT_PRIORITY, &i2s_api);
+	PM_DEVICE_DT_INST_DEFINE(0, ti_cc35xx_i2s_pm_action);                                      \
+	DEVICE_DT_INST_DEFINE(0, &ti_cc35xx_i2s_init##inst, PM_DEVICE_DT_INST_GET(0),              \
+			      &i2s_##inst##_data, &i2s_##inst##_cfg, POST_KERNEL,                  \
+			      CONFIG_I2S_INIT_PRIORITY, &i2s_api);
 
 DT_INST_FOREACH_STATUS_OKAY(TI_CC35XX_I2S_INIT)

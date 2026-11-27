@@ -69,7 +69,7 @@
 
 	soc {
 		flash_controller: flash-controller@40021000 {
-			compatible = "ti,cc23x0-flash-controller";
+			compatible = "ti,lpf3-flash-controller";
 			reg = <0x40021000 0x408>;
 			#address-cells = <1>;
 			#size-cells = <1>;

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-    TI SimpleLink CC27XX pinctrl node.
+    TI SimpleLink LPF3 Pin Controller
 
     Device pin configuration should be placed in the child nodes of this node.
     Populate the 'pinmux' field with a pair consisting of a pin number and its IO
@@ -30,7 +30,7 @@ description: |
     - input-enable: enable input.
     - input-schmitt-enable: enable input schmitt circuit.
 
-compatible: "ti,cc27xx-pinctrl"
+compatible: "ti,lpf3-pinctrl"
 
 include: base.yaml
 
@@ -40,7 +40,7 @@ properties:
 
 child-binding:
   description: |
-    This binding gives a base representation of the CC27XX
+    This binding gives a base representation of the LPF3
     pins configuration.
 
   include:
@@ -59,4 +59,4 @@ child-binding:
       required: true
       type: array
       description: |
-        CC27XX pin's configuration (IO pin, IO function).
+        LPF3 pin's configuration (IO pin, IO function).

@@ -100,7 +100,7 @@
 		};
 
 		pinctrl: pinctrl@40003000 {
-			compatible = "ti,cc27xx-pinctrl";
+			compatible = "ti,lpf3-pinctrl";
 			reg = <0x40003000 0xc1c>;
 		};
 

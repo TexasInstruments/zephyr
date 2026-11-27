@@ -1,11 +1,11 @@
-# Copyright (c) 2024 Texas Instruments Incorporated
+# Copyright (c) 2025 Texas Instruments Incorporated
 # Copyright (c) 2024 BayLibre, SAS
 #
 # SPDX-License-Identifier: Apache-2.0
 
-description: TI SimpleLink CC23X0 GPIO
+description: TI SimpleLink LPF3 GPIO node
 
-compatible: "ti,cc23x0-gpio"
+compatible: "ti,lpf3-gpio"
 
 include: [gpio-controller.yaml, base.yaml]
 

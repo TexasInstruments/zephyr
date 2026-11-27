@@ -1,0 +1,111 @@
+# Copyright (c) 2022 Vaishnav Achath
+# Copyright (c) 2026 Texas Instruments Incorporated
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+    TI SimpleLink CC13x4 / CC26x4 pinctrl node.
+
+    Device pin configuration should be placed in the child nodes of this node.
+    Populate the 'pinmux' field with a pair consisting of a pin number and its IO
+    function.
+
+    The node has the 'pinctrl' node label set in your SoC's devicetree,
+    so you can modify it like this:
+
+      &pinctrl {
+              /* your modifications go here */
+      };
+
+    All device pin configurations should be placed in child nodes of the
+    'pinctrl' node, as in the uart0 example shown at the end.
+
+    Supported standard pin properties:
+
+    - bias-disable: Disable pull-up/down.
+    - bias-pull-down: Enable pull-down resistor.
+    - bias-pull-up: Enable pull-up resistor.
+    - drive-open-drain: Output driver is open-drain.
+    - drive-open-source: Output driver is open-source.
+    - drive-strength: Minimum current that can be sourced from the pin.
+    - input-enable: Enable input.
+    - input-schmitt-enable: Enable input schmitt circuit.
+    - ti,input-edge-detect: Enable and configure edge detection interrupts.
+
+    Example - include the chip level pinctrl header in the board DTS:
+
+      #include <dt-bindings/pinctrl/cc13x4_cc26x4-pinctrl.h>
+
+    Configure UART0 TX/RX pins:
+
+      &pinctrl {
+        uart0_tx_default: uart0_tx_default {
+          pinmux = <3 IOC_PORT_MCU_UART0_TX>;
+          bias-disable;
+        };
+        uart0_rx_default: uart0_rx_default {
+          pinmux = <2 IOC_PORT_MCU_UART0_RX>;
+          bias-disable;
+          input-enable;
+        };
+      };
+
+      &uart0 {
+        pinctrl-0 = <&uart0_tx_default &uart0_rx_default>;
+        pinctrl-names = "default";
+        status = "okay";
+      };
+
+compatible: "ti,cc13x4-cc26x4-pinctrl"
+
+include: base.yaml
+
+properties:
+  reg:
+    required: true
+
+child-binding:
+  description: |
+    CC13x4/CC26x4 pin configuration node.
+
+  include:
+    - name: pincfg-node.yaml
+      property-allowlist:
+        - bias-disable
+        - bias-pull-down
+        - bias-pull-up
+        - drive-open-drain
+        - drive-open-source
+        - drive-strength
+        - input-enable
+        - input-schmitt-enable
+
+  properties:
+    pinmux:
+      required: true
+      type: array
+      description: |
+        CC13x4/CC26x4 pin configuration: <IO_pin_number IO_port_function>.
+        IO_port_function is an IOC_PORT_* constant from
+        cc13x4_cc26x4-pinctrl.h.
+
+    drive-strength:
+      enum:
+        - 2
+        - 4
+        - 8
+      default: 2
+      description: |
+        Minimum output drive strength in mA.
+          2: min 2 mA (SoC default)
+          4: min 4 mA
+          8: min 8 mA for double drive strength IOs, min 4 mA for normal IOs
+
+    ti,input-edge-detect:
+      type: int
+      default: 0
+      description: |
+        Edge detection interrupt configuration:
+          IOC_NO_EDGE (0): No edge detection (default)
+          IOC_FALLING_EDGE: Edge detection on falling edge
+          IOC_RISING_EDGE: Edge detection on rising edge
+          IOC_BOTH_EDGES: Edge detection on both edges

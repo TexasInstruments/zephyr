@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2026 Texas Instruments Incorporated
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <zephyr/dt-bindings/adc/adc.h>
+
+/*
+ * The channel number is the ADC_COMPB_IN_* mux value passed to
+ * AUXADCSelectInput(), not the DIO number:
+ *
+ *   channel  ADC_COMPB_IN_*  DIO
+ *   0x09     AUXIO26         23
+ *   0x0a     AUXIO25         24
+ *   0x0b     AUXIO24         25
+ *   0x0c     AUXIO23         26
+ *   0x0d     AUXIO22         27
+ *   0x0e     AUXIO21         28
+ *   0x0f     AUXIO20         29
+ *   0x10     AUXIO19         30
+ */
+
+/ {
+	zephyr,user {
+		/* 0x9 is ADC_COMPB_IN_AUXIO26 (DIO23) */
+		io-channels = <&adc0 0x9>;
+	};
+};
+
+&adc0 {
+	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@9 {
+		reg = <9>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,vref-mv = <4300>;
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_MICROSECONDS, 20)>;
+		zephyr,resolution = <12>;
+	};
+};

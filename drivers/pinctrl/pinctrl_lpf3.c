@@ -5,7 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define DT_DRV_COMPAT ti_cc27xx_pinctrl
+#define DT_DRV_COMPAT ti_lpf3_pinctrl
 
 #include <zephyr/drivers/pinctrl.h>
 
@@ -16,11 +16,11 @@
 #define IOC_BASE_PIN_REG 0x00000100
 #define IOC_ADDR(index)  (IOC_BASE + IOC_BASE_PIN_REG + (sizeof(uint32_t) * (index)))
 
-static int pinctrl_cc27xx_set(uint32_t pin, uint32_t func, uint32_t mode)
+static int pinctrl_lpf3_set(uint32_t pin, uint32_t func, uint32_t mode)
 {
-	uint32_t iocfgRegAddr = IOC_ADDR(pin);
+	uint32_t iocfg_reg_addr = IOC_ADDR(pin);
 
-	HWREG(iocfgRegAddr) = mode | func;
+	HWREG(iocfg_reg_addr) = mode | func;
 
 	return 0;
 }
@@ -30,7 +30,7 @@ int pinctrl_configure_pins(const pinctrl_soc_pin_t *pins, uint8_t pin_cnt, uintp
 	ARG_UNUSED(reg);
 
 	for (uint8_t i = 0U; i < pin_cnt; i++) {
-		pinctrl_cc27xx_set(pins[i].pin, pins[i].iofunc, pins[i].iomode);
+		pinctrl_lpf3_set(pins[i].pin, pins[i].iofunc, pins[i].iomode);
 	}
 
 	return 0;

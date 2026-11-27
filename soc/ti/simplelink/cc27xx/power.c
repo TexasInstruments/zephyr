@@ -38,8 +38,15 @@
 /* clang-format on */
 
 /* The range of pins available on this device */
+#if defined(CONFIG_SOC_PACKAGE_CC27XX_RHA)
 const uint_least8_t GPIO_pinLowerBound;
 const uint_least8_t GPIO_pinUpperBound = 28;
+#elif defined(CONFIG_SOC_PACKAGE_CC27XX_YCJ)
+const uint_least8_t GPIO_pinLowerBound;
+const uint_least8_t GPIO_pinUpperBound = 30;
+#else
+#error "Unsupported CC27XX SoC package"
+#endif
 
 #ifdef CONFIG_PM
 

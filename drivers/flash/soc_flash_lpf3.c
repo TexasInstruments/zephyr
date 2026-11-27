@@ -13,7 +13,7 @@
 
 #include <driverlib/flash.h>
 
-#define DT_DRV_COMPAT     ti_cc27xx_flash_controller
+#define DT_DRV_COMPAT     ti_lpf3_flash_controller
 #define SOC_NV_FLASH_NODE DT_INST(0, soc_nv_flash)
 
 #define FLASH_ADDR       DT_REG_ADDR(SOC_NV_FLASH_NODE)
@@ -25,12 +25,12 @@ struct flash_priv {
 	struct k_sem mutex;
 };
 
-static const struct flash_parameters flash_cc27xx_parameters = {
+static const struct flash_parameters flash_lpf3_parameters = {
 	.write_block_size = FLASH_WRITE_SIZE,
 	.erase_value = 0xff,
 };
 
-static int flash_cc27xx_init(const struct device *dev)
+static int flash_lpf3_init(const struct device *dev)
 {
 	struct flash_priv *priv = dev->data;
 
@@ -39,10 +39,9 @@ static int flash_cc27xx_init(const struct device *dev)
 	return 0;
 }
 
-static int flash_cc27xx_erase(const struct device *dev, off_t offs, size_t size)
+static int flash_lpf3_erase(const struct device *dev, off_t offs, size_t size)
 {
 	struct flash_priv *priv = dev->data;
-
 	unsigned int key;
 	int i, rc = 0;
 	size_t cnt;
@@ -85,10 +84,10 @@ static int flash_cc27xx_erase(const struct device *dev, off_t offs, size_t size)
 	return rc;
 }
 
-static int flash_cc27xx_write(const struct device *dev, off_t offs, const void *data, size_t size)
+static int flash_lpf3_write(const struct device *dev, off_t offs, const void *data,
+			    size_t size)
 {
 	struct flash_priv *priv = dev->data;
-
 	unsigned int key;
 	int rc = 0;
 
@@ -136,7 +135,7 @@ static int flash_cc27xx_write(const struct device *dev, off_t offs, const void *
 	return rc;
 }
 
-static int flash_cc27xx_read(const struct device *dev, off_t offs, void *data, size_t size)
+static int flash_lpf3_read(const struct device *dev, off_t offs, void *data, size_t size)
 {
 	ARG_UNUSED(dev);
 
@@ -157,11 +156,11 @@ static int flash_cc27xx_read(const struct device *dev, off_t offs, void *data, s
 	return 0;
 }
 
-static const struct flash_parameters *flash_cc27xx_get_parameters(const struct device *dev)
+static const struct flash_parameters *flash_lpf3_get_parameters(const struct device *dev)
 {
 	ARG_UNUSED(dev);
 
-	return &flash_cc27xx_parameters;
+	return &flash_lpf3_parameters;
 }
 
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
@@ -170,25 +169,26 @@ static const struct flash_pages_layout dev_layout = {
 	.pages_size = FLASH_ERASE_SIZE,
 };
 
-static void flash_cc27xx_layout(const struct device *dev, const struct flash_pages_layout **layout,
-				size_t *layout_size)
+static void flash_lpf3_layout(const struct device *dev,
+			      const struct flash_pages_layout **layout,
+			      size_t *layout_size)
 {
 	*layout = &dev_layout;
 	*layout_size = 1;
 }
 #endif /* CONFIG_FLASH_PAGE_LAYOUT */
 
-static DEVICE_API(flash, flash_cc27xx_api) = {
-	.erase = flash_cc27xx_erase,
-	.write = flash_cc27xx_write,
-	.read = flash_cc27xx_read,
-	.get_parameters = flash_cc27xx_get_parameters,
+static DEVICE_API(flash, flash_lpf3_api) = {
+	.erase = flash_lpf3_erase,
+	.write = flash_lpf3_write,
+	.read = flash_lpf3_read,
+	.get_parameters = flash_lpf3_get_parameters,
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
-	.page_layout = flash_cc27xx_layout,
+	.page_layout = flash_lpf3_layout,
 #endif
 };
 
 static struct flash_priv flash_data;
 
-DEVICE_DT_INST_DEFINE(0, flash_cc27xx_init, NULL, &flash_data, NULL, POST_KERNEL,
-		      CONFIG_FLASH_INIT_PRIORITY, &flash_cc27xx_api);
+DEVICE_DT_INST_DEFINE(0, flash_lpf3_init, NULL, &flash_data, NULL, POST_KERNEL,
+		      CONFIG_FLASH_INIT_PRIORITY, &flash_lpf3_api);

@@ -1,0 +1,9 @@
+# Copyright (c) 2025.2026 Texas Instruments Incorporated
+# Copyright (c) 2024 BayLibre, SAS
+# SPDX-License-Identifier: Apache-2.0
+
+description: Texas Instruments LPF3 flash controller
+
+compatible: "ti,lpf3-flash-controller"
+
+include: flash-controller.yaml
